@@ -1,0 +1,1105 @@
+// =====================================================================
+//  VUCA AUTO CRM — Schéma de base de données (Prisma 7 / PostgreSQL)
+//  Statut : PROPOSITION PHASE 0 — en attente de validation
+// ---------------------------------------------------------------------
+//  Conventions :
+//   - Montants en CENTIMES (Int), champs suffixés « Centimes ».
+//       ex. prixAchatCentimes = 800000  →  8 000,00 €
+//   - Pourcentages en POINTS DE BASE (Int), champs suffixés « Bp ».
+//       100 = 1 %, 2000 = 20 %, 10000 = 100 %
+//   - Dates/heures stockées en UTC, affichées en Europe/Paris.
+//     Les dates « calendaires » (naissance, échéances…) sont en @db.Date.
+//   - Suppression douce : champ archiveLe (null = actif).
+//   - Aucun calcul de TVA : tous les montants sont « payés / encaissés ».
+//   - L'URL de connexion à la base est dans prisma.config.ts (Prisma 7).
+// =====================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================================================================
+//  ÉNUMÉRATIONS
+// =====================================================================
+
+enum Role {
+  ADMIN
+  GESTIONNAIRE
+  INVESTISSEUR_LECTURE
+}
+
+enum TypePartenaire {
+  SOCIETE
+  INVESTISSEUR
+}
+
+enum TypeExploitation {
+  ACHAT_REVENTE
+  LOCATION
+  MIXTE
+}
+
+enum StatutVehicule {
+  EN_PREPARATION
+  EN_VENTE
+  RESERVE
+  DISPONIBLE_LOCATION
+  EN_LOCATION
+  IMMOBILISE
+  VENDU
+  ARCHIVE
+}
+
+enum Carburant {
+  ESSENCE
+  DIESEL
+  HYBRIDE
+  HYBRIDE_RECHARGEABLE
+  ELECTRIQUE
+  GPL
+  E85
+  AUTRE
+}
+
+enum Boite {
+  MANUELLE
+  AUTOMATIQUE
+}
+
+enum CritAir {
+  CRIT_AIR_0 // électrique / hydrogène (vignette verte)
+  CRIT_AIR_1
+  CRIT_AIR_2
+  CRIT_AIR_3
+  CRIT_AIR_4
+  CRIT_AIR_5
+  NON_CLASSE
+}
+
+enum Provenance {
+  PARTICULIER
+  PROFESSIONNEL
+  ENCHERES
+  IMPORT
+  REPRISE
+  AUTRE
+}
+
+enum ModePaiement {
+  ESPECES
+  CHEQUE
+  VIREMENT
+  CARTE_BANCAIRE
+  PRELEVEMENT
+  AUTRE
+}
+
+enum ModeRepartition {
+  PRORATA_INVESTISSEMENT
+  POURCENTAGE_FIXE
+}
+
+enum Civilite {
+  M
+  MME
+}
+
+enum TypePieceIdentite {
+  CARTE_IDENTITE
+  PASSEPORT
+  TITRE_SEJOUR
+  AUTRE
+}
+
+enum TypeLocation {
+  JOURNALIERE
+  HEBDOMADAIRE
+  MENSUELLE
+}
+
+// EN_RETARD n'est PAS stocké : il est calculé à l'affichage
+// (statut EN_COURS + date de retour prévue dépassée). Voir CLAUDE.md.
+enum StatutContrat {
+  RESERVATION
+  CONFIRMEE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum ModeCaution {
+  EMPREINTE_CB
+  CHEQUE
+  ESPECES
+  VIREMENT
+}
+
+enum StatutCaution {
+  A_ENCAISSER
+  ENCAISSEE
+  RESTITUEE
+  RETENUE_PARTIELLE
+  RETENUE_TOTALE
+}
+
+enum ModeTarifOption {
+  PAR_JOUR
+  FORFAIT
+}
+
+enum TypeEtatDesLieux {
+  DEPART
+  RETOUR
+}
+
+enum Proprete {
+  PROPRE
+  CORRECT
+  SALE
+}
+
+enum VueVehicule {
+  DESSUS
+  AVANT
+  ARRIERE
+  COTE_GAUCHE
+  COTE_DROIT
+  INTERIEUR
+}
+
+enum TypeDommage {
+  RAYURE
+  BOSSE
+  IMPACT
+  ECLAT
+  JANTE_ABIMEE
+  VITRE
+  INTERIEUR
+  AUTRE
+}
+
+enum GraviteDommage {
+  LEGER
+  MOYEN
+  IMPORTANT
+}
+
+enum TypeFraisSupplementaire {
+  KM_SUPPLEMENTAIRES
+  CARBURANT
+  NETTOYAGE
+  DOMMAGES
+  RETARD
+  LIVRAISON
+  AMENDE_REFACTUREE
+  FRAIS_DOSSIER
+  AUTRE
+}
+
+// EN_RETARD n'est PAS stocké : calculé (date d'échéance dépassée et non payée).
+enum StatutEcheance {
+  A_VENIR
+  PARTIELLE
+  PAYEE
+  ANNULEE
+}
+
+// Nature d'un encaissement. Les cautions encaissées puis restituées ne sont
+// jamais des Paiements ; seule la part RETENUE devient un revenu.
+enum NaturePaiement {
+  LOCATION // loyer, acompte, solde
+  FRAIS // frais supplémentaires (km, carburant, dommages…)
+  CAUTION_RETENUE
+  REMBOURSEMENT // argent rendu au client (montant positif, soustrait des revenus)
+}
+
+enum StatutAmende {
+  RECUE
+  CONDUCTEUR_DESIGNE
+  PAYEE
+  REFACTUREE
+}
+
+enum StatutSinistre {
+  DECLARE
+  EN_EXPERTISE
+  EN_REPARATION
+  CLOTURE
+}
+
+enum TypeVersement {
+  REMBOURSEMENT_CAPITAL
+  VERSEMENT_BENEFICE
+  APPORT_SUPPLEMENTAIRE
+}
+
+enum TypeFacture {
+  LOCATION
+  VENTE_VEHICULE
+  AUTRE
+}
+
+enum CategorieFichier {
+  // Véhicule
+  PHOTO_VEHICULE
+  CARTE_GRISE
+  FACTURE_ACHAT
+  CONTROLE_TECHNIQUE
+  CERTIFICAT_CESSION
+  ATTESTATION_ASSURANCE
+  DOCUMENT_VEHICULE_AUTRE
+  // Dépense
+  JUSTIFICATIF_DEPENSE
+  // Client
+  PERMIS_RECTO
+  PERMIS_VERSO
+  PIECE_IDENTITE_RECTO
+  PIECE_IDENTITE_VERSO
+  JUSTIFICATIF_DOMICILE
+  DOCUMENT_CLIENT_AUTRE
+  // État des lieux (photos guidées)
+  EDL_AVANT
+  EDL_ARRIERE
+  EDL_COTE_GAUCHE
+  EDL_COTE_DROIT
+  EDL_INTERIEUR_AVANT
+  EDL_INTERIEUR_ARRIERE
+  EDL_COMPTEUR
+  EDL_LIBRE
+  SIGNATURE
+  // Dommages, sinistres, amendes
+  PHOTO_DOMMAGE
+  PHOTO_SINISTRE
+  DOCUMENT_SINISTRE
+  AVIS_CONTRAVENTION
+  // Divers
+  PDF_ARCHIVE // copie figée d'un PDF signé (contrat, EDL)
+  LOGO
+}
+
+// =====================================================================
+//  UTILISATEURS & AUDIT
+// =====================================================================
+
+model Utilisateur {
+  id                    String    @id @default(cuid())
+  nom                   String
+  email                 String    @unique
+  motDePasseHash        String // bcrypt
+  role                  Role      @default(GESTIONNAIRE)
+  actif                 Boolean   @default(true)
+  doitChangerMotDePasse Boolean   @default(false)
+  derniereConnexionLe   DateTime?
+
+  // Uniquement pour le rôle INVESTISSEUR_LECTURE : le partenaire qu'il représente
+  partenaireId String?     @unique
+  partenaire   Partenaire? @relation(fields: [partenaireId], references: [id])
+
+  creeLe    DateTime @default(now())
+  modifieLe DateTime @updatedAt
+
+  journal           JournalActivite[]
+  historiquesStatut HistoriqueStatutVehicule[]
+  fichiersEnvoyes   Fichier[]
+  etatsDesLieux     EtatDesLieux[]
+}
+
+/// Trace chaque création / modification / suppression (montants en priorité).
+model JournalActivite {
+  id            String       @id @default(cuid())
+  utilisateurId String?
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+  action        String // CREATION | MODIFICATION | SUPPRESSION | ARCHIVAGE | CONNEXION | ANONYMISATION…
+  entite        String // "Vehicule", "Depense", "Paiement"…
+  entiteId      String?
+  avant         Json?
+  apres         Json?
+  creeLe        DateTime     @default(now())
+
+  @@index([entite, entiteId])
+  @@index([creeLe])
+}
+
+// =====================================================================
+//  PARTENAIRES (qui met l'argent)
+// =====================================================================
+
+model Partenaire {
+  id         String         @id @default(cuid())
+  nom        String
+  type       TypePartenaire @default(INVESTISSEUR)
+  estSysteme Boolean        @default(false) // true pour « VUCA AUTO » : non supprimable
+  telephone  String?
+  email      String?
+  iban       String? // affiché masqué (FR76 •••• •••• 1234)
+  notes      String?
+  actif      Boolean        @default(true)
+  creeLe     DateTime       @default(now())
+  modifieLe  DateTime       @updatedAt
+
+  utilisateur    Utilisateur?
+  participations Participation[]
+  depensesPayees Depense[]
+  partsFixes     PartBeneficeFixe[]
+  versements     Versement[]
+}
+
+// =====================================================================
+//  VÉHICULE
+// =====================================================================
+
+model Vehicule {
+  id String @id @default(cuid())
+
+  // --- Identité ---
+  marque                String
+  modele                String
+  version               String?
+  immatriculation       String?    @unique // AA-123-AA ou ancien format ; null possible (import en cours)
+  vin                   String?    @unique
+  annee                 Int?
+  dateMiseEnCirculation DateTime?  @db.Date
+  carburant             Carburant?
+  boite                 Boite?
+  couleur               String?
+  nombrePlaces          Int?
+  puissanceFiscale      Int? // CV
+  critAir               CritAir?
+  kilometrageActuel     Int? // mis à jour par les états des lieux et la vente
+  kilometrageActuelLe   DateTime?
+
+  // --- Exploitation ---
+  typeExploitation TypeExploitation @default(ACHAT_REVENTE)
+  statut           StatutVehicule   @default(EN_PREPARATION)
+
+  // --- Achat ---
+  dateAchat         DateTime    @db.Date
+  prixAchatCentimes Int
+  kilometrageAchat  Int?
+  provenance        Provenance?
+  nomVendeur        String?
+  lienAnnonce       String?
+  notesAchat        String?
+
+  // Financement : si la somme des participations ≠ prix d'achat, l'utilisateur
+  // doit confirmer explicitement l'écart (sinon enregistrement bloqué).
+  ecartFinancementAccepte Boolean @default(false)
+  ecartFinancementMotif   String?
+
+  // --- Vente ---
+  prixCibleCentimes Int? // prix affiché / cible
+  prixVenteCentimes Int?
+  dateVente         DateTime?     @db.Date
+  kilometrageVente  Int?
+  acheteurNom       String?
+  acheteurTelephone String?
+  acheteurEmail     String?
+  acheteurAdresse   String?
+  modePaiementVente ModePaiement?
+  notesVente        String?
+
+  // --- Location (valeurs par défaut reprises dans les contrats) ---
+  tarifJournalierCentimes Int?
+  tarifHebdoCentimes      Int?
+  tarifMensuelCentimes    Int?
+  kmInclusParJour         Int?
+  kmInclusParMois         Int?
+  prixKmSupCentimes       Int?
+  cautionDefautCentimes   Int?
+  franchiseDefautCentimes Int?
+  dateMiseEnLocation      DateTime? @db.Date
+
+  // --- Échéances & entretien ---
+  dateProchainControleTechnique DateTime? @db.Date
+  assureur                      String?
+  numeroPoliceAssurance         String?
+  dateEcheanceAssurance         DateTime? @db.Date
+  dateProchaineVidange          DateTime? @db.Date
+  kmProchaineVidange            Int?
+  dateProchaineRevision         DateTime? @db.Date
+  kmProchaineRevision           Int?
+
+  // --- Répartition du bénéfice (section 5.3) ---
+  modeRepartition     ModeRepartition @default(PRORATA_INVESTISSEMENT)
+  commissionGestionBp Int             @default(0) // 2000 = 20 % pour VUCA AUTO avant partage
+
+  notes     String?
+  archiveLe DateTime?
+  creeLe    DateTime  @default(now())
+  modifieLe DateTime  @updatedAt
+
+  participations    Participation[]
+  partsFixes        PartBeneficeFixe[]
+  historiqueStatuts HistoriqueStatutVehicule[]
+  estimations       EstimationValeur[]
+  depenses          Depense[]
+  fichiers          Fichier[]
+  contrats          ContratLocation[]
+  dommages          Dommage[]
+  amendes           Amende[]
+  sinistres         Sinistre[]
+  versements        Versement[]
+  factures          Facture[]
+
+  @@index([statut])
+  @@index([typeExploitation])
+  @@index([dateAchat])
+  @@index([marque])
+}
+
+/// Historique horodaté des changements de statut (sert aussi à exclure les
+/// jours IMMOBILISE du taux d'occupation).
+model HistoriqueStatutVehicule {
+  id            String          @id @default(cuid())
+  vehiculeId    String
+  vehicule      Vehicule        @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  ancienStatut  StatutVehicule?
+  nouveauStatut StatutVehicule
+  changeLe      DateTime        @default(now())
+  motif         String?
+  utilisateurId String?
+  utilisateur   Utilisateur?    @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+
+  @@index([vehiculeId, changeLe])
+}
+
+/// Valeur estimée actuelle (saisie manuelle, datée). La plus récente fait foi.
+model EstimationValeur {
+  id              String   @id @default(cuid())
+  vehiculeId      String
+  vehicule        Vehicule @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  montantCentimes Int
+  estimeLe        DateTime @db.Date
+  source          String? // "Argus", "La Centrale", "estimation perso"…
+  note            String?
+  creeLe          DateTime @default(now())
+
+  @@index([vehiculeId, estimeLe])
+}
+
+// =====================================================================
+//  FINANCEMENT DE L'ACHAT
+// =====================================================================
+
+model Participation {
+  id              String     @id @default(cuid())
+  vehiculeId      String
+  vehicule        Vehicule   @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  partenaireId    String
+  partenaire      Partenaire @relation(fields: [partenaireId], references: [id])
+  montantCentimes Int
+  date            DateTime   @db.Date
+  note            String?
+  creeLe          DateTime   @default(now())
+  modifieLe       DateTime   @updatedAt
+
+  @@index([vehiculeId])
+  @@index([partenaireId])
+}
+
+/// Mode POURCENTAGE_FIXE : % de partage du bénéfice saisis à la main
+/// (total = 10000 bp = 100 %). Le capital remboursé reste ce que chacun a investi.
+model PartBeneficeFixe {
+  id            String     @id @default(cuid())
+  vehiculeId    String
+  vehicule      Vehicule   @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  partenaireId  String
+  partenaire    Partenaire @relation(fields: [partenaireId], references: [id])
+  pourcentageBp Int
+
+  @@unique([vehiculeId, partenaireId])
+}
+
+// =====================================================================
+//  DÉPENSES
+// =====================================================================
+
+model CategorieDepense {
+  id      String  @id @default(cuid())
+  code    String? @unique // code stable pour le seed (ex. "CARTE_GRISE")
+  nom     String
+  icone   String? // nom d'icône lucide-react
+  couleur String? // ex. "#2563eb"
+  ordre   Int     @default(0)
+  actif   Boolean @default(true)
+
+  depenses Depense[]
+}
+
+model Depense {
+  id              String           @id @default(cuid())
+  vehiculeId      String
+  vehicule        Vehicule         @relation(fields: [vehiculeId], references: [id])
+  date            DateTime         @db.Date
+  categorieId     String
+  categorie       CategorieDepense @relation(fields: [categorieId], references: [id])
+  libelle         String
+  montantCentimes Int
+  payeParId       String // obligatoire — VUCA AUTO présélectionné dans le formulaire
+  payePar         Partenaire       @relation(fields: [payeParId], references: [id])
+  fournisseur     String?
+  kilometrage     Int?
+  note            String?
+  sinistreId      String? // dépense liée à un sinistre (réparation…)
+  sinistre        Sinistre?        @relation(fields: [sinistreId], references: [id], onDelete: SetNull)
+  creeLe          DateTime         @default(now())
+  modifieLe       DateTime         @updatedAt
+
+  justificatifs      Fichier[]
+  dommagesReparesPar Dommage[]
+
+  @@index([vehiculeId, date])
+  @@index([categorieId])
+  @@index([payeParId])
+  @@index([date])
+}
+
+// =====================================================================
+//  LOCATION — CLIENTS
+// =====================================================================
+
+model Client {
+  id            String    @id @default(cuid())
+  civilite      Civilite?
+  nom           String
+  prenom        String?
+  dateNaissance DateTime? @db.Date
+  lieuNaissance String?
+  adresse       String?
+  codePostal    String?
+  ville         String?
+  pays          String?   @default("France")
+  telephone     String?
+  email         String?
+
+  numeroPermis        String?
+  dateObtentionPermis DateTime? @db.Date
+  categoriePermis     String?   @default("B")
+  dateValiditePermis  DateTime? @db.Date
+
+  typePieceIdentite         TypePieceIdentite?
+  numeroPieceIdentite       String?
+  dateValiditePieceIdentite DateTime?          @db.Date
+
+  entreprise      String?
+  siretEntreprise String?
+
+  listeNoire      Boolean @default(false)
+  motifListeNoire String?
+  notes           String?
+
+  archiveLe   DateTime?
+  anonymiseLe DateTime? // RGPD : données personnelles effacées, historique financier conservé
+  creeLe      DateTime  @default(now())
+  modifieLe   DateTime  @updatedAt
+
+  fichiers                Fichier[]
+  contrats                ContratLocation[]
+  conduitesAdditionnelles ConducteurAdditionnel[]
+  amendes                 Amende[]
+  factures                Facture[]
+
+  @@index([nom, prenom])
+  @@index([telephone])
+  @@index([numeroPermis])
+}
+
+// =====================================================================
+//  LOCATION — CONTRATS
+// =====================================================================
+
+model ContratLocation {
+  id         String        @id @default(cuid())
+  numero     String        @unique // LOC-AAAA-0001 (via table Compteur)
+  vehiculeId String
+  vehicule   Vehicule      @relation(fields: [vehiculeId], references: [id])
+  clientId   String // conducteur principal
+  client     Client        @relation(fields: [clientId], references: [id])
+  type       TypeLocation
+  statut     StatutContrat @default(RESERVATION)
+
+  // --- Dates ---
+  departPrevuLe DateTime
+  retourPrevuLe DateTime
+  departReelLe  DateTime?
+  retourReelLe  DateTime?
+  lieuDepart    String?
+  lieuRetour    String?
+  livraison     Boolean   @default(false)
+
+  // --- Tarification (copie figée au moment du contrat) ---
+  // tarifCentimes = prix par unité du type : jour, semaine ou mois.
+  tarifCentimes          Int
+  dureeFacturee          Int // nombre d'unités (jours / semaines / mois)
+  remiseCentimes         Int  @default(0)
+  fraisLivraisonCentimes Int  @default(0)
+  prixTotalCentimes      Int // tarif × durée − remise + options + livraison
+  acompteCentimes        Int? // location courte : acompte demandé
+  jourEcheanceMensuelle  Int? // location mensuelle : jour du mois (1–28)
+
+  // --- Kilométrage ---
+  kilometrageIllimite Boolean @default(false)
+  kmInclusParUnite    Int? // par jour (courte) ou par mois (mensuelle)
+  prixKmSupCentimes   Int?
+
+  // --- Caution & franchise ---
+  cautionCentimes        Int           @default(0)
+  modeCaution            ModeCaution?
+  statutCaution          StatutCaution @default(A_ENCAISSER)
+  cautionRetenueCentimes Int           @default(0)
+  motifRetenueCaution    String?
+  cautionEncaisseeLe     DateTime?
+  cautionRestitueeLe     DateTime?
+  franchiseCentimes      Int?
+
+  // Conditions générales figées au moment de la signature
+  conditionsGenerales String?
+
+  notes           String?
+  annuleLe        DateTime?
+  motifAnnulation String?
+  archiveLe       DateTime?
+  creeLe          DateTime  @default(now())
+  modifieLe       DateTime  @updatedAt
+
+  conducteursAdditionnels ConducteurAdditionnel[]
+  options                 OptionContrat[]
+  etatsDesLieux           EtatDesLieux[]
+  fraisSupplementaires    FraisSupplementaire[]
+  echeances               Echeance[]
+  paiements               Paiement[]
+  amendes                 Amende[]
+  sinistres               Sinistre[]
+  factures                Facture[]
+  fichiers                Fichier[] // PDF signés archivés
+
+  // Anti-chevauchement : vérifié dans l'application ET garanti par une
+  // contrainte d'exclusion PostgreSQL (btree_gist) ajoutée en SQL brut dans
+  // la migration de la Phase 4.
+  @@index([vehiculeId, departPrevuLe, retourPrevuLe])
+  @@index([clientId])
+  @@index([statut])
+}
+
+model ConducteurAdditionnel {
+  id        String          @id @default(cuid())
+  contratId String
+  contrat   ContratLocation @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client          @relation(fields: [clientId], references: [id])
+
+  @@unique([contratId, clientId])
+}
+
+/// Catalogue des options (paramétrable dans les réglages).
+model OptionLocation {
+  id              String          @id @default(cuid())
+  libelle         String
+  modeTarif       ModeTarifOption @default(PAR_JOUR)
+  prixCentimes    Int
+  plafondCentimes Int? // ex. siège bébé plafonné à 50 €
+  actif           Boolean         @default(true)
+  ordre           Int             @default(0)
+
+  utilisations OptionContrat[]
+}
+
+/// Option ajoutée à un contrat — libellé et prix copiés (figés).
+model OptionContrat {
+  id            String          @id @default(cuid())
+  contratId     String
+  contrat       ContratLocation @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  optionId      String?
+  option        OptionLocation? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+  libelle       String
+  modeTarif     ModeTarifOption
+  prixCentimes  Int
+  quantite      Int             @default(1)
+  totalCentimes Int
+}
+
+// =====================================================================
+//  ÉTAT DES LIEUX & DOMMAGES
+// =====================================================================
+
+model EtatDesLieux {
+  id           String           @id @default(cuid())
+  contratId    String
+  contrat      ContratLocation  @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  type         TypeEtatDesLieux
+  realiseLe    DateTime         @default(now())
+  realiseParId String?
+  realisePar   Utilisateur?     @relation(fields: [realiseParId], references: [id], onDelete: SetNull)
+
+  kilometrage              Int // photo du compteur obligatoire (Fichier EDL_COMPTEUR)
+  niveauCarburantHuitiemes Int? // 0 à 8
+  niveauBatteriePct        Int? // 0 à 100 (électrique)
+  propreteInterieure       Proprete?
+  propreteExterieure       Proprete?
+  remarques                String?
+
+  // Signatures tactiles (images PNG). Au départ, la signature vaut aussi
+  // acceptation du contrat de location.
+  signatureClientId   String?   @unique
+  signatureClient     Fichier?  @relation("SignatureClient", fields: [signatureClientId], references: [id])
+  signatureLoueurId   String?   @unique
+  signatureLoueur     Fichier?  @relation("SignatureLoueur", fields: [signatureLoueurId], references: [id])
+  nomSignataireClient String?
+  signeLe             DateTime?
+  verrouille          Boolean   @default(false) // true après signature : plus modifiable
+
+  creeLe    DateTime @default(now())
+  modifieLe DateTime @updatedAt
+
+  checklist         LigneChecklistEdl[]
+  photos            Fichier[]           @relation("PhotosEdl")
+  dommagesConstates Dommage[]
+
+  @@unique([contratId, type])
+}
+
+/// Éléments de check-list paramétrables (clés, carte grise, gilet…).
+model ElementChecklist {
+  id                   String  @id @default(cuid())
+  libelle              String
+  avecQuantite         Boolean @default(false) // ex. nombre de clés
+  electriqueUniquement Boolean @default(false) // ex. câble de recharge
+  ordre                Int     @default(0)
+  actif                Boolean @default(true)
+
+  lignes LigneChecklistEdl[]
+}
+
+model LigneChecklistEdl {
+  id             String            @id @default(cuid())
+  etatDesLieuxId String
+  etatDesLieux   EtatDesLieux      @relation(fields: [etatDesLieuxId], references: [id], onDelete: Cascade)
+  elementId      String?
+  element        ElementChecklist? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+  libelle        String // copie figée
+  present        Boolean
+  quantite       Int?
+  note           String?
+}
+
+/// Un dommage appartient au VÉHICULE (il persiste d'une location à l'autre).
+/// Dommages présents à un état des lieux donné =
+///   constatés avant cette date ET (non réparés OU réparés après).
+model Dommage {
+  id          String         @id @default(cuid())
+  vehiculeId  String
+  vehicule    Vehicule       @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  vue         VueVehicule
+  zone        String // identifiant de la zone du schéma SVG (ex. "porte_avant_gauche")
+  positionX   Float? // position relative 0–1 sur la vue
+  positionY   Float?
+  type        TypeDommage
+  gravite     GraviteDommage @default(LEGER)
+  description String?
+
+  constateLe                 DateTime      @default(now())
+  etatDesLieuxConstatationId String? // null = saisi hors EDL (à l'achat…)
+  etatDesLieuxConstatation   EtatDesLieux? @relation(fields: [etatDesLieuxConstatationId], references: [id], onDelete: SetNull)
+  sinistreId                 String?
+  sinistre                   Sinistre?     @relation(fields: [sinistreId], references: [id], onDelete: SetNull)
+
+  repareLe            DateTime?
+  depenseReparationId String?
+  depenseReparation   Depense?  @relation(fields: [depenseReparationId], references: [id], onDelete: SetNull)
+
+  creeLe    DateTime @default(now())
+  modifieLe DateTime @updatedAt
+
+  photos Fichier[]
+  frais  FraisSupplementaire[]
+
+  @@index([vehiculeId, repareLe])
+}
+
+// =====================================================================
+//  FRAIS, ÉCHÉANCES, PAIEMENTS
+// =====================================================================
+
+model FraisSupplementaire {
+  id                     String                  @id @default(cuid())
+  contratId              String
+  contrat                ContratLocation         @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  type                   TypeFraisSupplementaire
+  libelle                String
+  quantite               Int                     @default(1)
+  prixUnitaireCentimes   Int
+  montantCentimes        Int
+  proposeAutomatiquement Boolean                 @default(false) // issu de la comparaison départ/retour
+  dommageId              String?
+  dommage                Dommage?                @relation(fields: [dommageId], references: [id], onDelete: SetNull)
+  amendeId               String?
+  amende                 Amende?                 @relation(fields: [amendeId], references: [id], onDelete: SetNull)
+  note                   String?
+  creeLe                 DateTime                @default(now())
+
+  @@index([contratId])
+}
+
+/// Échéances : une par mois en location mensuelle ; acompte + solde en courte durée.
+model Echeance {
+  id              String          @id @default(cuid())
+  contratId       String
+  contrat         ContratLocation @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  numero          Int
+  libelle         String // "Loyer novembre 2026", "Acompte", "Solde"
+  dateEcheance    DateTime        @db.Date
+  periodeDebut    DateTime?       @db.Date
+  periodeFin      DateTime?       @db.Date
+  montantCentimes Int
+  statut          StatutEcheance  @default(A_VENIR) // recalculé à chaque paiement
+
+  paiements Paiement[]
+
+  @@unique([contratId, numero])
+  @@index([dateEcheance, statut])
+}
+
+model Paiement {
+  id              String          @id @default(cuid())
+  numeroRecu      String?         @unique // REC-AAAA-0001
+  contratId       String
+  contrat         ContratLocation @relation(fields: [contratId], references: [id])
+  echeanceId      String?
+  echeance        Echeance?       @relation(fields: [echeanceId], references: [id], onDelete: SetNull)
+  nature          NaturePaiement  @default(LOCATION)
+  date            DateTime        @db.Date
+  montantCentimes Int
+  mode            ModePaiement
+  reference       String?
+  note            String?
+  creeLe          DateTime        @default(now())
+
+  @@index([contratId])
+  @@index([date])
+}
+
+// =====================================================================
+//  AMENDES & SINISTRES
+// =====================================================================
+
+/// Le contrat et le client sont identifiés automatiquement à partir de la
+/// date/heure de l'infraction (modifiable).
+model Amende {
+  id                 String           @id @default(cuid())
+  vehiculeId         String
+  vehicule           Vehicule         @relation(fields: [vehiculeId], references: [id])
+  infractionLe       DateTime
+  lieu               String?
+  montantCentimes    Int
+  numeroAvis         String?
+  dateReception      DateTime?        @db.Date
+  dateLimite         DateTime?        @db.Date
+  statut             StatutAmende     @default(RECUE)
+  contratId          String?
+  contrat            ContratLocation? @relation(fields: [contratId], references: [id], onDelete: SetNull)
+  clientId           String?
+  client             Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  identificationAuto Boolean          @default(true)
+  note               String?
+  creeLe             DateTime         @default(now())
+  modifieLe          DateTime         @updatedAt
+
+  fichiers Fichier[]
+  frais    FraisSupplementaire[]
+
+  @@index([vehiculeId, infractionLe])
+  @@index([statut])
+}
+
+model Sinistre {
+  id                          String           @id @default(cuid())
+  vehiculeId                  String
+  vehicule                    Vehicule         @relation(fields: [vehiculeId], references: [id])
+  contratId                   String?
+  contrat                     ContratLocation? @relation(fields: [contratId], references: [id], onDelete: SetNull)
+  survenuLe                   DateTime
+  lieu                        String?
+  description                 String
+  coutEstimeCentimes          Int?
+  franchiseRefactureeCentimes Int?
+  declareAssurance            Boolean          @default(false)
+  numeroDossierAssurance      String?
+  indemniteAssuranceCentimes  Int? // montant versé par l'assureur (cf. question Phase 0)
+  statut                      StatutSinistre   @default(DECLARE)
+  note                        String?
+  creeLe                      DateTime         @default(now())
+  modifieLe                   DateTime         @updatedAt
+
+  fichiers Fichier[]
+  depenses Depense[]
+  dommages Dommage[]
+
+  @@index([vehiculeId])
+}
+
+// =====================================================================
+//  FACTURES (sans TVA)
+// =====================================================================
+
+/// Numérotation continue FAC-AAAA-0001. Une facture émise n'est jamais
+/// modifiée : on l'annule (annuleeLe) et on en émet une nouvelle.
+model Facture {
+  id                  String           @id @default(cuid())
+  numero              String           @unique
+  type                TypeFacture
+  dateEmission        DateTime         @db.Date
+  contratId           String?
+  contrat             ContratLocation? @relation(fields: [contratId], references: [id])
+  vehiculeId          String?
+  vehicule            Vehicule?        @relation(fields: [vehiculeId], references: [id])
+  clientId            String?
+  client              Client?          @relation(fields: [clientId], references: [id])
+  destinataireNom     String // copie figée
+  destinataireAdresse String?
+  totalCentimes       Int
+  mention             String? // mention sans TVA (paramétrable)
+  annuleeLe           DateTime?
+  motifAnnulation     String?
+  creeLe              DateTime         @default(now())
+
+  lignes LigneFacture[]
+}
+
+model LigneFacture {
+  id                   String  @id @default(cuid())
+  factureId            String
+  facture              Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  ordre                Int     @default(0)
+  libelle              String
+  quantite             Int     @default(1)
+  prixUnitaireCentimes Int
+  totalCentimes        Int
+}
+
+// =====================================================================
+//  MOUVEMENTS INVESTISSEURS
+// =====================================================================
+
+/// Ce qui a déjà été reversé (ou apporté). Reste dû = À reverser − versé.
+model Versement {
+  id              String        @id @default(cuid())
+  partenaireId    String
+  partenaire      Partenaire    @relation(fields: [partenaireId], references: [id])
+  vehiculeId      String?
+  vehicule        Vehicule?     @relation(fields: [vehiculeId], references: [id], onDelete: SetNull)
+  date            DateTime      @db.Date
+  montantCentimes Int
+  type            TypeVersement
+  mode            ModePaiement?
+  reference       String?
+  note            String?
+  creeLe          DateTime      @default(now())
+  modifieLe       DateTime      @updatedAt
+
+  @@index([partenaireId, date])
+  @@index([vehiculeId])
+}
+
+// =====================================================================
+//  FICHIERS (photos, justificatifs, scans, signatures, PDF archivés)
+// =====================================================================
+
+/// Table unique pour tous les fichiers. Le fichier physique est dans /storage
+/// (via lib/storage.ts — remplaçable par S3/R2). Un seul « propriétaire »
+/// renseigné par fichier. Servi uniquement via /api/fichiers/[id] avec
+/// contrôle des droits.
+model Fichier {
+  id            String           @id @default(cuid())
+  categorie     CategorieFichier
+  cleStockage   String           @unique // chemin relatif dans le stockage
+  nomOriginal   String
+  typeMime      String
+  tailleOctets  Int
+  largeur       Int?
+  hauteur       Int?
+  libelle       String?
+  ordre         Int              @default(0)
+  estPrincipale Boolean          @default(false) // photo principale du véhicule
+  envoyeParId   String?
+  envoyePar     Utilisateur?     @relation(fields: [envoyeParId], references: [id], onDelete: SetNull)
+  creeLe        DateTime         @default(now())
+
+  // --- Propriétaire (un seul) ---
+  vehiculeId     String?
+  vehicule       Vehicule?        @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  depenseId      String?
+  depense        Depense?         @relation(fields: [depenseId], references: [id], onDelete: Cascade)
+  clientId       String?
+  client         Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contratId      String?
+  contrat        ContratLocation? @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  etatDesLieuxId String?
+  etatDesLieux   EtatDesLieux?    @relation("PhotosEdl", fields: [etatDesLieuxId], references: [id], onDelete: Cascade)
+  dommageId      String?
+  dommage        Dommage?         @relation(fields: [dommageId], references: [id], onDelete: Cascade)
+  sinistreId     String?
+  sinistre       Sinistre?        @relation(fields: [sinistreId], references: [id], onDelete: Cascade)
+  amendeId       String?
+  amende         Amende?          @relation(fields: [amendeId], references: [id], onDelete: Cascade)
+
+  // --- Relations inverses (signatures, logo) ---
+  signatureClientDe EtatDesLieux? @relation("SignatureClient")
+  signatureLoueurDe EtatDesLieux? @relation("SignatureLoueur")
+  logoDe            Reglages?     @relation("LogoSociete")
+
+  @@index([vehiculeId, categorie])
+  @@index([clientId])
+  @@index([depenseId])
+  @@index([etatDesLieuxId])
+}
+
+// =====================================================================
+//  RÉGLAGES & NUMÉROTATION
+// =====================================================================
+
+/// Ligne unique (id = 1).
+model Reglages {
+  id Int @id @default(1)
+
+  // --- Société (utilisé dans les PDF) ---
+  societeNom        String   @default("VUCA AUTO")
+  societeAdresse    String?
+  societeCodePostal String?
+  societeVille      String?
+  societeSiret      String?
+  societeTelephone  String?
+  societeEmail      String?
+  logoId            String?  @unique
+  logo              Fichier? @relation("LogoSociete", fields: [logoId], references: [id], onDelete: SetNull)
+
+  // --- Documents ---
+  conditionsGenerales  String? // CGV de location (texte long)
+  mentionFacture       String? // mention « sans TVA » à valider par le comptable
+  mentionsContrat      String?
+  mentionsEtatDesLieux String?
+  prefixeContrat       String  @default("LOC")
+  prefixeFacture       String  @default("FAC")
+  prefixeRecu          String  @default("REC")
+
+  // --- Seuils d'alertes ---
+  joursStockAlerte            Int @default(90)
+  joursAvantEcheanceAlerte    Int @default(30) // CT, assurance
+  kmAvantVidangeAlerte        Int @default(1000)
+  anciennetePermisMinAnnees   Int @default(2)
+  toleranceRetardMinutes      Int @default(60) // journée entamée due au-delà
+  jourEcheanceMensuelleDefaut Int @default(1)
+
+  modifieLe DateTime @updatedAt
+}
+
+/// Compteurs de numérotation (ex. cle "LOC-2026" → 12). Incrémentés dans une
+/// transaction pour garantir des numéros uniques et continus.
+model Compteur {
+  cle    String @id
+  valeur Int    @default(0)
+}
