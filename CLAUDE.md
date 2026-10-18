@@ -92,6 +92,40 @@ Prix           = Tarif × Durée − Remise + Σ options + frais de livraison
 Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 ```
 
+## Architecture (mise en place en Phase 1)
+
+- `src/auth.config.ts` (compatible edge, utilisé par `src/middleware.ts`) + `src/auth.ts` (Credentials + bcrypt). Investisseur cantonné à `/portail`, `/compte`, `/api/fichiers`.
+- `src/lib/permissions.ts` : `utilisateurCourant()` relit l'utilisateur en base (compte désactivé = accès coupé immédiatement), `exigerRolePage()` pour les pages, `avecDroits(roles, fn)` pour CHAQUE Server Action (renvoie `ResultatAction`, jamais d'exception brute). `ErreurMetier` = message affichable.
+- Groupes de routes : `(public)` connexion · `(app)` ADMIN+GESTIONNAIRE (redirige vers `/compte` si `doitChangerMotDePasse`) · `(compte)` tous rôles · `(portail)` investisseur (+ admin pour vérifier).
+- Formulaires : `useFormulaire(schema, valeurs)` (RHF + Zod). On envoie au serveur les valeurs **saisies** (`getValues()`), le serveur revalide avec le même schéma. `traiterResultat()` affiche le toast et les erreurs par champ. Toujours `noValidate` sur les `<form>` RHF (messages Zod en français, pas les bulles du navigateur).
+- Briques Zod : `src/lib/validations/communs.ts` (`montant()` → centimes, `texteOptionnel()` → null, `dateCalendaire()`…).
+- Composants UI style shadcn écrits à la main dans `src/components/ui/` (le registre shadcn n'est pas accessible depuis l'environnement cloud). `SelectNatif` (liste native, idéale au doigt), `Confirmation` (AlertDialog), `Dialog` = panneau du bas sur mobile.
+- Navigation : `src/components/layout/navigation.ts`. Le bouton « + » (`bouton-ajout.tsx`) a un drapeau `disponible` à passer à `true` quand la page existe. La recherche globale (`server/actions/recherche.ts`) est à compléter à chaque phase (véhicules, clients, contrats).
+- Réglages : réservés à l'ADMIN. Ligne unique `Reglages` (id = 1), lue via `lireReglages()`.
+- Partenaires : création/modification/archivage = ADMIN + GESTIONNAIRE ; suppression = ADMIN, seulement sans historique financier. VUCA AUTO (`estSysteme`) ni archivable ni supprimable.
+- Mobile : vérifier l'absence de débordement horizontal (grilles : `grid-cols-[minmax(0,1fr)]`, `min-w-0`).
+
+### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
+- Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
+- `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.
+- Commission de gestion VUCA AUTO : s'applique aussi au résultat de location positif.
+- Hebdomadaire : semaines entières × tarif hebdo + jours restants × tarif journalier, plafonné au prix d'une semaine de plus (10 j = 1 sem + 3 j, ≤ 2 sem).
+- Mensuelle : mois date à date ; dernier mois entamé au prorata = tarif mensuel ÷ 30 × jours.
+- Pas de frais généraux hors véhicule en v1 (toute dépense a un `vehiculeId`).
+
 ## Commandes utiles
 
-_(à compléter en Phase 1)_
+```bash
+npm test                      # tests Vitest (src/**/*.test.ts)
+npm run typecheck             # TypeScript strict
+npm run build                 # build de production
+npx prisma migrate dev --name <nom>   # nouvelle migration
+npm run db:seed -- --demo     # seed (idempotent) + démo
+docker compose up -d          # lancement complet (app + Postgres)
+```
+
+### Notes pour l'environnement cloud de Claude
+- PostgreSQL 16 local : `service postgresql start` ; utilisateur `vuca` / `vuca`, base `vuca_crm`.
+- Prisma **refuse `migrate reset` lancé par un agent IA** sans consentement explicite de l'utilisateur : ne pas contourner. Pour tester sur une base vierge, créer une NOUVELLE base (`createdb`) + `prisma migrate deploy` + seed.
+- `docker build` dans le bac à sable : les conteneurs ne passent pas par le proxy → pour tester, utiliser un Dockerfile de test hors dépôt (CA + proxy injectés, `--network host`). Le Dockerfile du dépôt reste standard.
+- Tests navigateur : Playwright avec `executablePath: '/opt/pw-browsers/chromium'`.

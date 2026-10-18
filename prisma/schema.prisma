@@ -1,6 +1,6 @@
 // =====================================================================
 //  VUCA AUTO CRM — Schéma de base de données (Prisma 7 / PostgreSQL)
-//  Statut : PROPOSITION PHASE 0 — en attente de validation
+//  Statut : validé en Phase 0 (18/10/2026)
 // ---------------------------------------------------------------------
 //  Conventions :
 //   - Montants en CENTIMES (Int), champs suffixés « Centimes ».
@@ -542,6 +542,9 @@ model Depense {
   montantCentimes Int
   payeParId       String // obligatoire — VUCA AUTO présélectionné dans le formulaire
   payePar         Partenaire       @relation(fields: [payeParId], references: [id])
+  // Payée avec l'argent des loyers du véhicule : réduit le résultat mais ne
+  // compte comme investissement pour personne (décision Phase 0, question 2).
+  payeSurRecettes Boolean          @default(false)
   fournisseur     String?
   kilometrage     Int?
   note            String?
@@ -929,7 +932,7 @@ model Sinistre {
   franchiseRefactureeCentimes Int?
   declareAssurance            Boolean          @default(false)
   numeroDossierAssurance      String?
-  indemniteAssuranceCentimes  Int? // montant versé par l'assureur (cf. question Phase 0)
+  indemniteAssuranceCentimes  Int? // versé par l'assureur : compte comme revenu du véhicule
   statut                      StatutSinistre   @default(DECLARE)
   note                        String?
   creeLe                      DateTime         @default(now())
