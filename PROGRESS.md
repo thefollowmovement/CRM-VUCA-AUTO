@@ -41,7 +41,7 @@
 - **Documents** : carte grise, facture, CT, certificat de cession, assurance, autre ; PDF ou photo ; **type réel vérifié d'après le contenu** (un faux PDF est refusé).
 - Liens : recherche globale (véhicules), bouton « + » → nouveau véhicule, fiche investisseur (véhicules financés, capital engagé), tableau de bord (véhicules en stock).
 - Démo : 12 véhicules (vendus dont un à perte, en stock, en location, mixte, immobilisé, 3 financeurs à parts égales, écart de financement accepté, exemple Peugeot 208) avec illustrations.
-- Tests : 56 tests unitaires (répartition sans perte, financement, immatriculation, VIN, échéances, CSV…) ; parcours complet dans Chromium (ordinateur + iPhone).
+- Tests : 52 tests unitaires (répartition sans perte, financement, immatriculation, VIN, échéances, CSV…) ; parcours complet dans Chromium (ordinateur + iPhone).
 
 ## Déploiement VPS (19/10/2026)
 
