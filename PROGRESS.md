@@ -38,7 +38,8 @@
 - Serveur cible : **KVM 2** Hostinger (`srv1075545.hstgr.cloud`, 72.61.164.158), **Ubuntu 24.04 + HestiaCP**. Le gestionnaire Docker de Hostinger n'y est pas disponible et le connecteur ne permet pas d'exécuter de commandes.
 - `scripts/installer-hestia.sh` : installation native (sans Docker) via les commandes Hestia (`v-add-web-domain`, modèle nginx `vuca-crm`, `v-add-letsencrypt-domain`). Testé dans le bac à sable avec une imitation de Hestia + vrai nginx : installation complète, reprise après interruption, HTTPS (modèle .stpl), connexion + envoi de fichier dans Chromium, mise à jour avec conservation des données.
 - Domaine prévu : `crm-vuca.72-61-164-158.sslip.io`.
-- Pas encore lancé sur le VPS réel : l'utilisateur lance la commande dans le terminal web de Hostinger.
+- 1er essai réel (19/10) : application construite et démarrée, mais Hestia n'a pas pu créer le domaine (« nginx restart failed »). Cause : **Caddy** (service système, démarré au boot du 17/10 21h30) tient les ports 80/443 ; le nginx de Hestia ne tourne plus depuis (désactivé, échecs au démarrage). Caddy ne sert que `srv1075545.hstgr.cloud` → appli Node sur 127.0.0.1:3000 ; **thefollowmovement.cloud (site Hestia/Apache, ports 8080/8443) est donc inaccessible depuis le 17/10** (erreur SSL) — antérieur à l'installation du CRM.
+- `installer-hestia.sh` gère désormais ce cas : frontal détecté (nginx Hestia ou Caddy) ; avec Caddy : fichier `/etc/caddy/vuca-crm.caddy` + une ligne `import` dans le Caddyfile (sauvegarde, `caddy validate`, retour arrière), rechargement à chaud. Testé en reproduisant la situation du serveur (reprise depuis l'état interrompu, autre appli intacte, HTTPS, connexion navigateur).
 
 ## Décisions prises
 

@@ -41,6 +41,9 @@ UTILISATEUR_SYS="vuca-crm"
 SERVICE="vuca-crm"
 BASE="vuca_crm"
 MODELE="vuca-crm"
+CADDYFILE="/etc/caddy/Caddyfile"
+CADDY_VUCA="/etc/caddy/vuca-crm.caddy"
+LIGNE_IMPORT="import $CADDY_VUCA"
 UTILISATEUR_HESTIA="${UTILISATEUR_HESTIA:-}"   # détecté automatiquement si vide
 export HESTIA="/usr/local/hestia"
 VBIN="$HESTIA/bin"
@@ -75,6 +78,7 @@ DOMAINE=$DOMAINE
 APP_PORT=$APP_PORT
 BRANCHE=$BRANCHE
 UTILISATEUR_HESTIA=$UTILISATEUR_HESTIA
+FRONT=$FRONT
 DATE_ETAT="$(date '+%d/%m/%Y %H:%M')"
 FIN
 }
@@ -121,6 +125,18 @@ if ! SORTIE_NGINX=$(nginx -t 2>&1); then
   arret "la configuration nginx actuelle du serveur est déjà en erreur (ci-dessus). Je n'y touche pas."
 fi
 echo "nginx          : configuration valide"
+
+# Qui reçoit réellement le trafic web (ports 80/443) ?
+#  - nginx de Hestia  → le domaine est créé avec les commandes Hestia ;
+#  - Caddy (service)  → le domaine est ajouté à Caddy (fichier séparé + une ligne « import »).
+PORT443=$(ss -ltnpH "( sport = :443 )" 2>/dev/null || true)
+FRONT_DETECTE=""
+if grep -q '"nginx"' <<<"$PORT443"; then
+  FRONT_DETECTE="hestia"
+elif grep -q '"caddy"' <<<"$PORT443"; then
+  FRONT_DETECTE="caddy"
+fi
+echo "Ports 80/443   : ${FRONT_DETECTE:-$(sed -E 's/.*users:\(\("([^"]+)".*/\1/' <<<"$PORT443" | head -1)}"
 echo "Modèles nginx  : $DOSSIER_MODELES (type $TYPE_MODELE)"
 
 # Compte Hestia qui portera le domaine : celui d'une installation précédente,
@@ -147,9 +163,24 @@ echo "Compte Hestia utilisé : $UTILISATEUR_HESTIA (le domaine du CRM lui sera r
 MISE_A_JOUR=false
 REPRISE=false
 ETAT=""
+FRONT=""
 if [[ -f "$FICHIER_INSTALL" ]]; then
   # shellcheck disable=SC1090
   . "$FICHIER_INSTALL"
+fi
+if [[ "$ETAT" != "terminee" ]]; then
+  FRONT="$FRONT_DETECTE"
+  case "$FRONT" in
+    hestia) ;;
+    caddy)
+      command -v caddy >/dev/null || arret "Caddy écoute sur les ports web mais la commande caddy est introuvable."
+      [[ -f "$CADDYFILE" ]] || arret "Caddy écoute sur les ports web mais $CADDYFILE est introuvable."
+      systemctl is-active --quiet caddy || arret "Caddy écoute sur les ports web mais n'est pas géré par le service systemd « caddy »."
+      caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 ||
+        arret "la configuration actuelle de Caddy est déjà en erreur (caddy validate). Je n'y touche pas."
+      echo "Caddy          : configuration valide ($CADDYFILE)" ;;
+    *) arret "les ports web (80/443) sont tenus par un logiciel non reconnu ou par personne." ;;
+  esac
 fi
 if [[ "$ETAT" == "terminee" ]]; then
   MISE_A_JOUR=true
@@ -212,9 +243,17 @@ else
   echo " • Télécharger l'application (branche $BRANCHE) et la construire"
   echo " • Créer la base PostgreSQL « $BASE » avec un mot de passe aléatoire"
   echo " • Créer le service systemd « $SERVICE » (application sur 127.0.0.1:$APP_PORT uniquement)"
-  echo " • Dans Hestia : ajouter le modèle nginx « $MODELE », créer le domaine $DOMAINE"
-  echo "   pour l'utilisateur $UTILISATEUR_HESTIA, puis le certificat SSL Let's Encrypt"
-  echo " • Aucun autre site, modèle ou fichier existant n'est modifié."
+  if [[ "$FRONT" == "caddy" ]]; then
+    echo " • Caddy gère les ports web de ce serveur : créer le fichier $CADDY_VUCA (domaine $DOMAINE)"
+    jaune " • Modifier $CADDYFILE : ajouter UNE ligne « $LIGNE_IMPORT »"
+    echo "   (copie de sauvegarde avant ; vérification « caddy validate » ; retour à la sauvegarde si erreur)"
+    echo " • Recharger Caddy à chaud (sans coupure des autres sites) ; certificat SSL obtenu automatiquement par Caddy"
+    echo " • Rien d'autre n'est modifié (Hestia, nginx et les autres sites ne sont pas touchés)."
+  else
+    echo " • Dans Hestia : ajouter le modèle nginx « $MODELE », créer le domaine $DOMAINE"
+    echo "   pour l'utilisateur $UTILISATEUR_HESTIA, puis le certificat SSL Let's Encrypt"
+    echo " • Aucun autre site, modèle ou fichier existant n'est modifié."
+  fi
   echo
   vert "Adresse de l'application : https://$DOMAINE"
 fi
@@ -247,6 +286,51 @@ installer_node() {
   rm -rf "$tmp"
 }
 
+# Ajoute le CRM à Caddy : fichier séparé + une ligne « import », avec sauvegarde et retour arrière.
+configurer_caddy() {
+  local sauvegarde
+  sauvegarde="$CADDYFILE.avant-vuca-crm.$(date +%Y%m%d-%H%M%S)"
+  echo "→ Caddy : sauvegarde de $CADDYFILE → $sauvegarde"
+  cp -p "$CADDYFILE" "$sauvegarde"
+  cat >"$CADDY_VUCA" <<FIN
+# VUCA AUTO CRM — ajouté par installer-hestia.sh (application sur 127.0.0.1:$APP_PORT)
+$DOMAINE {
+	encode gzip
+	request_body {
+		max_size 20MB
+	}
+	reverse_proxy 127.0.0.1:$APP_PORT
+}
+FIN
+  chmod 644 "$CADDY_VUCA"
+  if ! grep -qxF "$LIGNE_IMPORT" "$CADDYFILE"; then
+    printf '\n# VUCA AUTO CRM\n%s\n' "$LIGNE_IMPORT" >>"$CADDYFILE"
+  fi
+  if ! caddy validate --config "$CADDYFILE" --adapter caddyfile >>"$JOURNAL" 2>&1; then
+    cp -p "$sauvegarde" "$CADDYFILE"; rm -f "$CADDY_VUCA"
+    tail -n 8 "$JOURNAL"
+    arret "Caddy a refusé la nouvelle configuration : le Caddyfile d'origine a été remis."
+  fi
+  if ! systemctl reload caddy >>"$JOURNAL" 2>&1; then
+    cp -p "$sauvegarde" "$CADDYFILE"; rm -f "$CADDY_VUCA"
+    systemctl reload caddy >>"$JOURNAL" 2>&1 || true
+    tail -n 8 "$JOURNAL"
+    arret "le rechargement de Caddy a échoué : le Caddyfile d'origine a été remis."
+  fi
+  vert "Caddy rechargé : le certificat SSL est demandé automatiquement."
+}
+
+# Retire de Caddy la configuration du CRM (utilisé lors d'une reprise).
+retirer_caddy() {
+  [[ -f "$CADDYFILE" ]] || return 0
+  if grep -qxF "$LIGNE_IMPORT" "$CADDYFILE" || [[ -f "$CADDY_VUCA" ]]; then
+    cp -p "$CADDYFILE" "$CADDYFILE.avant-nettoyage-vuca-crm.$(date +%Y%m%d-%H%M%S)"
+    sed -i "\|^$LIGNE_IMPORT\$|d; /^# VUCA AUTO CRM\$/d" "$CADDYFILE"
+    rm -f "$CADDY_VUCA"
+    caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 && systemctl reload caddy || true
+  fi
+}
+
 # Retire UNIQUEMENT les éléments créés par une installation interrompue de ce script.
 nettoyer_reprise() {
   echo "→ Nettoyage de l'installation interrompue…"
@@ -257,6 +341,7 @@ nettoyer_reprise() {
     "$VBIN/v-delete-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" >/dev/null || true
   fi
   rm -f "$DOSSIER_MODELES/$MODELE.tpl" "$DOSSIER_MODELES/$MODELE.stpl"
+  retirer_caddy
   if command -v psql >/dev/null; then
     pg -c "DROP DATABASE IF EXISTS $BASE;" >/dev/null
     pg -c "DROP ROLE IF EXISTS $BASE;" >/dev/null
@@ -380,8 +465,10 @@ curl -fs -o /dev/null "http://127.0.0.1:$APP_PORT/connexion" ||
   arret "l'application ne répond pas. Journal : journalctl -u $SERVICE -n 50"
 vert "Application démarrée."
 
-# --- Hestia : modèle nginx, domaine, SSL -------------------------------
-if [[ "$MISE_A_JOUR" == false ]]; then
+# --- Serveur web frontal : Caddy, ou Hestia (modèle nginx, domaine, SSL) ---
+if [[ "$MISE_A_JOUR" == false && "$FRONT" == "caddy" ]]; then
+  configurer_caddy
+elif [[ "$MISE_A_JOUR" == false ]]; then
   echo "→ Modèle nginx « $MODELE » dans Hestia…"
   ENTETES_PROXY="        proxy_pass http://127.0.0.1:$APP_PORT;
         proxy_http_version 1.1;
