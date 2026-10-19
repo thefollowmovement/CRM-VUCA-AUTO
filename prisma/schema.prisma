@@ -637,8 +637,12 @@ model ContratLocation {
 
   // --- Tarification (copie figée au moment du contrat) ---
   // tarifCentimes = prix par unité du type : jour, semaine ou mois.
-  tarifCentimes          Int
-  dureeFacturee          Int // nombre d'unités (jours / semaines / mois)
+  tarifCentimes           Int
+  dureeFacturee           Int // nombre d'unités (jours / semaines / mois)
+  // Jours facturés en plus des unités : reste d'une location hebdomadaire
+  // (au tarif journalier) ou dernier mois entamé (mensuel ÷ 30 × jours).
+  joursSupplementaires    Int  @default(0)
+  tarifJournalierCentimes Int? // tarif journalier figé (hebdomadaire : jours restants)
   remiseCentimes         Int  @default(0)
   fraisLivraisonCentimes Int  @default(0)
   prixTotalCentimes      Int // tarif × durée − remise + options + livraison

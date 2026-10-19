@@ -9,6 +9,8 @@ import path from "node:path";
 import sharp from "sharp";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import type { Prisma } from "../../src/generated/prisma/client";
+import { calculerPrixLocation } from "../../src/lib/calculs/location";
+import { dateDepuisParis, partiesParis } from "../../src/lib/dates";
 
 export const INVESTISSEURS_DEMO = [
   { nom: "Karim Benali", telephone: "06 12 34 56 78", email: "karim.benali@exemple.fr", iban: "FR7630006000011234567890189", notes: "Investisseur historique, préfère les citadines." },
@@ -33,6 +35,7 @@ export async function chargerDemo(db: PrismaClient) {
   });
   await uneFois(db, "demo:vehicules", () => chargerVehiculesDemo(db));
   await uneFois(db, "demo:depenses", () => chargerDepensesDemo(db));
+  await uneFois(db, "demo:location", () => chargerLocationDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -356,6 +359,137 @@ async function chargerDepensesDemo(db: PrismaClient) {
   if (p3008 && karim) {
     await db.versement.create({
       data: { partenaireId: karim, vehiculeId: p3008.id, date: j(-30), montantCentimes: eur(10000), type: "REMBOURSEMENT_CAPITAL", mode: "VIREMENT" },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Clients et contrats de location (Phase 4)
+// ---------------------------------------------------------------------
+
+const an = (annees: number) => j(-Math.round(annees * 365.25));
+
+const CLIENTS_DEMO: Omit<Prisma.ClientUncheckedCreateInput, "id">[] = [
+  {
+    civilite: "M", nom: "Moreau", prenom: "Lucas", dateNaissance: an(38), lieuNaissance: "Lyon", adresse: "12 rue Victor Hugo", codePostal: "69002", ville: "Lyon",
+    telephone: "06 11 22 33 44", email: "lucas.moreau@exemple.fr", numeroPermis: "120569300123", dateObtentionPermis: an(19), categoriePermis: "B", dateValiditePermis: j(3000),
+    typePieceIdentite: "CARTE_IDENTITE", numeroPieceIdentite: "X4RTBPFW4", dateValiditePieceIdentite: j(2500), notes: "Client fidèle, loue souvent en mensuel.",
+  },
+  {
+    civilite: "MME", nom: "Haddad", prenom: "Inès", dateNaissance: an(29), adresse: "5 avenue Jean Jaurès", codePostal: "69007", ville: "Lyon",
+    telephone: "07 55 66 77 88", email: "ines.haddad@exemple.fr", numeroPermis: "180769300456", dateObtentionPermis: an(8), categoriePermis: "B", dateValiditePermis: j(4000),
+    typePieceIdentite: "PASSEPORT", numeroPieceIdentite: "22AB12345", dateValiditePieceIdentite: j(1800),
+  },
+  {
+    civilite: "M", nom: "Amrani", prenom: "Mehdi", dateNaissance: an(21), adresse: "48 cours Gambetta", codePostal: "69003", ville: "Lyon",
+    telephone: "06 98 12 34 56", email: "mehdi.amrani@exemple.fr", numeroPermis: "250369300789", dateObtentionPermis: j(-200), categoriePermis: "B",
+    dateValiditePermis: j(5000), notes: "Jeune permis : caution doublée.",
+  },
+  {
+    civilite: "MME", nom: "Robert", prenom: "Julie", dateNaissance: an(44), adresse: "3 place Bellecour", codePostal: "69002", ville: "Lyon",
+    telephone: "06 44 33 22 11", email: "julie.robert@exemple.fr", numeroPermis: "010269300321", dateObtentionPermis: an(25), categoriePermis: "B", dateValiditePermis: j(2000),
+    typePieceIdentite: "CARTE_IDENTITE", numeroPieceIdentite: "Y7QPLM2K9", dateValiditePieceIdentite: j(-30),
+  },
+  {
+    civilite: "M", nom: "Garnier", prenom: "Thomas", dateNaissance: an(51), adresse: "ZA des Platières", codePostal: "69160", ville: "Tassin-la-Demi-Lune",
+    telephone: "04 78 00 11 22", email: "contact@garnier-btp.fr", numeroPermis: "950169300654", dateObtentionPermis: an(31), categoriePermis: "B", dateValiditePermis: j(1500),
+    entreprise: "Garnier BTP", siretEntreprise: "81234567800019",
+  },
+  {
+    civilite: "M", nom: "Petit", prenom: "Kevin", dateNaissance: an(33), telephone: "06 00 00 00 01", numeroPermis: "100869300999", dateObtentionPermis: an(15),
+    dateValiditePermis: j(1000), listeNoire: true, motifListeNoire: "Loyers impayés (450 €) et véhicule rendu très sale en 2025.",
+  },
+];
+
+// [immat, client, type, statut, départ (jours, heure), retour (jours, heure), options, notes]
+type ContratDemo = {
+  immat: string;
+  client: string;
+  type: "JOURNALIERE" | "HEBDOMADAIRE" | "MENSUELLE";
+  statut: "RESERVATION" | "CONFIRMEE" | "EN_COURS" | "TERMINEE" | "ANNULEE";
+  depart: [number, number];
+  retour: [number, number] | { mois: number };
+  options?: string[];
+  livraison?: number;
+  motifAnnulation?: string;
+  notes?: string;
+};
+
+const CONTRATS_DEMO: ContratDemo[] = [
+  { immat: "GK-582-TY", client: "Moreau", type: "MENSUELLE", statut: "TERMINEE", depart: [-125, 10], retour: { mois: 3 } },
+  { immat: "GK-582-TY", client: "Haddad", type: "MENSUELLE", statut: "EN_COURS", depart: [-20, 10], retour: { mois: 3 }, notes: "Échéance le 5 de chaque mois." },
+  { immat: "GL-145-CP", client: "Robert", type: "JOURNALIERE", statut: "TERMINEE", depart: [-30, 9], retour: [-25, 18], options: ["GPS"] },
+  { immat: "GL-145-CP", client: "Amrani", type: "JOURNALIERE", statut: "EN_COURS", depart: [-5, 9], retour: [-1, 18], notes: "Ne répond plus au téléphone depuis hier." },
+  { immat: "GL-145-CP", client: "Robert", type: "JOURNALIERE", statut: "CONFIRMEE", depart: [6, 9], retour: [9, 18], options: ["Siège bébé / rehausseur"] },
+  { immat: "GB-303-TS", client: "Garnier", type: "JOURNALIERE", statut: "TERMINEE", depart: [-60, 8], retour: [-57, 19], options: ["Conducteur additionnel"], livraison: 40 },
+  { immat: "GB-303-TS", client: "Robert", type: "HEBDOMADAIRE", statut: "TERMINEE", depart: [-21, 9], retour: [-11, 9] },
+  { immat: "GB-303-TS", client: "Garnier", type: "JOURNALIERE", statut: "CONFIRMEE", depart: [1, 9], retour: [4, 18], options: ["Frais de dossier"] },
+  { immat: "GE-204-KN", client: "Moreau", type: "MENSUELLE", statut: "RESERVATION", depart: [3, 10], retour: { mois: 1 } },
+  { immat: "GE-204-KN", client: "Amrani", type: "MENSUELLE", statut: "ANNULEE", depart: [1, 10], retour: { mois: 1 }, motifAnnulation: "Le client a trouvé un véhicule ailleurs." },
+];
+
+/** Jour J+n à une heure donnée (heure de Paris). */
+function jh(n: number, heure: number): Date {
+  const p = partiesParis(new Date(Date.now() + n * JOUR));
+  return dateDepuisParis(p.annee, p.mois, p.jour, heure, 0);
+}
+
+async function chargerLocationDemo(db: PrismaClient) {
+  const clients = new Map<string, string>();
+  for (const c of CLIENTS_DEMO) {
+    const existe = await db.client.findFirst({ where: { nom: c.nom, prenom: c.prenom } });
+    clients.set(c.nom, existe?.id ?? (await db.client.create({ data: c })).id);
+  }
+  const options = await db.optionLocation.findMany();
+  const reglages = await db.reglages.findUnique({ where: { id: 1 } });
+  const annee = partiesParis(new Date()).annee;
+
+  for (const d of CONTRATS_DEMO) {
+    const v = await db.vehicule.findUnique({ where: { immatriculation: d.immat } });
+    const clientId = clients.get(d.client);
+    if (!v || !clientId || v.statut === "VENDU" || v.statut === "ARCHIVE") continue;
+    const depart = jh(d.depart[0], d.depart[1]);
+    let retour: Date;
+    if (Array.isArray(d.retour)) retour = jh(d.retour[0], d.retour[1]);
+    else {
+      const p = partiesParis(depart);
+      const total = p.annee * 12 + p.mois - 1 + d.retour.mois;
+      retour = dateDepuisParis(Math.floor(total / 12), (total % 12) + 1, p.jour, p.heure, 0);
+    }
+    const tarif = d.type === "JOURNALIERE" ? v.tarifJournalierCentimes : d.type === "HEBDOMADAIRE" ? v.tarifHebdoCentimes : v.tarifMensuelCentimes;
+    if (!tarif) continue;
+    const opts = (d.options ?? []).map((l) => options.find((o) => o.libelle === l)).filter((o) => o !== undefined);
+    const prix = calculerPrixLocation({
+      type: d.type, depart, retour, toleranceMinutes: reglages?.toleranceRetardMinutes ?? 60, tarifCentimes: tarif,
+      tarifJournalierCentimes: d.type === "HEBDOMADAIRE" ? v.tarifJournalierCentimes : null,
+      fraisLivraisonCentimes: d.livraison ? eur(d.livraison) : 0,
+      options: opts.map((o) => ({ modeTarif: o.modeTarif, prixCentimes: o.prixCentimes, plafondCentimes: o.plafondCentimes, quantite: 1 })),
+    });
+    // Conflit avec un contrat déjà saisi (démo rechargée) : on passe
+    const conflit = await db.contratLocation.findFirst({
+      where: { vehiculeId: v.id, archiveLe: null, statut: { in: ["RESERVATION", "CONFIRMEE", "EN_COURS"] }, departPrevuLe: { lt: retour }, retourPrevuLe: { gt: depart } },
+    });
+    if (conflit && ["RESERVATION", "CONFIRMEE", "EN_COURS"].includes(d.statut)) continue;
+
+    const compteur = await db.compteur.upsert({ where: { cle: `contrat:${annee}` }, create: { cle: `contrat:${annee}`, valeur: 1 }, update: { valeur: { increment: 1 } } });
+    const termine = d.statut === "TERMINEE";
+    const enCours = d.statut === "EN_COURS";
+    await db.contratLocation.create({
+      data: {
+        numero: `${reglages?.prefixeContrat ?? "LOC"}-${annee}-${String(compteur.valeur).padStart(4, "0")}`,
+        vehiculeId: v.id, clientId, type: d.type, statut: d.statut, departPrevuLe: depart, retourPrevuLe: retour,
+        departReelLe: termine || enCours ? depart : null, retourReelLe: termine ? retour : null,
+        lieuDepart: "Agence VUCA AUTO", lieuRetour: "Agence VUCA AUTO", livraison: !!d.livraison,
+        tarifCentimes: tarif, tarifJournalierCentimes: d.type === "HEBDOMADAIRE" ? v.tarifJournalierCentimes : null,
+        dureeFacturee: prix.unites, joursSupplementaires: prix.joursSupplementaires, fraisLivraisonCentimes: prix.fraisLivraisonCentimes,
+        prixTotalCentimes: prix.prixTotalCentimes, jourEcheanceMensuelle: d.type === "MENSUELLE" ? 5 : null,
+        kmInclusParUnite: d.type === "MENSUELLE" ? v.kmInclusParMois : v.kmInclusParJour, prixKmSupCentimes: v.prixKmSupCentimes,
+        cautionCentimes: v.cautionDefautCentimes ?? 0, modeCaution: "EMPREINTE_CB", franchiseCentimes: v.franchiseDefautCentimes,
+        statutCaution: termine ? "RESTITUEE" : enCours ? "ENCAISSEE" : "A_ENCAISSER",
+        conditionsGenerales: reglages?.conditionsGenerales ?? null, notes: d.notes ?? null,
+        annuleLe: d.statut === "ANNULEE" ? j(-2) : null, motifAnnulation: d.motifAnnulation ?? null,
+        options: { create: opts.map((o, i) => ({ optionId: o.id, libelle: o.libelle, modeTarif: o.modeTarif, prixCentimes: o.prixCentimes, quantite: 1, totalCentimes: prix.totalOptions[i] ?? 0 })) },
+      },
     });
   }
 }

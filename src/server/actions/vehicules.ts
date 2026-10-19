@@ -90,6 +90,15 @@ async function verifierFinanceurs(ids: string[]) {
   if (trouves !== new Set(ids).size) throw new ErreurMetier("Un des financeurs choisis n'existe plus.");
 }
 
+/** Refuse l'action si le véhicule a une location réservée ou en cours. */
+async function sansLocationActive(vehiculeId: string, action: string) {
+  const c = await db.contratLocation.findFirst({
+    where: { vehiculeId, archiveLe: null, statut: { in: ["RESERVATION", "CONFIRMEE", "EN_COURS"] } },
+    select: { numero: true },
+  });
+  if (c) throw new ErreurMetier(`Ce véhicule a une location réservée ou en cours (${c.numero}) : terminez-la ou annulez-la avant de ${action}.`);
+}
+
 /** Message clair pour les doublons d'immatriculation / VIN. */
 function messageDoublon(erreur: unknown): string | null {
   if (erreur instanceof Prisma.PrismaClientKnownRequestError && erreur.code === "P2002") {
@@ -239,6 +248,7 @@ export async function archiverVehicule(id: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
     const v = await vehiculeExistant(id);
     if (v.statut === "ARCHIVE") return { ok: true, message: "Déjà archivé." };
+    await sansLocationActive(id, "l'archiver");
     await db.$transaction(async (tx) => {
       await tx.vehicule.update({ where: { id }, data: { statut: "ARCHIVE", archiveLe: new Date() } });
       await tx.historiqueStatutVehicule.create({
@@ -454,6 +464,7 @@ export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
     const v = await vehiculeExistant(vehiculeId);
     if (v.statut === "VENDU") throw new ErreurMetier("Ce véhicule est déjà vendu.");
     if (v.statut === "ARCHIVE") throw new ErreurMetier("Restaurez d'abord ce véhicule archivé.");
+    await sansLocationActive(vehiculeId, "le vendre");
     if (d.dateVente < v.dateAchat) {
       return { ok: false, message: "La date de vente est antérieure à la date d'achat.", erreursChamps: { dateVente: ["Antérieure à la date d'achat."] } };
     }

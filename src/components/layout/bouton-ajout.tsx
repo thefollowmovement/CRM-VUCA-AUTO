@@ -17,7 +17,7 @@ type Raccourci = { libelle: string; href: string; icone: LucideIcon; disponible:
 const RACCOURCIS: Raccourci[] = [
   { libelle: "Véhicule", href: "/vehicules/nouveau", icone: Car, disponible: true, phase: 2 },
   { libelle: "Dépense", href: "/depenses/nouvelle", icone: Receipt, disponible: true, phase: 3 },
-  { libelle: "Location", href: "/location/contrats/nouveau", icone: KeyRound, disponible: false, phase: 4 },
+  { libelle: "Location", href: "/location/contrats/nouveau", icone: KeyRound, disponible: true, phase: 4 },
   { libelle: "Paiement", href: "/location/paiements/nouveau", icone: HandCoins, disponible: false, phase: 6 },
 ];
 

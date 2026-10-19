@@ -7,8 +7,8 @@
 | 0 | Arborescence + schéma Prisma complet | ✅ Validée le 18/10/2026 |
 | 1 | Socle : projet, Docker, base, auth, rôles, layout, navigation, réglages, partenaires, seed | ✅ Validée le 19/10/2026 (déployée sur le KVM 2) |
 | 2 | Véhicules : CRUD, photos, documents, financement, statuts | ✅ Validée le 19/10/2026 |
-| 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | 🟡 Livrée — en attente de validation |
-| 4 | Location : clients, contrats, disponibilités, planning, tarification | ⚪ À faire |
+| 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | ✅ Validée le 19/10/2026 |
+| 4 | Location : clients, contrats, disponibilités, planning, tarification | 🟡 Livrée — en attente de validation |
 | 5 | État des lieux mobile, comparaison retour, frais, caution | ⚪ À faire |
 | 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ⚪ À faire |
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ⚪ À faire |
@@ -54,6 +54,18 @@
 - Démo : 20 dépenses (dont l'exemple 208 : carte grise 300 € VUCA, embrayage 700 € Karim), assurances payées sur recettes, C3 avec commission 15 %, Golf en % fixes 40/30/30 + commission 10 %, versements partiels (reste dû Sophie 255,76 €, Karim 49,12 €).
 - Tests : 71 tests unitaires ; parcours complet dans Chromium (ordinateur + iPhone, sans débordement horizontal ni erreur console).
 
+## Phase 4 — livré
+
+- **Clients** : liste (recherche nom / téléphone / email / permis, filtres actifs / liste noire / archivés), fiche complète (identité, coordonnées, permis, pièce d'identité, entreprise, liste noire avec motif, notes), scans (permis recto/verso, pièce d'identité, justificatif de domicile — type réel vérifié), historique des locations. **Alertes** : liste noire et permis expiré (bloquants), permis plus récent que le seuil des réglages, pièce d'identité expirée, permis non renseigné. Archivage / restauration ; suppression (admin, sans historique) ; **RGPD** : export JSON et anonymisation (admin : données personnelles et scans effacés, journal nettoyé, contrats et montants conservés).
+- **Tarification** (`lib/calculs/location.ts`, 16 tests) : journée de 24 h entamée due avec tolérance, hebdomadaire semaines + jours au tarif journalier plafonné à une semaine de plus, mensuel date à date + prorata ÷ 30, options par jour (plafonnées) ou forfait, remise, livraison ; km inclus sur la durée, km supplémentaires ; changement d'heure géré (heure de Paris).
+- **Contrats** : assistant en 4 étapes (client existant ou création rapide + conducteurs additionnels → type, dates et véhicule avec disponibilité en direct → tarif prérempli, km, options, lieux / livraison, caution, franchise, acompte ou jour d'échéance → récapitulatif du prix et statut Réservation / Confirmée). Numéro automatique `LOC-AAAA-0001`. Prix toujours recalculé côté serveur, options et conditions générales figées. Fiche contrat (client, véhicule, dates, conditions, détail du prix), modification tant que le véhicule n'est pas parti, confirmation, annulation avec motif, archivage, suppression (admin, erreur de saisie).
+- **Disponibilité** : un véhicule vendu, archivé ou immobilisé ne peut pas être loué ; deux contrats actifs ne peuvent pas se chevaucher — contrôlé dans l'application ET garanti par une contrainte PostgreSQL (`btree_gist`). Vente et archivage d'un véhicule refusés tant qu'une location est réservée ou en cours.
+- **Location** : vue « Aujourd'hui » (départs et retours du jour et du lendemain, locations en retard, réservations à confirmer, appel en un geste), **planning Gantt** semaine / mois (barres colorées par statut, « En retard » calculé, une case libre = nouvelle réservation ce jour-là), liste des contrats filtrable (statut dont « En retard », véhicule, période, recherche).
+- **Fiche véhicule → Location** : calendrier sur 6 semaines, taux d'occupation depuis la mise en location (jours immobilisés exclus), jours loués, revenus encaissés, contrats.
+- Recherche globale : clients et numéros de contrat. Bouton « + » → Location.
+- Démo : 6 clients (dont un en liste noire, un jeune permis, une pièce d'identité expirée) et 10 contrats (mensuels et journaliers, un en retard, terminés, réservés, un annulé).
+- Tests : 91 tests unitaires ; parcours complet dans Chromium (42 vérifications, ordinateur + iPhone, sans débordement horizontal ni erreur console) ; non-régression Phase 3.
+
 ## Déploiement VPS (19/10/2026)
 
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
@@ -95,6 +107,12 @@
   - « Déjà versé » = remboursements de capital + bénéfices versés sur ce véhicule (les apports supplémentaires sont ignorés). La saisie des versements arrive en Phase 7.
   - VUCA AUTO garde l'argent des ventes : pas de « reste dû » envers elle-même dans la liste des investisseurs.
   - Véhicule de location sans prix cible : bénéfice prévisionnel calculé sur la valeur estimée (+ revenus de location encaissés dès la Phase 6).
+- Phase 4 :
+  - Bloquant pour louer : liste noire, permis expiré. Simple alerte : permis récent, pièce d'identité expirée.
+  - Hebdomadaire sans tarif journalier : jours restants au prorata du tarif hebdomadaire.
+  - Contrat modifiable uniquement avant le départ ; les CGV restent celles du jour de la création.
+  - Départ / retour (statuts En cours / Terminée, véhicule « En location ») : assistants de la Phase 5.
+  - Anonymisation RGPD : réservée à l'admin, impossible avec une location réservée ou en cours.
 
 ## Questions ouvertes
 

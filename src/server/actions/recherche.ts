@@ -1,5 +1,6 @@
 "use server";
 
+import { LIBELLES_STATUT_CONTRAT, statutAffiche } from "@/lib/contrat";
 import { db } from "@/lib/db";
 import { ROLES_GESTION, utilisateurCourant } from "@/lib/permissions";
 import { LIBELLES_STATUT, nomVehicule } from "@/lib/vehicule";
@@ -41,6 +42,54 @@ export async function rechercheGlobale(requete: string): Promise<GroupeResultats
         libelle: nomVehicule(v),
         detail: [v.immatriculation, LIBELLES_STATUT[v.statut]].filter(Boolean).join(" · "),
         href: `/vehicules/${v.id}`,
+      })),
+    });
+  }
+
+  // Clients (nom, prénom, téléphone, email, n° de permis)
+  const mots = q.split(/\s+/).filter(Boolean).slice(0, 3);
+  const clients = await db.client.findMany({
+    where: {
+      anonymiseLe: null,
+      AND: mots.map((mot) => ({
+        OR: [
+          { nom: { contains: mot, mode: "insensitive" as const } },
+          { prenom: { contains: mot, mode: "insensitive" as const } },
+          { telephone: { contains: mot } },
+          { email: { contains: mot, mode: "insensitive" as const } },
+          { numeroPermis: { contains: mot, mode: "insensitive" as const } },
+        ],
+      })),
+    },
+    take: 8,
+    orderBy: [{ nom: "asc" }, { prenom: "asc" }],
+    select: { id: true, nom: true, prenom: true, telephone: true, email: true, listeNoire: true, archiveLe: true },
+  });
+  if (clients.length) {
+    groupes.push({
+      titre: "Clients",
+      resultats: clients.map((c) => ({
+        libelle: [c.prenom, c.nom].filter(Boolean).join(" "),
+        detail: [c.listeNoire ? "Liste noire" : null, c.archiveLe ? "Archivé" : null, c.telephone, c.email].filter(Boolean).join(" · "),
+        href: `/clients/${c.id}`,
+      })),
+    });
+  }
+
+  // Contrats (numéro LOC-2026-0001, ou « 0001 »)
+  const contrats = await db.contratLocation.findMany({
+    where: { numero: { contains: q, mode: "insensitive" } },
+    take: 8,
+    orderBy: { creeLe: "desc" },
+    select: { id: true, numero: true, statut: true, retourPrevuLe: true, client: { select: { nom: true, prenom: true } }, vehicule: { select: { immatriculation: true, marque: true, modele: true } } },
+  });
+  if (contrats.length) {
+    groupes.push({
+      titre: "Contrats",
+      resultats: contrats.map((c) => ({
+        libelle: c.numero,
+        detail: [[c.client.prenom, c.client.nom].filter(Boolean).join(" "), c.vehicule.immatriculation ?? `${c.vehicule.marque} ${c.vehicule.modele}`, LIBELLES_STATUT_CONTRAT[statutAffiche(c.statut, c.retourPrevuLe)]].join(" · "),
+        href: `/location/contrats/${c.id}`,
       })),
     });
   }

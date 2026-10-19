@@ -123,6 +123,15 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Vente : `marquerVendu` / `annulerVente` dans `server/actions/vehicules.ts` ; page `/vehicules/[id]/vendre`.
 - Tests navigateur : en-têtes de tableaux en majuscules CSS → comparer en minuscules ; attendre un texte après `router.refresh()`.
 
+## Location (Phase 4)
+
+- Dates/heures : `lib/dates.ts` (heure de Paris ↔ UTC, `saisieParisVersDate` pour les `datetime-local`, `ajouterMoisParis`…), pur et utilisable côté client.
+- Prix : `lib/calculs/location.ts` (`calculerPrixLocation`, `decomposerDuree`, `kmInclusTotal`, `tauxOccupation`, `chevauche`). Contrat : `dureeFacturee` (unités du type) + `joursSupplementaires` + `tarifJournalierCentimes` figés.
+- Clients : `server/requetes/clients.ts`, `server/actions/clients.ts`, `lib/calculs/clients.ts` (`alertesClient` : bloquant / attention), `lib/client-formulaire.ts`.
+- Contrats : `server/requetes/contrats.ts` (liste, planning, vue Aujourd'hui, `conflits`, `occupationVehicule`), `server/actions/contrats.ts` (`preparer()` = contrôles + prix serveur ; numéro via `Compteur` `contrat:AAAA`), statuts dans `lib/contrat.ts` (`statutAffiche` calcule EN_RETARD), assistant `components/location/assistant-contrat.tsx`.
+- Anti-chevauchement : contrainte `Contrat_sans_chevauchement` (EXCLUDE gist sur `tsrange(departPrevuLe, retourPrevuLe)`, statuts actifs, non archivés). `btree_gist` est une extension de confiance : le propriétaire de la base l'installe sans superutilisateur (rien à faire dans les scripts d'installation).
+- Piège React : deux boutons à la même place dans un assistant (« Suivant » / « Créer ») → leur donner des `key` différentes, sinon le clic sur « Suivant » soumet le formulaire.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.
@@ -148,7 +157,7 @@ docker compose up -d          # lancement complet (app + Postgres)
 - Traefik : Docker 29 exige Traefik ≥ 3.6 (API Docker minimale 1.44).
 - Claude n'a pas d'accès SSH sortant depuis l'environnement cloud : l'utilisateur lance le script via le terminal web Hostinger et renvoie la sortie.
 - **Serveur réel : KVM 2 Hostinger (id 1075545, 72.61.164.158) sous HestiaCP** → `scripts/installer-hestia.sh` : pas de Docker ; Node privé `/opt/vuca-crm/node`, code `/opt/vuca-crm/app`, `.env` `/opt/vuca-crm/.env` (root:vuca-crm 640), fichiers `/var/lib/vuca-crm/storage`, service systemd `vuca-crm`, base PostgreSQL locale `vuca_crm`, domaine Hestia (utilisateur `admin`) avec modèle nginx `vuca-crm` (.tpl/.stpl) et SSL Let's Encrypt de Hestia. Repère `/opt/vuca-crm/.installation` (ETAT=en_cours|terminee). Journal d'installation `/var/log/vuca-crm-installation.log`.
-- Phase 4 (contrainte anti-chevauchement) : l'extension `btree_gist` doit être créée par le superutilisateur PostgreSQL sur ce serveur (le rôle `vuca_crm` n'est pas superutilisateur) → prévoir l'étape dans `installer-hestia.sh`.
+- Phase 4 : `btree_gist` est créée par la migration elle-même (extension de confiance, le rôle `vuca_crm` propriétaire de la base suffit — vérifié avec un rôle non superutilisateur).
 - Connecteur Hostinger (MCP) : lecture des VPS possible ; pas d'exécution de commandes ; Docker Manager indisponible sur le modèle HestiaCP.
 - **Sur le KVM 2, c'est Caddy (service systemd, `/etc/caddy/Caddyfile`) qui tient les ports 80/443**, pas le nginx de Hestia (désactivé, ne démarre plus). Le CRM est servi via `/etc/caddy/vuca-crm.caddy` importé par le Caddyfile (`FRONT=caddy` dans le repère). Le site Hestia `thefollowmovement.cloud` (Apache 72.61.164.158:8080/8443) n'est pas servi par Caddy → hors ligne depuis le 17/10 ; toute réparation touche les projets de l'utilisateur → demander son accord.
 
