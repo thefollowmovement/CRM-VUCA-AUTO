@@ -30,7 +30,8 @@ services:
       STORAGE_DIR: /app/storage
       TZ: Europe/Paris
     ports:
-      - "${APP_PORT:-3000}:3000"
+      # Sur un serveur, APP_ADRESSE=127.0.0.1 : l'appli n'est joignable que via le proxy HTTPS.
+      - "${APP_ADRESSE:-0.0.0.0}:${APP_PORT:-3000}:3000"
     volumes:
       - fichiers:/app/storage
 

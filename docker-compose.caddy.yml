@@ -1,0 +1,23 @@
+# =====================================================================
+#  Proxy HTTPS automatique (Caddy + Let's Encrypt).
+#  Utilisé par scripts/installer-vps.sh UNIQUEMENT si les ports 80 et 443
+#  du serveur sont libres (aucun autre site ne les utilise).
+# =====================================================================
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    command: caddy reverse-proxy --from ${DOMAINE:?DOMAINE manquant} --to app:3000
+    volumes:
+      - caddy_donnees:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_donnees: # certificats SSL
+  caddy_config:
