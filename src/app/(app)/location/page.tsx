@@ -1,4 +1,4 @@
-import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, Phone, Plus, Siren, type LucideIcon } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, HandCoins, Phone, Plus, Siren, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnTetePage } from "@/components/layout/en-tete-page";
@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { statutAffiche } from "@/lib/contrat";
 import { jourParisISO } from "@/lib/dates";
-import { formatDateHeure } from "@/lib/format";
+import { formatDateHeure, formatEuros } from "@/lib/format";
 import { nomVehicule } from "@/lib/vehicule";
 import { vueAujourdhui } from "@/server/requetes/contrats";
+import { impayes } from "@/server/requetes/paiements";
 
 export const metadata: Metadata = { title: "Location — aujourd'hui" };
 
@@ -98,7 +99,7 @@ function Section({
 }
 
 export default async function PageAujourdhui() {
-  const v = await vueAujourdhui();
+  const [v, retards] = await Promise.all([vueAujourdhui(), impayes()]);
   const aujourdhui = jourParisISO(new Date());
   const demain = jourParisISO(v.demain);
   const commun = { aujourdhui, demain };
@@ -106,7 +107,7 @@ export default async function PageAujourdhui() {
     <>
       <EnTetePage
         titre="Aujourd'hui"
-        description="Départs et retours d'aujourd'hui et de demain, locations en retard."
+        description="Départs et retours d'aujourd'hui et de demain, locations en retard, impayés."
         actions={
           <Button asChild>
             <Link href="/location/contrats/nouveau">
@@ -123,6 +124,46 @@ export default async function PageAujourdhui() {
         )}
         <Section titre="Départs" icone={ArrowUpFromLine} classe="text-blue-600" lignes={v.departs} date={(l) => l.departPrevuLe} vide="Aucun départ prévu aujourd'hui ni demain." action={{ libelle: "Départ", chemin: "depart" }} {...commun} />
         <Section titre="Retours" icone={ArrowDownToLine} classe="text-emerald-600" lignes={v.retours} date={(l) => l.retourPrevuLe} vide="Aucun retour prévu aujourd'hui ni demain." action={{ libelle: "Retour", chemin: "retour" }} {...commun} />
+        {retards.echeancesEnRetard.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <HandCoins className="size-5 text-destructive" /> Échéances impayées
+                <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">{formatEuros(retards.totalEnRetard)}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col divide-y">
+                {retards.echeancesEnRetard.slice(0, 5).map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 py-3">
+                    <Link href={`/location/contrats/${e.contratId}?encaisser=1`} className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{e.client}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {e.libelle} · {e.numero} · {e.vehicule}
+                      </span>
+                    </Link>
+                    <span className="flex flex-col items-end text-sm">
+                      <span className="font-semibold tabular-nums">{formatEuros(e.reste)}</span>
+                      <span className="text-xs text-destructive">{e.jours} j de retard</span>
+                    </span>
+                    {e.telephone && (
+                      <Button variant="outline" size="icon" asChild aria-label={`Appeler ${e.client}`}>
+                        <a href={`tel:${e.telephone.replace(/\s/g, "")}`}>
+                          <Phone />
+                        </a>
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {retards.echeancesEnRetard.length > 5 && (
+                <Link href="/location/impayes" className="mt-2 inline-block text-sm text-primary hover:underline">
+                  Voir les {retards.echeancesEnRetard.length} impayés
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
         <div className="lg:col-span-2">
           <Section
             titre="Réservations à confirmer (7 jours)"

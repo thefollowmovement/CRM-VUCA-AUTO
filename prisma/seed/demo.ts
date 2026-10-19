@@ -9,8 +9,10 @@ import path from "node:path";
 import sharp from "sharp";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import type { Prisma } from "../../src/generated/prisma/client";
+import { lignesPrixContrat } from "../../src/lib/calculs/lignes-contrat";
 import { calculerPrixLocation } from "../../src/lib/calculs/location";
 import { dateDepuisParis, partiesParis } from "../../src/lib/dates";
+import { prochainNumeroAnnuel, recalculerImputation, synchroniserEcheances } from "../../src/server/echeances";
 
 export const INVESTISSEURS_DEMO = [
   { nom: "Karim Benali", telephone: "06 12 34 56 78", email: "karim.benali@exemple.fr", iban: "FR7630006000011234567890189", notes: "Investisseur historique, préfère les citadines." },
@@ -37,6 +39,7 @@ export async function chargerDemo(db: PrismaClient) {
   await uneFois(db, "demo:depenses", () => chargerDepensesDemo(db));
   await uneFois(db, "demo:location", () => chargerLocationDemo(db));
   await uneFois(db, "demo:etats-des-lieux", () => chargerEtatsDesLieuxDemo(db));
+  await uneFois(db, "demo:paiements", () => chargerPaiementsDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -575,7 +578,7 @@ async function chargerEtatsDesLieuxDemo(db: PrismaClient) {
   const tesla = await contrat("GB-303-TS", "TERMINEE", "Garnier");
   if (tesla) {
     await edlDemo(db, tesla, "DEPART", { km: 70120, carburant: null, batterie: 95, proprete: "PROPRE" });
-    const retour = await edlDemo(db, tesla, "RETOUR", { km: 71200, carburant: null, batterie: 30, proprete: "SALE", manquant: "Gilet de sécurité" });
+    const retour = await edlDemo(db, tesla, "RETOUR", { km: 71200, carburant: null, batterie: 30, proprete: "SALE", manquant: "Gilet jaune" });
     const dommage = await db.dommage.create({
       data: {
         vehiculeId: tesla.vehiculeId, vue: "COTE_DROIT", zone: "porte_av_d", positionX: 0.6, positionY: 0.55, type: "RAYURE", gravite: "MOYEN",
@@ -595,6 +598,115 @@ async function chargerEtatsDesLieuxDemo(db: PrismaClient) {
     await db.contratLocation.update({ where: { id: tesla.id }, data: { statutCaution: "RETENUE_PARTIELLE", cautionRetenueCentimes: retenue, motifRetenueCaution: "Rayure porte avant droite, nettoyage, recharge et km supplémentaires", cautionRestitueeLe: tesla.retourReelLe } });
     await db.paiement.create({
       data: { contratId: tesla.id, nature: "CAUTION_RETENUE", date: tesla.retourReelLe ?? new Date(), montantCentimes: retenue, mode: "CARTE_BANCAIRE", note: "Caution retenue (démo)" },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Paiements, échéancier, PV, sinistre, facture (Phase 6)
+// ---------------------------------------------------------------------
+
+async function chargerPaiementsDemo(db: PrismaClient) {
+  const reglages = await db.reglages.findUnique({ where: { id: 1 } });
+  const prefixeRecu = reglages?.prefixeRecu ?? "REC";
+  const contrats = await db.contratLocation.findMany({ include: { client: true, vehicule: true, options: true, fraisSupplementaires: true } });
+
+  // Échéancier de toutes les locations de démo (annulées : échéances annulées)
+  for (const c of contrats) {
+    await db.$transaction(async (tx) => {
+      await synchroniserEcheances(tx, c.id);
+      if (c.statut === "ANNULEE") await tx.echeance.updateMany({ where: { contratId: c.id }, data: { statut: "ANNULEE" } });
+    });
+  }
+
+  /** Paie les échéances du contrat (toutes, ou les n premières), chacune à sa date. */
+  const payer = async (c: (typeof contrats)[number], mode: "VIREMENT" | "CARTE_BANCAIRE" | "ESPECES", combien?: number) => {
+    const echeances = await db.echeance.findMany({ where: { contratId: c.id, statut: { not: "ANNULEE" } }, orderBy: { numero: "asc" } });
+    for (const e of echeances.slice(0, combien ?? echeances.length)) {
+      await db.$transaction(async (tx) => {
+        const numeroRecu = await prochainNumeroAnnuel(tx, "recu", prefixeRecu);
+        await tx.paiement.create({ data: { contratId: c.id, nature: "LOCATION", date: e.dateEcheance, montantCentimes: e.montantCentimes, mode, numeroRecu, note: e.libelle } });
+      });
+    }
+    await db.$transaction((tx) => recalculerImputation(tx, c.id));
+  };
+  const trouver = (immat: string, nom: string, statut: string, type?: string) =>
+    contrats.find((c) => c.vehicule.immatriculation === immat && c.client.nom === nom && c.statut === statut && (!type || c.type === type));
+
+  const moreau = trouver("GK-582-TY", "Moreau", "TERMINEE");
+  if (moreau) await payer(moreau, "VIREMENT");
+  const haddad = trouver("GK-582-TY", "Haddad", "EN_COURS");
+  if (haddad) await payer(haddad, "VIREMENT", 1); // les mois suivants restent à encaisser
+  const robertCaptur = trouver("GL-145-CP", "Robert", "TERMINEE");
+  if (robertCaptur) await payer(robertCaptur, "CARTE_BANCAIRE");
+  const amrani = trouver("GL-145-CP", "Amrani", "EN_COURS");
+  if (amrani) {
+    // Seulement 100 € versés au départ : le reste apparaît dans les impayés
+    await db.$transaction(async (tx) => {
+      const numeroRecu = await prochainNumeroAnnuel(tx, "recu", prefixeRecu);
+      await tx.paiement.create({ data: { contratId: amrani.id, nature: "LOCATION", date: j(-5), montantCentimes: eur(100), mode: "ESPECES", numeroRecu, note: "Versement partiel au départ" } });
+      await recalculerImputation(tx, amrani.id);
+    });
+  }
+  const garnierTesla = trouver("GB-303-TS", "Garnier", "TERMINEE");
+  if (garnierTesla) await payer(garnierTesla, "VIREMENT");
+  const robertTesla = trouver("GB-303-TS", "Robert", "TERMINEE", "HEBDOMADAIRE");
+  if (robertTesla) await payer(robertTesla, "CARTE_BANCAIRE");
+  const garnierAVenir = trouver("GB-303-TS", "Garnier", "CONFIRMEE");
+  if (garnierAVenir) await payer(garnierAVenir, "VIREMENT", 1);
+
+  // PV n° 1 : pendant la location d'Amrani → identifié et refacturé
+  if (amrani) {
+    const a = await db.amende.create({
+      data: {
+        vehiculeId: amrani.vehiculeId, infractionLe: jh(-3, 14), lieu: "Lyon 3e, cours Gambetta", montantCentimes: eur(135), numeroAvis: "1234567890",
+        dateReception: j(-1), dateLimite: j(44), statut: "REFACTUREE", contratId: amrani.id, clientId: amrani.clientId, note: "Excès de vitesse (démo)",
+      },
+    });
+    await db.fraisSupplementaire.create({
+      data: { contratId: amrani.id, type: "AMENDE_REFACTUREE", libelle: "PV du " + jh(-3, 14).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }), quantite: 1, prixUnitaireCentimes: eur(135), montantCentimes: eur(135), amendeId: a.id },
+    });
+  }
+  // PV n° 2 : reçu, conducteur à désigner (location de Moreau, terminée)
+  if (moreau) {
+    await db.amende.create({
+      data: {
+        vehiculeId: moreau.vehiculeId, infractionLe: jh(-60, 9), lieu: "Villeurbanne, avenue Henri Barbusse", montantCentimes: eur(35), numeroAvis: "9876543210",
+        dateReception: j(-4), dateLimite: j(41), statut: "RECUE", contratId: moreau.id, clientId: moreau.clientId, note: "Stationnement gênant (démo)",
+      },
+    });
+  }
+
+  // Sinistre : accrochage pendant la location hebdomadaire de Robert (Tesla), franchise refacturée non payée
+  if (robertTesla) {
+    const s = await db.sinistre.create({
+      data: {
+        vehiculeId: robertTesla.vehiculeId, contratId: robertTesla.id, survenuLe: jh(-15, 17), lieu: "Parking Part-Dieu",
+        description: "Accrochage en marche arrière : pare-chocs arrière enfoncé.", coutEstimeCentimes: eur(1200), franchiseRefactureeCentimes: eur(800),
+        declareAssurance: true, numeroDossierAssurance: "SIN-2026-44871", indemniteAssuranceCentimes: eur(400), statut: "EN_REPARATION",
+      },
+    });
+    await db.fraisSupplementaire.create({
+      data: {
+        contratId: robertTesla.id, type: "DOMMAGES", libelle: "Franchise sinistre (accrochage)", quantite: 1,
+        prixUnitaireCentimes: eur(800), montantCentimes: eur(800), note: `sinistre:${s.id}`,
+      },
+    });
+  }
+
+  // Facture de la location mensuelle terminée de Moreau
+  if (moreau) {
+    const lignes = lignesPrixContrat(moreau).map((l, i) => ({ ordre: i, libelle: l.libelle, quantite: 1, prixUnitaireCentimes: l.montant, totalCentimes: l.montant }));
+    await db.$transaction(async (tx) => {
+      const numero = await prochainNumeroAnnuel(tx, "facture", reglages?.prefixeFacture ?? "FAC");
+      await tx.facture.create({
+        data: {
+          numero, type: "LOCATION", dateEmission: j(-30), contratId: moreau.id, clientId: moreau.clientId,
+          destinataireNom: [moreau.client.prenom, moreau.client.nom].filter(Boolean).join(" "),
+          destinataireAdresse: [moreau.client.adresse, [moreau.client.codePostal, moreau.client.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null,
+          totalCentimes: lignes.reduce((a, l) => a + l.totalCentimes, 0), mention: reglages?.mentionFacture ?? null, lignes: { create: lignes },
+        },
+      });
     });
   }
 }

@@ -10,13 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListeInfos } from "@/components/ui/liste-infos";
 import { alertesClient, anneesPleines } from "@/lib/calculs/clients";
+import { imputerPaiements, joursRetardEcheance } from "@/lib/calculs/echeancier";
 import { statutAffiche } from "@/lib/contrat";
 import { db } from "@/lib/db";
-import { formatDate, formatDateHeure, formatEuros } from "@/lib/format";
+import { aujourdhuiISO, dateCalendaireVersISO, formatDate, formatDateHeure, formatEuros } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { lireReglages } from "@/lib/reglages";
 import { nomVehicule } from "@/lib/vehicule";
 import { LIBELLES_CIVILITE, LIBELLES_PIECE, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
+import { LIBELLES_STATUT_AMENDE } from "@/lib/validations/paiement";
+import { totalEncaisse } from "@/server/echeances";
 import { nomClient, obtenirClient } from "@/server/requetes/clients";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -34,10 +37,21 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
   const nom = nomClient(c);
   const modifiable = !c.anonymiseLe;
 
-  // Totaux : montant des locations (hors annulées) et paiements encaissés (Phase 6)
+  // Totaux : locations + frais (hors annulées), encaissements, reste à payer, échéances en retard
   const contratsFactures = c.contrats.filter((x) => x.statut !== "ANNULEE");
-  const totalLocations = contratsFactures.reduce((a, x) => a + x.prixTotalCentimes, 0);
-  const totalPaye = c.contrats.flatMap((x) => x.paiements).reduce((a, p) => a + (p.nature === "REMBOURSEMENT" ? -p.montantCentimes : p.montantCentimes), 0);
+  const totalLocations = contratsFactures.reduce((a, x) => a + x.prixTotalCentimes + x.fraisSupplementaires.reduce((b, f) => b + f.montantCentimes, 0), 0);
+  const totalPaye = totalEncaisse(c.contrats.flatMap((x) => x.paiements));
+  const resteAPayer = totalLocations - totalPaye;
+  const aujISO = aujourdhuiISO();
+  let enRetard = 0;
+  for (const x of contratsFactures) {
+    if (x.statut === "RESERVATION") continue;
+    const imp = imputerPaiements(x.echeances, x.paiements.filter((p) => p.nature === "LOCATION"));
+    for (const e of x.echeances) {
+      const i = imp.echeances.find((y) => y.id === e.id)!;
+      if (joursRetardEcheance(dateCalendaireVersISO(e.dateEcheance), i.statut, aujISO) > 0) enRetard += e.montantCentimes - i.payeCentimes;
+    }
+  }
 
   return (
     <>
@@ -96,8 +110,11 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
             <CardHeader>
               <CardTitle>Locations ({c.contrats.length})</CardTitle>
               <CardDescription>
-                Total des locations : {formatEuros(totalLocations)} · encaissé : {formatEuros(totalPaye)} (paiements et impayés en Phase 6)
+                Total facturé : {formatEuros(totalLocations)} · encaissé : {formatEuros(totalPaye)}
+                {resteAPayer > 0 && <> · reste à payer : <strong className="text-foreground">{formatEuros(resteAPayer)}</strong></>}
+                {resteAPayer < 0 && <> · trop-perçu : {formatEuros(-resteAPayer)}</>}
               </CardDescription>
+              {enRetard > 0 && <p className="text-sm font-medium text-destructive">Impayés en retard : {formatEuros(enRetard)}</p>}
             </CardHeader>
             <CardContent>
               {c.contrats.length === 0 && c.conduitesAdditionnelles.length === 0 ? (
@@ -141,6 +158,29 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
           </Card>
         </div>
         <div className="flex flex-col gap-4">
+          {c.amendes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>PV ({c.amendes.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="divide-y">
+                  {c.amendes.map((a) => (
+                    <li key={a.id}>
+                      <Link href={`/location/amendes/${a.id}`} className="flex items-center gap-3 py-2 text-sm hover:bg-muted/50">
+                        <span className="min-w-0 flex-1">
+                          {formatDateHeure(a.infractionLe)}
+                          {a.contrat && <span className="text-muted-foreground"> · {a.contrat.numero}</span>}
+                          <span className="block text-xs text-muted-foreground">{LIBELLES_STATUT_AMENDE[a.statut]}</span>
+                        </span>
+                        <span className="font-semibold tabular-nums">{formatEuros(a.montantCentimes)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           {!c.anonymiseLe && <DocumentsClient clientId={c.id} documents={c.fichiers} modifiable={modifiable} />}
         </div>
       </div>

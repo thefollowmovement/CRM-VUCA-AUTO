@@ -9,8 +9,8 @@
 | 2 | Véhicules : CRUD, photos, documents, financement, statuts | ✅ Validée le 19/10/2026 |
 | 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | ✅ Validée le 19/10/2026 |
 | 4 | Location : clients, contrats, disponibilités, planning, tarification | ✅ Validée le 19/10/2026 |
-| 5 | État des lieux mobile, comparaison retour, frais, caution | 🟡 Livrée — en attente de validation |
-| 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ⚪ À faire |
+| 5 | État des lieux mobile, comparaison retour, frais, caution | ✅ Validée le 19/10/2026 |
+| 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | 🟡 Livrée — en attente de validation |
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ⚪ À faire |
 | 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ⚪ À faire |
 
@@ -79,6 +79,21 @@
 - Démo : états des lieux des locations en cours et terminées, un retour avec nouveau dommage, frais et caution retenue en partie.
 - Tests : 98 tests unitaires (dont la comparaison départ / retour) ; parcours complet dans Chromium (34 vérifications : départ au téléphone, retour au bureau, dommages, frais, caution) ; non-régression Phases 3 et 4.
 
+## Phase 6 — livré
+
+- **Échéancier automatique** à la création / modification / prolongation d'un contrat : mensuel = un loyer par mois (1er au départ, les suivants au jour d'échéance choisi qui suit le début de la période, dernier mois au prorata), courte durée = acompte + solde ou une seule échéance. Statuts À venir / Partielle / Payée ; « En retard » calculé (date dépassée, non soldée) avec le nombre de jours.
+- **Paiements** : encaissement depuis la fiche contrat (montant proposé = reste de la prochaine échéance, sinon frais restants, sinon remboursement d'un trop-perçu), paiements partiels imputés sur l'échéance la plus ancienne, **reçu numéroté** `REC-AAAA-0001` (PDF A5), suppression réservée à l'admin. Journal des paiements filtrable (période, mode) avec totaux ; « + » → Paiement.
+- **Impayés** : échéances en retard (jours de retard, appel, encaisser) et locations terminées non soldées ; section « Échéances impayées » dans la vue Aujourd'hui ; fiche client : total facturé, encaissé, reste à payer, impayés en retard, PV.
+- **Prolongation** d'une location réservée ou en cours : contrôle de disponibilité, prix recalculé (même tarif, options plafonnées), échéancier complété.
+- **PV** : saisie (véhicule + date/heure) → **conducteur retrouvé automatiquement** (location en cours à ce moment-là) avec ses informations pour la désignation ANTAI, avis scanné, statuts Reçu / Conducteur désigné / Payé / Refacturé, **refacturation** en un clic (frais ajouté à la location).
+- **Sinistres** : déclaration (location du moment proposée), coût estimé, franchise **refacturée** en un clic, assurance (n° de dossier, indemnité = revenu du véhicule), photos et documents, statuts ; liste dans l'onglet Location et dans l'onglet Dommages du véhicule.
+- **Factures** `FAC-AAAA-0001` : location (prix + frais) et vente de véhicule, destinataire figé, mention sans TVA des réglages ; une facture émise n'est jamais modifiée : annulation avec motif (elle reste visible) puis nouvelle facture. Une seule facture active par location / vente (garanti en base). Vente impossible à annuler tant que sa facture est active.
+- **PDF** (générés sur le serveur, logo de la société) : contrat de location (conditions, prix, CGV, signatures du départ), états des lieux départ / retour (relevés, check-list, dommages, photos, signatures), clôture (frais, caution, solde), reçus, factures. Boutons « Ouvrir » et « Partager » (feuille de partage du téléphone, sinon téléchargement).
+- Recherche globale : factures, reçus, n° d'avis de PV.
+- Mise à jour du serveur : l'échéancier des locations déjà saisies est créé automatiquement (une fois).
+- Démo : paiements et reçus, un impayé (versement partiel), une franchise non payée, 2 PV (un refacturé, un reçu), un sinistre avec indemnité, une facture.
+- Tests : 105 tests unitaires (dont échéancier et imputation) ; parcours complet dans Chromium (47 vérifications : encaissement + reçu, prolongation, factures émises / annulées, PV identifié + refacturé, sinistre + franchise + photo, facture de vente, 8 PDF, recherche, iPhone sans débordement) ; non-régression Phases 3, 4 et 5.
+
 ## Déploiement VPS (19/10/2026)
 
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
@@ -132,6 +147,11 @@
   - Les frais des nouveaux dommages sont proposés à 0 € : à chiffrer (devis, franchise…).
   - Caution retenue = paiement « caution retenue » (revenu du véhicule) ; la saisie des autres paiements et le PDF de l'état des lieux arrivent en Phase 6.
   - Les montants affichent toujours l'espace des milliers (« 1 000,00 € ») côté navigateur comme côté serveur.
+- Phase 6 :
+  - Un reçu pour tout argent reçu (loyer, frais, caution retenue exclue) ; pas de reçu pour un remboursement.
+  - Les frais supplémentaires (retour, PV, franchise) ne créent pas d'échéance : ils entrent dans le « reste à payer » et dans les locations terminées non soldées.
+  - Loyer mensuel dû au jour d'échéance choisi qui suit le début de la période (ex. le 5 : période du 29/10 → due le 05/11), le 1er loyer au départ.
+  - PDF en police Helvetica intégrée (pas de police à télécharger).
 
 ## Questions ouvertes
 

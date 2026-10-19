@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CircleCheck, Ellipsis, LoaderCircle, Pencil, Trash, X } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarPlus, CircleCheck, Ellipsis, LoaderCircle, Pencil, Trash, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,13 +12,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { MenuDeroulant, MenuDeroulantContenu, MenuDeroulantDeclencheur, MenuDeroulantElement } from "@/components/ui/menu-deroulant";
 import { Textarea } from "@/components/ui/textarea";
 import type { StatutContrat } from "@/generated/prisma/enums";
+import { Input } from "@/components/ui/input";
 import { schemaAnnulation } from "@/lib/validations/location";
+import { schemaProlongation } from "@/lib/validations/paiement";
+import { prolongerContrat } from "@/server/actions/paiements";
 import { annulerContrat, archiverContrat, confirmerContrat, restaurerContrat, supprimerContrat } from "@/server/actions/contrats";
 
-export function ActionsContrat({ id, numero, statut, archive, estAdmin }: { id: string; numero: string; statut: StatutContrat; archive: boolean; estAdmin: boolean }) {
+export function ActionsContrat({ id, numero, statut, archive, estAdmin, retourPrevu }: { id: string; numero: string; statut: StatutContrat; archive: boolean; estAdmin: boolean; retourPrevu: string }) {
   const router = useRouter();
   const [annulation, setAnnulation] = useState(false);
   const [suppression, setSuppression] = useState(false);
+  const [prolongation, setProlongation] = useState(false);
   const reserve = statut === "RESERVATION" || statut === "CONFIRMEE";
   const clos = statut === "TERMINEE" || statut === "ANNULEE";
 
@@ -38,6 +42,11 @@ export function ActionsContrat({ id, numero, statut, archive, estAdmin }: { id: 
           <Link href={`/location/contrats/${id}/modifier`}>
             <Pencil /> Modifier
           </Link>
+        </Button>
+      )}
+      {(reserve || statut === "EN_COURS") && !archive && (
+        <Button variant="outline" onClick={() => setProlongation(true)}>
+          <CalendarPlus /> Prolonger
         </Button>
       )}
       {archive && (
@@ -82,6 +91,7 @@ export function ActionsContrat({ id, numero, statut, archive, estAdmin }: { id: 
       )}
 
       {annulation && <DialogueAnnulation id={id} numero={numero} onFermer={() => setAnnulation(false)} />}
+      {prolongation && <DialogueProlongation id={id} retourPrevu={retourPrevu} onFermer={() => setProlongation(false)} />}
       <Dialog open={suppression} onOpenChange={setSuppression}>
         <DialogContent>
           <DialogHeader>
@@ -144,6 +154,50 @@ function DialogueAnnulation({ id, numero, onFermer }: { id: string; numero: stri
             <Button type="submit" variant="destructive" disabled={isSubmitting}>
               {isSubmitting && <LoaderCircle className="animate-spin" />}
               Annuler la location
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DialogueProlongation({ id, retourPrevu, onFermer }: { id: string; retourPrevu: string; onFermer: () => void }) {
+  const router = useRouter();
+  const {
+    register,
+    handleSubmit,
+    getValues,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useFormulaire(schemaProlongation, { retourPrevuLe: retourPrevu });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onFermer()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Prolonger la location</DialogTitle>
+          <DialogDescription>Le prix et l&apos;échéancier sont recalculés avec le même tarif. Le véhicule doit être libre sur la nouvelle période.</DialogDescription>
+        </DialogHeader>
+        <form
+          noValidate
+          onSubmit={handleSubmit(async () => {
+            if (traiterResultat(await prolongerContrat(id, getValues()), setError)) {
+              onFermer();
+              router.refresh();
+            }
+          })}
+          className="flex flex-col gap-4"
+        >
+          <Champ label="Nouvelle date de retour" htmlFor="nouveauRetour" erreur={errors.retourPrevuLe?.message} obligatoire>
+            <Input id="nouveauRetour" type="datetime-local" {...register("retourPrevuLe")} />
+          </Champ>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onFermer}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <LoaderCircle className="animate-spin" />}
+              Prolonger
             </Button>
           </DialogFooter>
         </form>

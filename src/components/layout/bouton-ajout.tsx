@@ -18,7 +18,7 @@ const RACCOURCIS: Raccourci[] = [
   { libelle: "Véhicule", href: "/vehicules/nouveau", icone: Car, disponible: true, phase: 2 },
   { libelle: "Dépense", href: "/depenses/nouvelle", icone: Receipt, disponible: true, phase: 3 },
   { libelle: "Location", href: "/location/contrats/nouveau", icone: KeyRound, disponible: true, phase: 4 },
-  { libelle: "Paiement", href: "/location/paiements/nouveau", icone: HandCoins, disponible: false, phase: 6 },
+  { libelle: "Paiement", href: "/location/paiements/nouveau", icone: HandCoins, disponible: true, phase: 6 },
 ];
 
 /** Bouton flottant « + » : ajout rapide depuis n'importe quel écran. */

@@ -52,8 +52,14 @@ export async function obtenirClient(id: string) {
         select: {
           id: true, numero: true, statut: true, type: true, departPrevuLe: true, retourPrevuLe: true, retourReelLe: true, prixTotalCentimes: true, archiveLe: true,
           vehicule: { select: { id: true, marque: true, modele: true, version: true, immatriculation: true } },
-          paiements: { select: { montantCentimes: true, nature: true } },
+          paiements: { orderBy: [{ date: "asc" }, { creeLe: "asc" }], select: { id: true, montantCentimes: true, nature: true } },
+          fraisSupplementaires: { select: { montantCentimes: true } },
+          echeances: { where: { statut: { not: "ANNULEE" } }, orderBy: { numero: "asc" }, select: { id: true, montantCentimes: true, dateEcheance: true } },
         },
+      },
+      amendes: {
+        orderBy: { infractionLe: "desc" },
+        select: { id: true, infractionLe: true, montantCentimes: true, statut: true, contrat: { select: { numero: true } } },
       },
       conduitesAdditionnelles: {
         select: { contrat: { select: { id: true, numero: true, statut: true, departPrevuLe: true, retourPrevuLe: true, vehicule: { select: { marque: true, modele: true, immatriculation: true } } } } },

@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncadreAlertes } from "@/components/clients/alertes-client";
+import { BoutonPdf } from "@/components/documents/bouton-pdf";
+import { Factures } from "@/components/documents/factures";
 import { ActionsContrat } from "@/components/location/actions-contrat";
+import { Echeancier } from "@/components/paiements/echeancier";
+import { PaiementsContrat } from "@/components/paiements/paiements-contrat";
 import { FraisContrat } from "@/components/location/frais-contrat";
 import { SectionEtatsDesLieux } from "@/components/location/section-etats-des-lieux";
 import { BadgeContrat } from "@/components/location/badge-contrat";
@@ -15,13 +19,17 @@ import { VignetteVehicule } from "@/components/vehicules/vignette-vehicule";
 import { alertesClient } from "@/lib/calculs/clients";
 import { joursFactures, kmInclusTotal } from "@/lib/calculs/location";
 import { statutAffiche } from "@/lib/contrat";
+import { dateVersSaisieParis } from "@/lib/dates";
 import { db } from "@/lib/db";
-import { formatDate, formatDateHeure, formatEuros, formatNombre } from "@/lib/format";
+import { aujourdhuiISO, formatDate, formatDateHeure, formatEuros, formatNombre } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { lireReglages } from "@/lib/reglages";
 import { nomVehicule } from "@/lib/vehicule";
 import { LIBELLES_STATUT_CAUTION } from "@/lib/validations/etat-des-lieux";
 import { LIBELLES_MODE_CAUTION, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
+import { imputerPaiements } from "@/lib/calculs/echeancier";
+import { LIBELLES_STATUT_AMENDE, LIBELLES_STATUT_SINISTRE } from "@/lib/validations/paiement";
+import { totalEncaisse } from "@/server/echeances";
 import { obtenirContrat } from "@/server/requetes/contrats";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -30,9 +38,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 
-export default async function PageContrat({ params }: { params: Promise<{ id: string }> }) {
+export default async function PageContrat({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ encaisser?: string }> }) {
   const u = await exigerRolePage(ROLES_GESTION);
-  const { id } = await params;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const [c, reglages] = await Promise.all([obtenirContrat(id), lireReglages()]);
   if (!c) notFound();
   const statut = statutAffiche(c.statut, c.retourPrevuLe);
@@ -43,7 +51,17 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
   const totalOptions = c.options.reduce((a, o) => a + o.totalCentimes, 0);
   const base = c.prixTotalCentimes + c.remiseCentimes - totalOptions - c.fraisLivraisonCentimes;
   const totalFrais = c.fraisSupplementaires.reduce((a, f) => a + f.montantCentimes, 0);
-  const encaisse = c.paiements.reduce((a, p) => a + (p.nature === "REMBOURSEMENT" ? -p.montantCentimes : p.montantCentimes), 0);
+  const encaisse = totalEncaisse(c.paiements);
+  // Montant proposé à l'encaissement : prochaine échéance non soldée, sinon le reste (frais) ou un remboursement
+  const paiementsLoyer = c.paiements.filter((p) => p.nature === "LOCATION");
+  const imputation = imputerPaiements(c.echeances.filter((e) => e.statut !== "ANNULEE"), paiementsLoyer);
+  const prochaine = c.echeances.find((e) => imputation.echeances.find((x) => x.id === e.id && x.statut !== "PAYEE"));
+  const reste = c.prixTotalCentimes + totalFrais - encaisse;
+  const proposition: { montantCentimes: number; nature: "LOCATION" | "FRAIS" | "REMBOURSEMENT" } = prochaine
+    ? { montantCentimes: prochaine.montantCentimes - (imputation.echeances.find((x) => x.id === prochaine.id)?.payeCentimes ?? 0), nature: "LOCATION" }
+    : reste < 0
+      ? { montantCentimes: -reste, nature: "REMBOURSEMENT" }
+      : { montantCentimes: reste, nature: "FRAIS" };
 
   return (
     <>
@@ -60,7 +78,7 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
             Location {LIBELLES_TYPE_LOCATION[c.type].toLowerCase()} · créée le {formatDate(c.creeLe)}
           </p>
         </div>
-        <ActionsContrat id={c.id} numero={c.numero} statut={c.statut} archive={!!c.archiveLe} estAdmin={u.role === "ADMIN"} />
+        <ActionsContrat id={c.id} numero={c.numero} statut={c.statut} archive={!!c.archiveLe} estAdmin={u.role === "ADMIN"} retourPrevu={dateVersSaisieParis(c.retourPrevuLe)} />
       </div>
       {c.statut === "ANNULEE" && (
         <p className="mb-4 rounded-lg border bg-muted p-3 text-sm">
@@ -218,9 +236,64 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
                   <dd className="tabular-nums">{formatEuros(c.prixTotalCentimes + totalFrais - encaisse)}</dd>
                 </div>
               </dl>
-              <p className="text-xs text-muted-foreground">La saisie des paiements, l&apos;échéancier et les reçus arrivent en Phase 6.</p>
+              <div className="mt-2 border-t pt-3">
+                <PaiementsContrat
+                  contratId={c.id}
+                  paiements={c.paiements.map((p) => ({ id: p.id, date: p.date, nature: p.nature, mode: p.mode, montantCentimes: p.montantCentimes, numeroRecu: p.numeroRecu, reference: p.reference, echeance: p.echeance?.libelle ?? null }))}
+                  proposition={proposition}
+                  modifiable={!c.archiveLe}
+                  estAdmin={u.role === "ADMIN"}
+                  ouvrir={sp.encaisser === "1"}
+                />
+              </div>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Échéancier</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Echeancier echeances={c.echeances} paiementsLoyer={paiementsLoyer} aujourdhui={aujourdhuiISO()} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <BoutonPdf url={`/api/pdf/contrat/${c.id}`} libelle="Contrat de location" nomFichier={`contrat-${c.numero}.pdf`} />
+              {c.etatsDesLieux.some((e) => e.type === "DEPART" && e.verrouille) && (
+                <BoutonPdf url={`/api/pdf/edl-depart/${c.id}`} libelle="État des lieux de départ" nomFichier={`etat-des-lieux-depart-${c.numero}.pdf`} />
+              )}
+              {c.etatsDesLieux.some((e) => e.type === "RETOUR" && e.verrouille) && (
+                <BoutonPdf url={`/api/pdf/edl-retour/${c.id}`} libelle="État des lieux de retour" nomFichier={`etat-des-lieux-retour-${c.numero}.pdf`} />
+              )}
+              {c.statut === "TERMINEE" && <BoutonPdf url={`/api/pdf/cloture/${c.id}`} libelle="Relevé de clôture" nomFichier={`releve-cloture-${c.numero}.pdf`} />}
+              <div className="mt-2 border-t pt-3">
+                <Factures cible={{ type: "contrat", id: c.id }} factures={c.factures} peutEmettre={c.statut !== "ANNULEE"} />
+              </div>
+            </CardContent>
+          </Card>
+          {(c.amendes.length > 0 || c.sinistres.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>PV et sinistres</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                {c.amendes.map((a) => (
+                  <Link key={a.id} href={`/location/amendes/${a.id}`} className="flex justify-between gap-2 hover:underline">
+                    <span>PV du {formatDateHeure(a.infractionLe)} · {LIBELLES_STATUT_AMENDE[a.statut]}</span>
+                    <span className="tabular-nums">{formatEuros(a.montantCentimes)}</span>
+                  </Link>
+                ))}
+                {c.sinistres.map((x) => (
+                  <Link key={x.id} href={`/location/sinistres/${x.id}`} className="hover:underline">
+                    Sinistre du {formatDate(x.survenuLe)} · {LIBELLES_STATUT_SINISTRE[x.statut]}
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </>

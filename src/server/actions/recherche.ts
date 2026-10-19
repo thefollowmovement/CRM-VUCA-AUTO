@@ -2,6 +2,7 @@
 
 import { LIBELLES_STATUT_CONTRAT, statutAffiche } from "@/lib/contrat";
 import { db } from "@/lib/db";
+import { formatDate, formatEuros } from "@/lib/format";
 import { ROLES_GESTION, utilisateurCourant } from "@/lib/permissions";
 import { LIBELLES_STATUT, nomVehicule } from "@/lib/vehicule";
 
@@ -10,7 +11,7 @@ export type GroupeResultats = { titre: string; resultats: ResultatRecherche[] };
 
 /**
  * Recherche globale. Chaque phase ajoute ses entités :
- * véhicules (Phase 2), clients et contrats (Phase 4)…
+ * véhicules (Phase 2), clients et contrats (Phase 4), factures, reçus et PV (Phase 6)…
  */
 export async function rechercheGlobale(requete: string): Promise<GroupeResultats[]> {
   const u = await utilisateurCourant();
@@ -92,6 +93,57 @@ export async function rechercheGlobale(requete: string): Promise<GroupeResultats
         href: `/location/contrats/${c.id}`,
       })),
     });
+  }
+
+  // Factures (FAC-2026-0001) et reçus (REC-2026-0001)
+  if (/\d/.test(q)) {
+    const [factures, recus, amendes] = await Promise.all([
+      db.facture.findMany({
+        where: { numero: { contains: q, mode: "insensitive" } },
+        take: 6,
+        orderBy: { creeLe: "desc" },
+        select: { id: true, numero: true, totalCentimes: true, destinataireNom: true, annuleeLe: true, contratId: true, vehiculeId: true },
+      }),
+      db.paiement.findMany({
+        where: { numeroRecu: { contains: q, mode: "insensitive" } },
+        take: 6,
+        orderBy: { creeLe: "desc" },
+        select: { id: true, numeroRecu: true, montantCentimes: true, date: true, contratId: true, contrat: { select: { numero: true } } },
+      }),
+      db.amende.findMany({
+        where: { numeroAvis: { contains: compact, mode: "insensitive" } },
+        take: 6,
+        orderBy: { infractionLe: "desc" },
+        select: { id: true, numeroAvis: true, montantCentimes: true, infractionLe: true, vehicule: { select: { immatriculation: true } } },
+      }),
+    ]);
+    if (factures.length || recus.length) {
+      groupes.push({
+        titre: "Factures et reçus",
+        resultats: [
+          ...factures.map((f) => ({
+            libelle: `Facture ${f.numero}`,
+            detail: [f.destinataireNom, formatEuros(f.totalCentimes), f.annuleeLe ? "Annulée" : null].filter(Boolean).join(" · "),
+            href: f.contratId ? `/location/contrats/${f.contratId}` : `/vehicules/${f.vehiculeId}`,
+          })),
+          ...recus.map((r) => ({
+            libelle: `Reçu ${r.numeroRecu}`,
+            detail: [r.contrat.numero, formatDate(r.date), formatEuros(r.montantCentimes)].join(" · "),
+            href: `/location/contrats/${r.contratId}`,
+          })),
+        ],
+      });
+    }
+    if (amendes.length) {
+      groupes.push({
+        titre: "PV",
+        resultats: amendes.map((a) => ({
+          libelle: `PV n° ${a.numeroAvis}`,
+          detail: [formatDate(a.infractionLe), a.vehicule.immatriculation, formatEuros(a.montantCentimes)].filter(Boolean).join(" · "),
+          href: `/location/amendes/${a.id}`,
+        })),
+      });
+    }
   }
 
   const partenaires = await db.partenaire.findMany({

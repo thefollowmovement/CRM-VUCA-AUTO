@@ -504,6 +504,9 @@ export async function annulerVente(vehiculeId: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
     const v = await vehiculeExistant(vehiculeId);
     if (v.statut !== "VENDU") throw new ErreurMetier("Ce véhicule n'est pas vendu.");
+    if (await db.facture.findFirst({ where: { vehiculeId, type: "VENTE_VEHICULE", annuleeLe: null }, select: { id: true } })) {
+      throw new ErreurMetier("Une facture de vente a été émise : annulez-la d'abord (fiche du véhicule, carte Vente).");
+    }
     const vente = await db.historiqueStatutVehicule.findFirst({ where: { vehiculeId, nouveauStatut: "VENDU" }, orderBy: { changeLe: "desc" } });
     const statut = vente?.ancienStatut && !["VENDU", "ARCHIVE"].includes(vente.ancienStatut) ? vente.ancienStatut : "EN_VENTE";
     await db.$transaction(async (tx) => {

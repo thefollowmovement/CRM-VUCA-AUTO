@@ -141,6 +141,16 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Pad de signature maison (`pad-signature.tsx`) : ne réinitialise le canevas que si sa largeur change (le défilement mobile déclenche `resize`) et conserve le dessin.
 - Tests navigateur : centrer le canevas avant de signer (barre fixe du bas) ; les frais de retard dépendent de l'heure du test.
 
+## Paiements, PV, sinistres, PDF (Phase 6)
+
+- Échéancier : `lib/calculs/echeancier.ts` (`genererEcheancier`, `imputerPaiements` FIFO, `joursRetardEcheance`), testé. En base : `server/echeances.ts` (`synchroniserEcheances(tx, contratId)` à appeler après TOUTE modification de prix/dates d'un contrat, `recalculerImputation`, `totalEncaisse`, `prochainNumeroAnnuel(tx, "recu"|"facture", prefixe)` via `Compteur` `recu:AAAA` / `facture:AAAA`). Le seed crée l'échéancier des contrats qui n'en ont pas.
+- Un fichier `"use server"` n'exporte QUE des Server Actions : les helpers qui prennent `tx` vont dans `src/server/*.ts`.
+- Actions : `server/actions/paiements.ts` (encaisser, supprimer, prolonger), `amendes.ts` (`identifierConducteur` via `contratAuMoment`), `sinistres.ts` (franchise : frais DOMMAGES `note = "sinistre:<id>"`), `factures.ts`. Lectures : `server/requetes/paiements.ts` (`journalPaiements`, `impayes`), `amendes-sinistres.ts`.
+- Factures : une seule active par contrat / vente (index uniques partiels) ; lignes de prix via `lib/calculs/lignes-contrat.ts` (pur).
+- PDF : `server/pdf/` (`commun.tsx` styles + `t()` qui nettoie les espaces fines, `documents.tsx`, `generer.ts`), route `/api/pdf/[document]/[id]` (contrat, edl-depart, edl-retour, recu, facture, cloture ; `?telecharger=1`). `@react-pdf/renderer` est dans `serverExternalPackages` ; il ne se charge pas sous `tsx` → tester les PDF via le serveur Next.
+- UI : `components/paiements/`, `components/documents/` (`BoutonPdf`, `Factures`), `components/incidents/`. `?encaisser=1` sur la fiche contrat ouvre l'encaissement.
+- Tests navigateur : `waitForURL` d'une fiche créée → regex sur l'id (`c[a-z0-9]{20,}`), sinon `/nouvelle` correspond aussi.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

@@ -15,6 +15,7 @@ import {
   MENTION_FACTURE_DEFAUT,
   OPTIONS_LOCATION,
 } from "./donnees-base";
+import { synchroniserEcheances } from "../../src/server/echeances";
 import { chargerDemo } from "./demo";
 
 const EMAIL_ADMIN = "admin@vucaauto.fr";
@@ -96,6 +97,16 @@ async function main() {
     await chargerDemo(db);
     console.log("Données de démonstration à jour.");
   }
+
+  // 7. Échéancier des locations créées avant la Phase 6 (une seule fois par contrat)
+  const sansEcheancier = await db.contratLocation.findMany({ where: { echeances: { none: {} } }, select: { id: true, statut: true } });
+  for (const c of sansEcheancier) {
+    await db.$transaction(async (tx) => {
+      await synchroniserEcheances(tx, c.id);
+      if (c.statut === "ANNULEE") await tx.echeance.updateMany({ where: { contratId: c.id }, data: { statut: "ANNULEE" } });
+    });
+  }
+  if (sansEcheancier.length) console.log(`Échéancier créé pour ${sansEcheancier.length} location(s).`);
 
   console.log("Base initialisée.");
 }

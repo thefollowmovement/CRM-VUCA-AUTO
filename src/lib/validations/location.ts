@@ -112,7 +112,7 @@ export type SaisieClient = z.input<typeof schemaClient>;
 // ---------------------------------------------------------------------
 
 /** Date + heure saisies à l'heure de Paris (« 2026-10-20T09:30 ») → Date UTC. */
-const dateHeure = (libelle: string) =>
+export const dateHeure = (libelle: string) =>
   z
     .string()
     .trim()

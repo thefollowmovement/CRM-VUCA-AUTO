@@ -14,6 +14,7 @@ import { lireReglages } from "@/lib/reglages";
 import { erreurValidation } from "@/lib/validations/erreurs";
 import { schemaFrais } from "@/lib/validations/etat-des-lieux";
 import { schemaAnnulation, schemaContrat, type DonneesContrat, type SaisieContrat } from "@/lib/validations/location";
+import { synchroniserEcheances } from "@/server/echeances";
 import { conflits } from "@/server/requetes/contrats";
 
 function rafraichir(contratId?: string, vehiculeId?: string, clientIds: string[] = []) {
@@ -155,6 +156,7 @@ export async function creerContrat(saisie: SaisieContrat) {
           },
         });
         await journaliser({ utilisateurId: u.id, action: "CREATION", entite: "ContratLocation", entiteId: cree.id, apres: { ...cree, options: lignesOptions } }, tx);
+        await synchroniserEcheances(tx, cree.id);
         return cree;
       });
       rafraichir(contrat.id, d.vehiculeId, [d.clientId, ...d.conducteursIds]);
@@ -189,6 +191,7 @@ export async function modifierContrat(id: string, saisie: SaisieContrat) {
           },
         });
         await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "ContratLocation", entiteId: id, avant, apres: { ...apres, options: lignesOptions } }, tx);
+        await synchroniserEcheances(tx, id);
       });
     } catch (e) {
       if (estChevauchement(e)) throw new ErreurMetier("Ce véhicule vient d'être réservé sur ces dates.");
@@ -223,7 +226,10 @@ export async function annulerContrat(id: string, saisie: { motif: string }) {
     if (!lecture.success) return erreurValidation(lecture.error);
     const c = await contratExistant(id);
     if (!["RESERVATION", "CONFIRMEE"].includes(c.statut)) throw new ErreurMetier("Une location en cours ou terminée ne peut pas être annulée.");
-    await db.contratLocation.update({ where: { id }, data: { statut: "ANNULEE", annuleLe: new Date(), motifAnnulation: lecture.data.motif } });
+    await db.$transaction([
+      db.contratLocation.update({ where: { id }, data: { statut: "ANNULEE", annuleLe: new Date(), motifAnnulation: lecture.data.motif } }),
+      db.echeance.updateMany({ where: { contratId: id }, data: { statut: "ANNULEE" } }),
+    ]);
     await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "ContratLocation", entiteId: id, avant: { statut: c.statut }, apres: { statut: "ANNULEE", motif: lecture.data.motif } });
     rafraichir(id, c.vehiculeId, [c.clientId]);
     return { ok: true, message: "Contrat annulé : le véhicule est de nouveau disponible sur ces dates." };
