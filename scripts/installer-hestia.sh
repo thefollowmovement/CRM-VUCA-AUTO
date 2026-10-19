@@ -437,7 +437,7 @@ EOF
 
   echo "→ Création du domaine $DOMAINE dans Hestia…"
   "$VBIN/v-add-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" >>"$JOURNAL" 2>&1 ||
-    { annuler_hestia; arret "Hestia a refusé la création du domaine (rien n'a été laissé dans Hestia)."; }
+    { tail -n 8 "$JOURNAL"; annuler_hestia; arret "Hestia a refusé la création du domaine (message ci-dessus ; rien n'a été laissé dans Hestia)."; }
   # Hestia ajoute un alias « www. » par défaut : inutile ici.
   "$VBIN/v-delete-web-domain-alias" "$UTILISATEUR_HESTIA" "$DOMAINE" "www.$DOMAINE" no >/dev/null 2>&1 || true
 
@@ -449,6 +449,7 @@ EOF
   if [[ -n "${CHANGEMENT_KO:-}" ]] || ! nginx -t >/dev/null 2>&1; then
     annuler_hestia
     nginx -t >/dev/null 2>&1 && systemctl reload nginx
+    tail -n 8 "$JOURNAL"
     arret "le modèle nginx n'a pas pu être appliqué : le domaine et le modèle ont été retirés."
   fi
 
