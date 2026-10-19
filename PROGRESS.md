@@ -30,6 +30,13 @@
 - README débutant Mac, `.env.example` commenté.
 - Tests : 21 tests unitaires (formats € / dates / IBAN). Parcours complet testé dans Chromium (ordinateur + iPhone, 3 rôles) et lancement Docker testé de bout en bout.
 
+## Déploiement VPS (19/10/2026)
+
+- `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
+- Domaine temporaire : `crm-vuca.<ip>.sslip.io`, SSL Let's Encrypt.
+- Testé dans le bac à sable : 5 cas (ports libres, Traefik, nginx avec retour arrière, logiciel inconnu, mise à jour) ; routage HTTPS via Traefik vérifié de bout en bout.
+- Pas encore lancé sur le VPS réel : Claude n'a pas d'accès SSH depuis son environnement ; l'utilisateur lance la commande dans le terminal web de Hostinger.
+
 ## Décisions prises
 
 - Phase 0 : les 10 recommandations acceptées (voir `docs/PHASE0_PROPOSITION.md` §5) :

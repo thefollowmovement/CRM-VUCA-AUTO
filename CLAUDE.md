@@ -124,6 +124,12 @@ npm run db:seed -- --demo     # seed (idempotent) + démo
 docker compose up -d          # lancement complet (app + Postgres)
 ```
 
+### Déploiement VPS
+- `scripts/installer-vps.sh` (root, Ubuntu/Debian) : projet Compose `vuca-crm` dans `/opt/vuca-crm`, état dans `/opt/vuca-crm/.installation` (MODE caddy|traefik|nginx, DOMAINE, APP_PORT, BRANCHE). L'appli n'écoute que sur `127.0.0.1:APP_PORT` (`APP_ADRESSE`).
+- Règle d'or : ne jamais modifier un fichier existant du serveur de l'utilisateur (d'autres projets y tournent) ; s'arrêter si la configuration n'est pas reconnue.
+- Traefik : Docker 29 exige Traefik ≥ 3.6 (API Docker minimale 1.44).
+- Claude n'a pas d'accès SSH sortant depuis l'environnement cloud : l'utilisateur lance le script via le terminal web Hostinger et renvoie la sortie.
+
 ### Notes pour l'environnement cloud de Claude
 - PostgreSQL 16 local : `service postgresql start` ; utilisateur `vuca` / `vuca`, base `vuca_crm`.
 - Prisma **refuse `migrate reset` lancé par un agent IA** sans consentement explicite de l'utilisateur : ne pas contourner. Pour tester sur une base vierge, créer une NOUVELLE base (`createdb`) + `prisma migrate deploy` + seed.

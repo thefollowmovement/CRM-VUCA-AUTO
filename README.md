@@ -118,11 +118,51 @@ En attendant, vos données sont conservées dans deux volumes Docker (`donnees_p
 
 ---
 
-## 5. Déploiement sur un serveur
+## 5. Installation sur un serveur (VPS Hostinger ou autre)
 
-Procédure détaillée en **Phase 8**. Principe : un petit serveur Linux (VPS, ≈ 5–10 €/mois) avec Docker, les mêmes commandes qu'en section 1, un nom de domaine et un certificat HTTPS. Dans `.env`, `AUTH_URL` doit alors contenir l'adresse publique (ex. `https://crm.vucaauto.fr`).
+Le script `scripts/installer-vps.sh` installe l'application sur un VPS **qui héberge déjà d'autres projets**, sans les toucher :
 
----
+1. il **analyse** le serveur sans rien modifier (Docker, ports 80/443, proxy déjà en place) ;
+2. il **affiche ce qu'il va faire** et attend que vous tapiez `oui` ;
+3. il n'ajoute que ses propres éléments : dossier `/opt/vuca-crm`, conteneurs et volumes `vuca-crm-…`, et au besoin **un seul** nouveau fichier nginx ;
+4. il **s'arrête** si la configuration du serveur n'est pas reconnue.
+
+Selon ce qu'il trouve :
+
+| Sur le serveur | Ce que fait le script |
+|---|---|
+| Ports 80/443 libres | démarre un petit proxy Caddy qui gère le HTTPS automatiquement |
+| Traefik dans Docker (ex. modèle n8n, Coolify) | branche l'application sur ce Traefik, sans modifier sa configuration |
+| nginx installé | ajoute un fichier `vuca-crm.conf`, vérifie (`nginx -t`), recharge, puis obtient le certificat avec certbot |
+| Autre chose | s'arrête et n'installe rien |
+
+**Domaine temporaire** : `crm-vuca.<votre-ip-avec-tirets>.sslip.io` (service gratuit qui pointe automatiquement vers l'IP du serveur), avec un vrai certificat SSL Let's Encrypt.
+
+### Lancer l'installation
+
+1. hPanel Hostinger → **VPS** → **Gérer** → bouton **Terminal du navigateur** (vous êtes connecté en `root`).
+2. Copiez-collez cette ligne, puis `Entrée` :
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/thefollowmovement/CRM-VUCA-AUTO/claude/zealous-euler-5gd2q0/scripts/installer-vps.sh -o installer-vps.sh && BRANCHE=claude/zealous-euler-5gd2q0 bash installer-vps.sh
+   ```
+
+3. Lisez le résumé, tapez `oui`. Comptez 5 à 10 minutes.
+4. À la fin s'affichent l'adresse `https://…sslip.io` et le mot de passe administrateur : **notez-le**.
+
+Pour seulement voir ce que le script ferait : ajoutez `--simulation` à la fin de la commande.
+
+### Mettre à jour plus tard
+
+```bash
+bash /opt/vuca-crm/scripts/installer-vps.sh
+```
+
+Les données sont conservées ; seuls les conteneurs `vuca-crm` sont reconstruits.
+
+### Passer à un vrai nom de domaine
+
+Faites pointer le domaine (enregistrement A) vers l'IP du serveur, puis contactez Claude : il faudra ajuster `AUTH_URL` dans `/opt/vuca-crm/.env` et la configuration du proxy.
 
 ## 6. Pour les développeurs
 
