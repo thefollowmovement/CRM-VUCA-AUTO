@@ -12,6 +12,7 @@ import { journaliser } from "@/lib/journal";
 import { avecDroits, ErreurMetier, ROLES_ADMIN, ROLES_GESTION } from "@/lib/permissions";
 import { lireReglages } from "@/lib/reglages";
 import { erreurValidation } from "@/lib/validations/erreurs";
+import { schemaFrais } from "@/lib/validations/etat-des-lieux";
 import { schemaAnnulation, schemaContrat, type DonneesContrat, type SaisieContrat } from "@/lib/validations/location";
 import { conflits } from "@/server/requetes/contrats";
 
@@ -281,5 +282,37 @@ export async function disponibilites(departSaisie: string, retourSaisie: string,
       ok: true,
       donnees: c.map((x) => ({ vehiculeId: x.vehiculeId, conflit: `${x.numero} · ${nom(x.client)} · du ${formatDateHeure(x.departPrevuLe)} au ${formatDateHeure(x.retourPrevuLe)}` })),
     };
+  });
+}
+
+// ---------------------------------------------------------------------
+//  Frais supplémentaires (ajout / retrait manuel, ex. amende refacturée)
+// ---------------------------------------------------------------------
+
+export async function ajouterFrais(contratId: string, saisie: { type: string; libelle: string; quantite: string; prixUnitaire: string }) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const lecture = schemaFrais.safeParse(saisie);
+    if (!lecture.success) return erreurValidation(lecture.error);
+    const d = lecture.data;
+    const c = await contratExistant(contratId);
+    if (c.statut === "ANNULEE") throw new ErreurMetier("Ce contrat est annulé.");
+    const f = await db.fraisSupplementaire.create({
+      data: { contratId, type: d.type, libelle: d.libelle, quantite: d.quantite, prixUnitaireCentimes: d.prixUnitaire, montantCentimes: d.quantite * d.prixUnitaire },
+    });
+    await journaliser({ utilisateurId: u.id, action: "CREATION", entite: "FraisSupplementaire", entiteId: f.id, apres: f });
+    rafraichir(contratId, c.vehiculeId);
+    return { ok: true, message: "Frais ajouté." };
+  });
+}
+
+export async function supprimerFrais(id: string) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const f = await db.fraisSupplementaire.findUnique({ where: { id }, include: { contrat: { select: { vehiculeId: true, _count: { select: { factures: true } } } } } });
+    if (!f) throw new ErreurMetier("Frais introuvable.");
+    if (f.contrat._count.factures > 0) throw new ErreurMetier("Ce contrat a déjà été facturé : annulez la facture d'abord.");
+    await db.fraisSupplementaire.delete({ where: { id } });
+    await journaliser({ utilisateurId: u.id, action: "SUPPRESSION", entite: "FraisSupplementaire", entiteId: id, avant: f });
+    rafraichir(f.contratId, f.contrat.vehiculeId);
+    return { ok: true, message: "Frais retiré." };
   });
 }

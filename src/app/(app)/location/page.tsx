@@ -37,7 +37,9 @@ function Section({
   vide,
   aujourdhui,
   demain,
+  action,
 }: {
+  action?: { libelle: string; chemin: "depart" | "retour" };
   titre: string;
   icone: LucideIcon;
   classe: string;
@@ -74,6 +76,11 @@ function Section({
                     <BadgeContrat statut={statutAffiche(l.statut, l.retourPrevuLe)} />
                   </span>
                 </Link>
+                {action && (
+                  <Button size="sm" asChild>
+                    <Link href={`/location/contrats/${l.id}/${action.chemin}`}>{action.libelle}</Link>
+                  </Button>
+                )}
                 {l.client.telephone && (
                   <Button variant="outline" size="icon" asChild aria-label={`Appeler ${l.client.nom}`}>
                     <a href={`tel:${l.client.telephone.replace(/\s/g, "")}`}>
@@ -111,11 +118,11 @@ export default async function PageAujourdhui() {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         {v.retards.length > 0 && (
           <div className="lg:col-span-2">
-            <Section titre="En retard" icone={Siren} classe="text-destructive" lignes={v.retards} date={(l) => l.retourPrevuLe} vide="" {...commun} />
+            <Section titre="En retard" icone={Siren} classe="text-destructive" lignes={v.retards} date={(l) => l.retourPrevuLe} vide="" action={{ libelle: "Retour", chemin: "retour" }} {...commun} />
           </div>
         )}
-        <Section titre="Départs" icone={ArrowUpFromLine} classe="text-blue-600" lignes={v.departs} date={(l) => l.departPrevuLe} vide="Aucun départ prévu aujourd'hui ni demain." {...commun} />
-        <Section titre="Retours" icone={ArrowDownToLine} classe="text-emerald-600" lignes={v.retours} date={(l) => l.retourPrevuLe} vide="Aucun retour prévu aujourd'hui ni demain." {...commun} />
+        <Section titre="Départs" icone={ArrowUpFromLine} classe="text-blue-600" lignes={v.departs} date={(l) => l.departPrevuLe} vide="Aucun départ prévu aujourd'hui ni demain." action={{ libelle: "Départ", chemin: "depart" }} {...commun} />
+        <Section titre="Retours" icone={ArrowDownToLine} classe="text-emerald-600" lignes={v.retours} date={(l) => l.retourPrevuLe} vide="Aucun retour prévu aujourd'hui ni demain." action={{ libelle: "Retour", chemin: "retour" }} {...commun} />
         <div className="lg:col-span-2">
           <Section
             titre="Réservations à confirmer (7 jours)"

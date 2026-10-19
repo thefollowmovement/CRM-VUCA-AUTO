@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChampMontant } from "@/components/formulaires/champ-montant";
 import { Champ } from "@/components/formulaires/champ";
 import { traiterResultat } from "@/components/formulaires/soumission";
 import { useFormulaire } from "@/components/formulaires/use-formulaire";
@@ -82,6 +83,22 @@ export function FormulaireAlertes({ valeurs }: { valeurs: SaisieAlertes }) {
             aide="Entre 1 et 28."
           >
             <Input id="jourEcheanceMensuelleDefaut" type="number" inputMode="numeric" {...register("jourEcheanceMensuelleDefaut")} />
+          </Champ>
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-2 font-semibold">Frais proposés au retour</legend>
+        <p className="-mt-2 text-sm text-muted-foreground">L&apos;application les propose après la comparaison départ / retour ; vous les validez ou les modifiez.</p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Champ label="Nettoyage (véhicule rendu sale)" htmlFor="fraisNettoyageCentimes" erreur={errors.fraisNettoyageCentimes?.message}>
+            <ChampMontant id="fraisNettoyageCentimes" {...register("fraisNettoyageCentimes")} />
+          </Champ>
+          <Champ label="Carburant : par 1/8 de réservoir manquant" htmlFor="prixHuitiemeCarburantCentimes" erreur={errors.prixHuitiemeCarburantCentimes?.message}>
+            <ChampMontant id="prixHuitiemeCarburantCentimes" {...register("prixHuitiemeCarburantCentimes")} />
+          </Champ>
+          <Champ label="Électrique : par % de batterie manquant" htmlFor="prixPourcentBatterieCentimes" erreur={errors.prixPourcentBatterieCentimes?.message}>
+            <ChampMontant id="prixPourcentBatterieCentimes" {...register("prixPourcentBatterieCentimes")} />
           </Champ>
         </div>
       </fieldset>

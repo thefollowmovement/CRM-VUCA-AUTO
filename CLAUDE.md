@@ -132,6 +132,15 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Anti-chevauchement : contrainte `Contrat_sans_chevauchement` (EXCLUDE gist sur `tsrange(departPrevuLe, retourPrevuLe)`, statuts actifs, non archivés). `btree_gist` est une extension de confiance : le propriétaire de la base l'installe sans superutilisateur (rien à faire dans les scripts d'installation).
 - Piège React : deux boutons à la même place dans un assistant (« Suivant » / « Créer ») → leur donner des `key` différentes, sinon le clic sur « Suivant » soumet le formulaire.
 
+## États des lieux (Phase 5)
+
+- Comparaison départ / retour + frais proposés : `lib/calculs/etat-des-lieux.ts` (`comparerEtatsDesLieux`, `montantRetenu`), testée.
+- Schéma du véhicule : données `lib/schema-vehicule.ts` (vues, zones SVG, libellés ; vu de face, la gauche du véhicule est à droite de l'écran), composant `components/etat-des-lieux/schema-vehicule.tsx`.
+- Brouillon : `brouillonEtatDesLieux()` (`server/requetes/etats-des-lieux.ts`) crée l'EDL non verrouillé à l'ouverture de l'assistant ; photos (`envoyerPhotoEdl`) et dommages (`ajouterDommage`) y sont rattachés tout de suite ; `validerEtatDesLieux(edlId, saisie, FormData signatures)` contrôle photos obligatoires + signatures puis verrouille et fait les transitions (contrat, véhicule, caution, frais).
+- Photos obligatoires : `CATEGORIES_PHOTOS_OBLIGATOIRES` (compteur + 6 vues). Signatures = `Fichier` SIGNATURE (PNG non recompressé) rattaché à l'EDL.
+- Pad de signature maison (`pad-signature.tsx`) : ne réinitialise le canevas que si sa largeur change (le défilement mobile déclenche `resize`) et conserve le dessin.
+- Tests navigateur : centrer le canevas avant de signer (barre fixe du bas) ; les frais de retard dépendent de l'heure du test.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

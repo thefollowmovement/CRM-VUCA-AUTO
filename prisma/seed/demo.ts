@@ -36,6 +36,7 @@ export async function chargerDemo(db: PrismaClient) {
   await uneFois(db, "demo:vehicules", () => chargerVehiculesDemo(db));
   await uneFois(db, "demo:depenses", () => chargerDepensesDemo(db));
   await uneFois(db, "demo:location", () => chargerLocationDemo(db));
+  await uneFois(db, "demo:etats-des-lieux", () => chargerEtatsDesLieuxDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -490,6 +491,110 @@ async function chargerLocationDemo(db: PrismaClient) {
         annuleLe: d.statut === "ANNULEE" ? j(-2) : null, motifAnnulation: d.motifAnnulation ?? null,
         options: { create: opts.map((o, i) => ({ optionId: o.id, libelle: o.libelle, modeTarif: o.modeTarif, prixCentimes: o.prixCentimes, quantite: 1, totalCentimes: prix.totalOptions[i] ?? 0 })) },
       },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  États des lieux, dommages, frais (Phase 5)
+// ---------------------------------------------------------------------
+
+/** Écrit une image de démo dans le stockage et crée la ligne Fichier. */
+async function fichierDemo(db: PrismaClient, contenu: Buffer, data: Omit<Prisma.FichierUncheckedCreateInput, "cleStockage" | "nomOriginal" | "typeMime" | "tailleOctets">, png = false) {
+  const racine = path.resolve(process.env.STORAGE_DIR ?? "./storage");
+  const cle = `demo/${randomUUID()}.${png ? "png" : "jpg"}`;
+  await mkdir(path.join(racine, "demo"), { recursive: true });
+  await writeFile(path.join(racine, cle), contenu);
+  return db.fichier.create({ data: { ...data, cleStockage: cle, nomOriginal: png ? "signature.png" : "photo.jpg", typeMime: png ? "image/png" : "image/jpeg", tailleOctets: contenu.length } });
+}
+
+/** Photo de démo : fond coloré + libellé (compteur, vues du véhicule…). */
+async function photoDemo(libelle: string, couleur: string): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720"><rect width="960" height="720" fill="${couleur}"/>
+  <text x="480" y="380" font-family="sans-serif" font-size="64" font-weight="bold" fill="#1f2937" text-anchor="middle">${libelle}</text></svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 70 }).toBuffer();
+}
+
+async function signatureDemo(): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200"><path d="M40 140 C 90 40, 130 40, 150 120 S 220 170, 260 90 S 330 30, 360 120 S 450 160, 560 70" fill="none" stroke="#111827" stroke-width="5" stroke-linecap="round"/></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+const PHOTOS_EDL_DEMO: [string, string][] = [
+  ["EDL_COMPTEUR", "Compteur"], ["EDL_AVANT", "Avant"], ["EDL_ARRIERE", "Arrière"], ["EDL_COTE_GAUCHE", "Côté gauche"],
+  ["EDL_COTE_DROIT", "Côté droit"], ["EDL_INTERIEUR_AVANT", "Intérieur avant"], ["EDL_INTERIEUR_ARRIERE", "Intérieur arrière"],
+];
+
+async function edlDemo(
+  db: PrismaClient,
+  contrat: { id: string; departReelLe: Date | null; retourReelLe: Date | null; client: { nom: string; prenom: string | null } },
+  type: "DEPART" | "RETOUR",
+  releve: { km: number; carburant: number | null; batterie: number | null; proprete: "PROPRE" | "CORRECT" | "SALE"; manquant?: string },
+) {
+  const elements = await db.elementChecklist.findMany({ where: { actif: true }, orderBy: { ordre: "asc" } });
+  const date = (type === "DEPART" ? contrat.departReelLe : contrat.retourReelLe) ?? new Date();
+  const edl = await db.etatDesLieux.create({
+    data: {
+      contratId: contrat.id, type, realiseLe: date, kilometrage: releve.km, niveauCarburantHuitiemes: releve.carburant, niveauBatteriePct: releve.batterie,
+      propreteInterieure: releve.proprete, propreteExterieure: "CORRECT", nomSignataireClient: [contrat.client.prenom, contrat.client.nom].filter(Boolean).join(" "),
+      signeLe: date, verrouille: true,
+      checklist: {
+        create: elements
+          .filter((e) => !e.electriqueUniquement || releve.batterie !== null)
+          .map((e) => ({ elementId: e.id, libelle: e.libelle, present: e.libelle !== releve.manquant, quantite: e.avecQuantite ? 2 : null })),
+      },
+    },
+  });
+  for (const [categorie, libelle] of PHOTOS_EDL_DEMO) {
+    await fichierDemo(db, await photoDemo(libelle, type === "DEPART" ? "#dbeafe" : "#dcfce7"), { categorie: categorie as never, etatDesLieuxId: edl.id, creeLe: date });
+  }
+  const sig = await signatureDemo();
+  const sc = await fichierDemo(db, sig, { categorie: "SIGNATURE", etatDesLieuxId: edl.id, libelle: "Client" }, true);
+  const sl = await fichierDemo(db, sig, { categorie: "SIGNATURE", etatDesLieuxId: edl.id, libelle: "Loueur" }, true);
+  await db.etatDesLieux.update({ where: { id: edl.id }, data: { signatureClientId: sc.id, signatureLoueurId: sl.id } });
+  return edl;
+}
+
+async function chargerEtatsDesLieuxDemo(db: PrismaClient) {
+  const contrat = (immat: string, statut: "EN_COURS" | "TERMINEE", nomClient: string) =>
+    db.contratLocation.findFirst({ where: { vehicule: { immatriculation: immat }, statut, client: { nom: nomClient } }, include: { client: true, vehicule: true } });
+
+  // Dommage connu depuis l'achat sur le Captur (reporté sur chaque état des lieux)
+  const captur = await db.vehicule.findUnique({ where: { immatriculation: "GL-145-CP" } });
+  if (captur) {
+    await db.dommage.create({ data: { vehiculeId: captur.id, vue: "ARRIERE", zone: "pare_choc_ar", positionX: 0.3, positionY: 0.82, type: "RAYURE", gravite: "LEGER", description: "Rayure de 5 cm, présente à l'achat.", constateLe: j(-148) } });
+  }
+
+  // Départs des locations en cours
+  const yaris = await contrat("GK-582-TY", "EN_COURS", "Haddad");
+  if (yaris) await edlDemo(db, yaris, "DEPART", { km: 38200, carburant: 8, batterie: null, proprete: "PROPRE" });
+  const capturEnCours = await contrat("GL-145-CP", "EN_COURS", "Amrani");
+  if (capturEnCours) await edlDemo(db, capturEnCours, "DEPART", { km: 40100, carburant: 7, batterie: null, proprete: "PROPRE" });
+
+  // Tesla rendue avec un nouveau dommage, un retard et des km en plus → frais + caution retenue en partie
+  const tesla = await contrat("GB-303-TS", "TERMINEE", "Garnier");
+  if (tesla) {
+    await edlDemo(db, tesla, "DEPART", { km: 70120, carburant: null, batterie: 95, proprete: "PROPRE" });
+    const retour = await edlDemo(db, tesla, "RETOUR", { km: 71200, carburant: null, batterie: 30, proprete: "SALE", manquant: "Gilet de sécurité" });
+    const dommage = await db.dommage.create({
+      data: {
+        vehiculeId: tesla.vehiculeId, vue: "COTE_DROIT", zone: "porte_av_d", positionX: 0.6, positionY: 0.55, type: "RAYURE", gravite: "MOYEN",
+        description: "Rayure profonde sur 20 cm.", constateLe: tesla.retourReelLe ?? new Date(), etatDesLieuxConstatationId: retour.id,
+      },
+    });
+    const frais: [string, string, number, number, string | null][] = [
+      ["KM_SUPPLEMENTAIRES", "Kilomètres supplémentaires (80 km)", 80, 30, null],
+      ["CARBURANT", "Recharge de la batterie (65 %)", 65, 50, null],
+      ["NETTOYAGE", "Nettoyage", 1, 5000, null],
+      ["DOMMAGES", "Dommage : rayure — porte avant droite", 1, 35000, dommage.id],
+    ];
+    for (const [type, libelle, quantite, prix, dommageId] of frais) {
+      await db.fraisSupplementaire.create({ data: { contratId: tesla.id, type: type as never, libelle, quantite, prixUnitaireCentimes: prix, montantCentimes: quantite * prix, proposeAutomatiquement: true, dommageId } });
+    }
+    const retenue = 80 * 30 + 65 * 50 + 5000 + 35000;
+    await db.contratLocation.update({ where: { id: tesla.id }, data: { statutCaution: "RETENUE_PARTIELLE", cautionRetenueCentimes: retenue, motifRetenueCaution: "Rayure porte avant droite, nettoyage, recharge et km supplémentaires", cautionRestitueeLe: tesla.retourReelLe } });
+    await db.paiement.create({
+      data: { contratId: tesla.id, nature: "CAUTION_RETENUE", date: tesla.retourReelLe ?? new Date(), montantCentimes: retenue, mode: "CARTE_BANCAIRE", note: "Caution retenue (démo)" },
     });
   }
 }

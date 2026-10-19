@@ -25,7 +25,7 @@ const RACCOURCIS: Raccourci[] = [
 export function BoutonAjout() {
   const chemin = usePathname();
   // Masqué sur les formulaires (il gênerait la barre « Enregistrer »).
-  if (/\/(nouveau|nouvelle|modifier|vendre)$|^\/depenses\/[^/]+$/.test(chemin)) return null;
+  if (/\/(nouveau|nouvelle|modifier|vendre|depart|retour)$|^\/depenses\/[^/]+$/.test(chemin)) return null;
   return (
     <MenuDeroulant>
       <MenuDeroulantDeclencheur asChild>

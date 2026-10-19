@@ -1,14 +1,15 @@
-import { ArrowLeft, ClipboardCheck, HandCoins, Phone } from "lucide-react";
+import { ArrowLeft, HandCoins, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EncadreAlertes } from "@/components/clients/alertes-client";
 import { ActionsContrat } from "@/components/location/actions-contrat";
+import { FraisContrat } from "@/components/location/frais-contrat";
+import { SectionEtatsDesLieux } from "@/components/location/section-etats-des-lieux";
 import { BadgeContrat } from "@/components/location/badge-contrat";
 import { RecapPrix } from "@/components/location/recap-prix";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EtatVide } from "@/components/ui/etat-vide";
 import { ListeInfos } from "@/components/ui/liste-infos";
 import { VignetteVehicule } from "@/components/vehicules/vignette-vehicule";
 import { alertesClient } from "@/lib/calculs/clients";
@@ -19,6 +20,7 @@ import { formatDate, formatDateHeure, formatEuros, formatNombre } from "@/lib/fo
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { lireReglages } from "@/lib/reglages";
 import { nomVehicule } from "@/lib/vehicule";
+import { LIBELLES_STATUT_CAUTION } from "@/lib/validations/etat-des-lieux";
 import { LIBELLES_MODE_CAUTION, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
 import { obtenirContrat } from "@/server/requetes/contrats";
 
@@ -27,13 +29,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: c?.numero ?? "Contrat" };
 }
 
-const LIBELLES_STATUT_CAUTION = {
-  A_ENCAISSER: "À encaisser",
-  ENCAISSEE: "Encaissée",
-  RESTITUEE: "Restituée",
-  RETENUE_PARTIELLE: "Retenue en partie",
-  RETENUE_TOTALE: "Retenue",
-} as const;
 
 export default async function PageContrat({ params }: { params: Promise<{ id: string }> }) {
   const u = await exigerRolePage(ROLES_GESTION);
@@ -47,6 +42,7 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
   const kmTotal = c.kilometrageIllimite ? null : kmInclusTotal(c.type, c.kmInclusParUnite, { unites: c.dureeFacturee, joursSupplementaires: c.joursSupplementaires, joursTotal });
   const totalOptions = c.options.reduce((a, o) => a + o.totalCentimes, 0);
   const base = c.prixTotalCentimes + c.remiseCentimes - totalOptions - c.fraisLivraisonCentimes;
+  const totalFrais = c.fraisSupplementaires.reduce((a, f) => a + f.montantCentimes, 0);
   const encaisse = c.paiements.reduce((a, p) => a + (p.nature === "REMBOURSEMENT" ? -p.montantCentimes : p.montantCentimes), 0);
 
   return (
@@ -144,7 +140,13 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
                   },
                   { libelle: "Km supplémentaire", valeur: c.prixKmSupCentimes !== null ? formatEuros(c.prixKmSupCentimes) : null },
                   { libelle: "Caution", valeur: `${formatEuros(c.cautionCentimes)}${c.modeCaution ? ` · ${LIBELLES_MODE_CAUTION[c.modeCaution]}` : ""}` },
-                  { libelle: "État de la caution", valeur: c.cautionCentimes > 0 ? LIBELLES_STATUT_CAUTION[c.statutCaution] : null },
+                  {
+                    libelle: "État de la caution",
+                    valeur:
+                      c.cautionCentimes > 0
+                        ? `${LIBELLES_STATUT_CAUTION[c.statutCaution]}${c.cautionRetenueCentimes > 0 ? ` (${formatEuros(c.cautionRetenueCentimes)}${c.motifRetenueCaution ? ` : ${c.motifRetenueCaution}` : ""})` : ""}`
+                        : null,
+                  },
                   { libelle: "Franchise", valeur: c.franchiseCentimes !== null ? formatEuros(c.franchiseCentimes) : null },
                   { libelle: "Acompte demandé", valeur: c.acompteCentimes ? formatEuros(c.acompteCentimes) : null },
                   { libelle: "Échéance mensuelle", valeur: c.jourEcheanceMensuelle ? `le ${c.jourEcheanceMensuelle} du mois` : null },
@@ -154,11 +156,7 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
             </CardContent>
           </Card>
 
-          <EtatVide
-            icone={ClipboardCheck}
-            titre="Départ et retour"
-            description="L'assistant de départ (état des lieux, photos, signatures) et l'assistant de retour arrivent en Phase 5."
-          />
+          <SectionEtatsDesLieux contrat={c} />
         </div>
 
         <div className="flex flex-col gap-4">
@@ -183,15 +181,44 @@ export default async function PageContrat({ params }: { params: Promise<{ id: st
               />
             </CardContent>
           </Card>
+          {(c.fraisSupplementaires.length > 0 || c.statut === "TERMINEE" || c.statut === "EN_COURS") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Frais supplémentaires</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FraisContrat contratId={c.id} frais={c.fraisSupplementaires} modifiable={c.statut !== "ANNULEE"} />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <HandCoins className="size-5 text-primary" /> Paiements
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Encaissé : <span className="font-semibold text-foreground">{formatEuros(encaisse)}</span> sur {formatEuros(c.prixTotalCentimes)}. La saisie
-              des paiements, l&apos;échéancier et les reçus arrivent en Phase 6.
+            <CardContent className="flex flex-col gap-2 text-sm">
+              <dl className="flex flex-col gap-1">
+                <div className="flex justify-between">
+                  <dt>Location</dt>
+                  <dd className="tabular-nums">{formatEuros(c.prixTotalCentimes)}</dd>
+                </div>
+                {totalFrais > 0 && (
+                  <div className="flex justify-between">
+                    <dt>Frais supplémentaires</dt>
+                    <dd className="tabular-nums">{formatEuros(totalFrais)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground">
+                  <dt>Encaissé{c.cautionRetenueCentimes > 0 ? " (dont caution retenue)" : ""}</dt>
+                  <dd className="tabular-nums">− {formatEuros(encaisse)}</dd>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <dt>Reste à payer</dt>
+                  <dd className="tabular-nums">{formatEuros(c.prixTotalCentimes + totalFrais - encaisse)}</dd>
+                </div>
+              </dl>
+              <p className="text-xs text-muted-foreground">La saisie des paiements, l&apos;échéancier et les reçus arrivent en Phase 6.</p>
             </CardContent>
           </Card>
         </div>

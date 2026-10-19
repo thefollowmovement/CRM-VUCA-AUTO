@@ -1101,6 +1101,11 @@ model Reglages {
   toleranceRetardMinutes      Int @default(60) // journée entamée due au-delà
   jourEcheanceMensuelleDefaut Int @default(1)
 
+  // --- Frais proposés au retour d'une location ---
+  fraisNettoyageCentimes        Int @default(5000) // véhicule rendu sale
+  prixHuitiemeCarburantCentimes Int @default(1500) // par 1/8 de réservoir manquant
+  prixPourcentBatterieCentimes  Int @default(50) // par % de batterie manquant
+
   modifieLe DateTime @updatedAt
 }
 

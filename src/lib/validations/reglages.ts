@@ -37,6 +37,9 @@ export const schemaAlertes = z.object({
   anciennetePermisMinAnnees: entier("Ancienneté du permis", 0, 50),
   toleranceRetardMinutes: entier("Tolérance de retard", 0, 24 * 60),
   jourEcheanceMensuelleDefaut: entier("Jour d'échéance", 1, 28),
+  fraisNettoyageCentimes: montant("Les frais de nettoyage"),
+  prixHuitiemeCarburantCentimes: montant("Le prix d'un huitième de réservoir"),
+  prixPourcentBatterieCentimes: montant("Le prix d'un % de batterie"),
 });
 
 export const schemaCategorieDepense = z.object({

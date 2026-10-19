@@ -115,6 +115,13 @@ export async function obtenirContrat(id: string) {
       conducteursAdditionnels: { include: { client: { select: { id: true, nom: true, prenom: true, telephone: true, numeroPermis: true } } } },
       options: { orderBy: { libelle: "asc" } },
       paiements: { select: { montantCentimes: true, nature: true } },
+      fraisSupplementaires: { orderBy: { creeLe: "asc" } },
+      etatsDesLieux: {
+        select: {
+          type: true, verrouille: true, kilometrage: true, niveauCarburantHuitiemes: true, niveauBatteriePct: true, signeLe: true,
+          propreteInterieure: true, propreteExterieure: true, _count: { select: { photos: true, dommagesConstates: true } },
+        },
+      },
     },
   });
 }

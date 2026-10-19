@@ -8,8 +8,8 @@
 | 1 | Socle : projet, Docker, base, auth, rôles, layout, navigation, réglages, partenaires, seed | ✅ Validée le 19/10/2026 (déployée sur le KVM 2) |
 | 2 | Véhicules : CRUD, photos, documents, financement, statuts | ✅ Validée le 19/10/2026 |
 | 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | ✅ Validée le 19/10/2026 |
-| 4 | Location : clients, contrats, disponibilités, planning, tarification | 🟡 Livrée — en attente de validation |
-| 5 | État des lieux mobile, comparaison retour, frais, caution | ⚪ À faire |
+| 4 | Location : clients, contrats, disponibilités, planning, tarification | ✅ Validée le 19/10/2026 |
+| 5 | État des lieux mobile, comparaison retour, frais, caution | 🟡 Livrée — en attente de validation |
 | 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ⚪ À faire |
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ⚪ À faire |
 | 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ⚪ À faire |
@@ -66,6 +66,19 @@
 - Démo : 6 clients (dont un en liste noire, un jeune permis, une pièce d'identité expirée) et 10 contrats (mensuels et journaliers, un en retard, terminés, réservés, un annulé).
 - Tests : 91 tests unitaires ; parcours complet dans Chromium (42 vérifications, ordinateur + iPhone, sans débordement horizontal ni erreur console) ; non-régression Phase 3.
 
+## Phase 5 — livré
+
+- **Assistant de départ** (téléphone, écran par écran) : photo du compteur obligatoire + kilométrage (prérempli), jauge carburant 0–8/8 ou batterie en % (selon le carburant du véhicule), propreté intérieure / extérieure, check-list paramétrable (quantité pour les clés, éléments « électrique » seulement si besoin), **schéma du véhicule cliquable** (côtés, avant, arrière, dessus, intérieur : on touche la zone, on choisit le type, la gravité, une photo), dommages déjà connus reportés automatiquement, **6 photos guidées obligatoires** + photos libres (envoyées au fil de l'eau, métadonnées GPS retirées), remarques, caution reçue, **signatures du client et du loueur au doigt**. Validation → état des lieux verrouillé, contrat « En cours », véhicule « En location », kilométrage du véhicule mis à jour.
+- **Assistant de retour** : mêmes étapes, puis **comparaison automatique** (km parcourus / inclus / supplémentaires, carburant ou batterie manquant, retard au-delà de la tolérance, véhicule rendu sale, nouveaux dommages mis en évidence, équipements manquants) et **frais proposés** modifiables (km, carburant, retard, nettoyage, un frais à chiffrer par nouveau dommage, éléments manquants, ajout libre). **Caution** : restituer, retenir une partie (montant proposé = total des frais) ou tout retenir, avec motif ; la part retenue est enregistrée comme un encaissement (revenu du véhicule). Validation → contrat « Terminé », véhicule remis dans son statut d'avant le départ.
+- Brouillon : on peut quitter un état des lieux et le reprendre (photos et dommages déjà enregistrés).
+- **Consultation** d'un état des lieux signé (relevés, check-list, schéma des dommages présents à cette date, photos, signatures).
+- **Fiche contrat** : boutons « Faire le départ » / « Faire le retour », résumés des états des lieux, km parcourus, frais supplémentaires (ajout / retrait, ex. amende refacturée), reste à payer, état de la caution.
+- **Onglet Dommages** du véhicule : schéma des dommages actuels, ajout hors état des lieux (ex. constaté à l'achat), « Réparé » (disparaît des états des lieux suivants), historique.
+- Vue « Aujourd'hui » : boutons Départ / Retour directs. Départ refusé tant que le véhicule n'est pas revenu de la location précédente.
+- Réglages : frais de nettoyage, prix d'un 1/8 de carburant, prix d'un % de batterie.
+- Démo : états des lieux des locations en cours et terminées, un retour avec nouveau dommage, frais et caution retenue en partie.
+- Tests : 98 tests unitaires (dont la comparaison départ / retour) ; parcours complet dans Chromium (34 vérifications : départ au téléphone, retour au bureau, dommages, frais, caution) ; non-régression Phases 3 et 4.
+
 ## Déploiement VPS (19/10/2026)
 
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
@@ -113,6 +126,12 @@
   - Contrat modifiable uniquement avant le départ ; les CGV restent celles du jour de la création.
   - Départ / retour (statuts En cours / Terminée, véhicule « En location ») : assistants de la Phase 5.
   - Anonymisation RGPD : réservée à l'admin, impossible avec une location réservée ou en cours.
+- Phase 5 :
+  - Signature : composant maison (canevas, au doigt), sans la dépendance react-signature-canvas ; PNG conservé tel quel.
+  - Km inclus pour les km supplémentaires = durée prévue au contrat ; les jours de retard sont facturés à part (tarif journalier, sinon hebdo ÷ 7 ou mensuel ÷ 30).
+  - Les frais des nouveaux dommages sont proposés à 0 € : à chiffrer (devis, franchise…).
+  - Caution retenue = paiement « caution retenue » (revenu du véhicule) ; la saisie des autres paiements et le PDF de l'état des lieux arrivent en Phase 6.
+  - Les montants affichent toujours l'espace des milliers (« 1 000,00 € ») côté navigateur comme côté serveur.
 
 ## Questions ouvertes
 

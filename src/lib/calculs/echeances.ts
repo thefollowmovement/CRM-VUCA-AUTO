@@ -23,7 +23,7 @@ export function etatEcheanceKm(kmCible: number | null, kmActuel: number | null, 
   if (kmCible === null) return { niveau: "inconnue", texte: "Non renseignée" };
   if (kmActuel === null) return { niveau: "inconnue", texte: "Kilométrage actuel inconnu" };
   const reste = kmCible - kmActuel;
-  const fmt = new Intl.NumberFormat("fr-FR");
+  const fmt = new Intl.NumberFormat("fr-FR", { useGrouping: "always" } as unknown as Intl.NumberFormatOptions);
   if (reste < 0) return { niveau: "depassee", texte: `Dépassée de ${fmt.format(-reste)} km` };
   if (reste <= seuilKm) return { niveau: "proche", texte: `Dans ${fmt.format(reste)} km` };
   return { niveau: "ok", texte: `Dans ${fmt.format(reste)} km` };
