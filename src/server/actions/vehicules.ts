@@ -9,6 +9,12 @@ import { avecDroits, ErreurMetier, ROLES_ADMIN, ROLES_GESTION } from "@/lib/perm
 import { enregistrerFichier, supprimerFichierStocke, TYPES_DOCUMENTS, TYPES_IMAGES } from "@/lib/storage";
 import { erreurValidation } from "@/lib/validations/erreurs";
 import {
+  schemaParametresRepartition,
+  schemaVente,
+  type SaisieParametresRepartition,
+  type SaisieVente,
+} from "@/lib/validations/finance";
+import {
   CATEGORIES_DOCUMENTS_VEHICULE,
   schemaChangementStatut,
   schemaEcheances,
@@ -406,4 +412,104 @@ export async function supprimerEstimation(id: string) {
     rafraichir(e.vehiculeId);
     return { ok: true, message: "Estimation supprimée." };
   });
+}
+
+// ---------------------------------------------------------------------
+//  Répartition du bénéfice, vente
+// ---------------------------------------------------------------------
+
+export async function enregistrerParametresRepartition(vehiculeId: string, saisie: SaisieParametresRepartition) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const lecture = schemaParametresRepartition.safeParse(saisie);
+    if (!lecture.success) return erreurValidation(lecture.error);
+    const d = lecture.data;
+    const avant = await db.vehicule.findUnique({
+      where: { id: vehiculeId },
+      select: { modeRepartition: true, commissionGestionBp: true, partsFixes: true },
+    });
+    if (!avant) throw new ErreurMetier("Véhicule introuvable.");
+    if (d.mode === "POURCENTAGE_FIXE") await verifierFinanceurs(d.partsFixes.map((p) => p.partenaireId));
+
+    await db.$transaction(async (tx) => {
+      await tx.vehicule.update({ where: { id: vehiculeId }, data: { modeRepartition: d.mode, commissionGestionBp: d.commission } });
+      await tx.partBeneficeFixe.deleteMany({ where: { vehiculeId } });
+      if (d.mode === "POURCENTAGE_FIXE") {
+        await tx.partBeneficeFixe.createMany({
+          data: d.partsFixes.filter((p) => p.pourcentage > 0).map((p) => ({ vehiculeId, partenaireId: p.partenaireId, pourcentageBp: p.pourcentage })),
+        });
+      }
+      await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Repartition", entiteId: vehiculeId, avant, apres: d }, tx);
+    });
+    rafraichir(vehiculeId);
+    return { ok: true, message: "Règles de répartition enregistrées." };
+  });
+}
+
+export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const lecture = schemaVente.safeParse(saisie);
+    if (!lecture.success) return erreurValidation(lecture.error);
+    const d = lecture.data;
+    const v = await vehiculeExistant(vehiculeId);
+    if (v.statut === "VENDU") throw new ErreurMetier("Ce véhicule est déjà vendu.");
+    if (v.statut === "ARCHIVE") throw new ErreurMetier("Restaurez d'abord ce véhicule archivé.");
+    if (d.dateVente < v.dateAchat) {
+      return { ok: false, message: "La date de vente est antérieure à la date d'achat.", erreursChamps: { dateVente: ["Antérieure à la date d'achat."] } };
+    }
+    if (d.kilometrageVente !== null && v.kilometrageAchat !== null && d.kilometrageVente < v.kilometrageAchat) {
+      return { ok: false, message: "Kilométrage inférieur à celui de l'achat.", erreursChamps: { kilometrageVente: ["Inférieur au kilométrage à l'achat."] } };
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.vehicule.update({
+        where: { id: vehiculeId },
+        data: {
+          statut: "VENDU",
+          prixVenteCentimes: d.prixVente,
+          dateVente: d.dateVente,
+          kilometrageVente: d.kilometrageVente,
+          kilometrageActuel: d.kilometrageVente ?? v.kilometrageActuel,
+          acheteurNom: d.acheteurNom,
+          acheteurTelephone: d.acheteurTelephone,
+          acheteurEmail: d.acheteurEmail,
+          acheteurAdresse: d.acheteurAdresse,
+          modePaiementVente: d.modePaiementVente,
+          notesVente: d.notesVente,
+        },
+      });
+      await tx.historiqueStatutVehicule.create({
+        data: { vehiculeId, ancienStatut: v.statut, nouveauStatut: "VENDU", motif: `Vendu ${formatEurosServeur(d.prixVente)}`, utilisateurId: u.id },
+      });
+      await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vente", entiteId: vehiculeId, avant: v, apres: d }, tx);
+    });
+    rafraichir(vehiculeId);
+    return { ok: true, message: "Véhicule marqué comme vendu." };
+  });
+}
+
+/** Annule une vente saisie par erreur : le véhicule retrouve son statut précédent. */
+export async function annulerVente(vehiculeId: string) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const v = await vehiculeExistant(vehiculeId);
+    if (v.statut !== "VENDU") throw new ErreurMetier("Ce véhicule n'est pas vendu.");
+    const vente = await db.historiqueStatutVehicule.findFirst({ where: { vehiculeId, nouveauStatut: "VENDU" }, orderBy: { changeLe: "desc" } });
+    const statut = vente?.ancienStatut && !["VENDU", "ARCHIVE"].includes(vente.ancienStatut) ? vente.ancienStatut : "EN_VENTE";
+    await db.$transaction(async (tx) => {
+      await tx.vehicule.update({
+        where: { id: vehiculeId },
+        data: {
+          statut, prixVenteCentimes: null, dateVente: null, kilometrageVente: null, acheteurNom: null, acheteurTelephone: null,
+          acheteurEmail: null, acheteurAdresse: null, modePaiementVente: null, notesVente: null,
+        },
+      });
+      await tx.historiqueStatutVehicule.create({ data: { vehiculeId, ancienStatut: "VENDU", nouveauStatut: statut, motif: "Vente annulée", utilisateurId: u.id } });
+      await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "AnnulationVente", entiteId: vehiculeId, avant: v }, tx);
+    });
+    rafraichir(vehiculeId);
+    return { ok: true, message: "Vente annulée." };
+  });
+}
+
+function formatEurosServeur(centimes: number) {
+  return `${(centimes / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }

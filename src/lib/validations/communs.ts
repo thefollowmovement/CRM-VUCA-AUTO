@@ -134,3 +134,23 @@ export const urlOptionnelle = z
   .trim()
   .refine((v) => v === "" || /^https?:\/\/\S+\.\S+/.test(v), "Adresse web invalide (doit commencer par http:// ou https://).")
   .transform((v) => (v === "" ? null : v));
+
+/** Pourcentage saisi (« 20 », « 12,5 ») → points de base (2000, 1250). Vide → 0. */
+export const pourcentage = (libelle = "Le pourcentage") =>
+  z
+    .union([z.string(), z.number()])
+    .transform((v, ctx) => {
+      const s = String(v).replace(/[\s%]/g, "").replace(",", ".");
+      if (s === "") return 0;
+      if (!/^\d+(\.\d{1,2})?$/.test(s)) {
+        ctx.addIssue({ code: "custom", message: `${libelle} est invalide (ex. 20 ou 12,5).` });
+        return z.NEVER;
+      }
+      const [entier = "0", dec = ""] = s.split(".");
+      const bp = Number(entier) * 100 + Number(dec.padEnd(2, "0"));
+      if (bp > 10000) {
+        ctx.addIssue({ code: "custom", message: `${libelle} ne peut pas dépasser 100 %.` });
+        return z.NEVER;
+      }
+      return bp;
+    });
