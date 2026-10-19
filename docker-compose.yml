@@ -1,0 +1,40 @@
+# =====================================================================
+#  VUCA AUTO CRM — lancement complet : docker compose up -d
+# =====================================================================
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vuca
+      POSTGRES_DB: vuca_crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Renseignez POSTGRES_PASSWORD dans le fichier .env}
+      TZ: Europe/Paris
+    volumes:
+      - donnees_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vuca -d vuca_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://vuca:${POSTGRES_PASSWORD}@db:5432/vuca_crm
+      STORAGE_DIR: /app/storage
+      TZ: Europe/Paris
+    ports:
+      # Sur un serveur, APP_ADRESSE=127.0.0.1 : l'appli n'est joignable que via le proxy HTTPS.
+      - "${APP_ADRESSE:-0.0.0.0}:${APP_PORT:-3000}:3000"
+    volumes:
+      - fichiers:/app/storage
+
+volumes:
+  donnees_postgres: # la base de données
+  fichiers: # photos, justificatifs, scans, logo
