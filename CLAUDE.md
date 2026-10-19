@@ -105,6 +105,15 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Partenaires : création/modification/archivage = ADMIN + GESTIONNAIRE ; suppression = ADMIN, seulement sans historique financier. VUCA AUTO (`estSysteme`) ni archivable ni supprimable.
 - Mobile : vérifier l'absence de débordement horizontal (grilles : `grid-cols-[minmax(0,1fr)]`, `min-w-0`).
 
+## Véhicules (Phase 2)
+
+- Lectures : `src/server/requetes/vehicules.ts` (`listerVehicules(filtres)` calcule coût de revient, marge, jours ; `obtenirVehicule`, `partenairesFinancement`). Actions : `src/server/actions/vehicules.ts`.
+- Formulaire unique `components/vehicules/formulaire-vehicule.tsx` (création + modification) ; conversion véhicule → saisie dans `lib/vehicule-formulaire.ts` (fonctions appelées par les pages serveur : jamais dans un fichier `"use client"`).
+- Référentiels et libellés : `lib/vehicule.ts` (statuts, couleurs, `STATUTS_MANUELS`, immatriculation, VIN). Échéances : `lib/calculs/echeances.ts`.
+- Images : `lib/images.ts` (sharp) appelé par `enregistrerFichier` (sauf logo) ; `?taille=mini` sur `/api/fichiers/[id]` ; `detecterType` (octets magiques) avant toute acceptation.
+- Tri par type de partenaire : l'enum Postgres suit l'ordre de déclaration (`SOCIETE` puis `INVESTISSEUR`) → `orderBy: { type: "asc" }` pour avoir VUCA AUTO en premier.
+- Démo : `prisma/seed/demo.ts`, blocs `uneFois(db, "demo:…")`.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

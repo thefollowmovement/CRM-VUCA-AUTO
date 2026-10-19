@@ -26,7 +26,7 @@ export default async function PageInvestisseurs({
   const partenaires = await db.partenaire.findMany({
     where: { actif: !voirArchives },
     // VUCA AUTO (société) en premier, puis ordre alphabétique.
-    orderBy: [{ type: "desc" }, { nom: "asc" }],
+    orderBy: [{ type: "asc" }, { nom: "asc" }],
   });
 
   return (

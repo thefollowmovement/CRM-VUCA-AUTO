@@ -6,10 +6,12 @@ import { ActionsPartenaire } from "@/components/partenaires/actions-partenaire";
 import { DialoguePartenaire } from "@/components/partenaires/dialogue-partenaire";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EtatVide } from "@/components/ui/etat-vide";
 import { db } from "@/lib/db";
-import { formatDate, masquerIban } from "@/lib/format";
+import { BadgeStatut } from "@/components/vehicules/badge-statut";
+import { formatDate, formatEuros, masquerIban } from "@/lib/format";
+import { nomVehicule } from "@/lib/vehicule";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Fiche partenaire" };
@@ -19,9 +21,24 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
   const { id } = await params;
   const partenaire = await db.partenaire.findUnique({
     where: { id },
-    include: { utilisateur: { select: { email: true, actif: true } } },
+    include: {
+      utilisateur: { select: { email: true, actif: true } },
+      participations: {
+        orderBy: { vehicule: { dateAchat: "desc" } },
+        include: {
+          vehicule: {
+            select: {
+              id: true, marque: true, modele: true, version: true, immatriculation: true, statut: true,
+              participations: { select: { montantCentimes: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!partenaire) notFound();
+  const enCours = partenaire.participations.filter((p) => !["VENDU", "ARCHIVE"].includes(p.vehicule.statut));
+  const capitalEngage = enCours.reduce((a, p) => a + p.montantCentimes, 0);
 
   const infos = [
     { libelle: "Téléphone", valeur: partenaire.telephone },
@@ -89,11 +106,44 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
         <div className="flex flex-col gap-4 lg:col-span-2">
-          <EtatVide
-            icone={Car}
-            titre="Véhicules financés"
-            description="Les véhicules financés, l'investissement, la part et le bénéfice de chacun apparaîtront ici (Phases 2 et 3)."
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Véhicules financés ({partenaire.participations.length})</CardTitle>
+              <CardDescription>
+                Capital à l&apos;achat engagé sur les véhicules en cours : {formatEuros(capitalEngage)} · Dépenses payées,
+                bénéfices et reste dû arrivent en Phase 3.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {partenaire.participations.length === 0 ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Car className="size-4" /> Aucun véhicule financé pour l&apos;instant.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {partenaire.participations.map((p) => {
+                    const total = p.vehicule.participations.reduce((a, x) => a + x.montantCentimes, 0);
+                    const part = total > 0 ? Math.round((p.montantCentimes / total) * 1000) / 10 : 0;
+                    return (
+                      <li key={p.id}>
+                        <Link href={`/vehicules/${p.vehicule.id}/financement`} className="flex items-center gap-3 py-3 hover:bg-muted/50">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{nomVehicule(p.vehicule)}</p>
+                            <p className="text-xs text-muted-foreground">{p.vehicule.immatriculation ?? "Sans immatriculation"}</p>
+                          </div>
+                          <BadgeStatut statut={p.vehicule.statut} className="hidden sm:inline-flex" />
+                          <div className="text-right">
+                            <p className="font-semibold tabular-nums">{formatEuros(p.montantCentimes)}</p>
+                            <p className="text-xs text-muted-foreground">{String(part).replace(".", ",")} % de l&apos;achat</p>
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
           <EtatVide
             icone={HandCoins}
             titre="Versements et relevés"

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { journaliser } from "@/lib/journal";
 import { avecDroits, ErreurMetier, ROLES_ADMIN } from "@/lib/permissions";
-import { enregistrerFichier, supprimerFichier, TYPES_IMAGES } from "@/lib/storage";
+import { enregistrerFichier, supprimerFichier } from "@/lib/storage";
 import { erreurValidation } from "@/lib/validations/erreurs";
 import {
   schemaAlertes,
@@ -63,7 +63,7 @@ export async function envoyerLogo(formulaire: FormData) {
     const nouveau = await enregistrerFichier({
       fichier,
       categorie: "LOGO",
-      typesAutorises: TYPES_IMAGES,
+      typesAutorises: ["image/jpeg", "image/png", "image/webp"],
       utilisateurId: u.id,
     });
     await db.reglages.update({ where: { id: 1 }, data: { logoId: nouveau.id } });

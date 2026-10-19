@@ -89,3 +89,48 @@ export const dateCalendaire = (libelle = "La date") =>
 /** Identifiant (cuid) obligatoire. */
 export const identifiant = (libelle = "Ce choix") =>
   z.string().trim().min(1, `${libelle} est obligatoire.`);
+
+/** Entier facultatif saisi dans un champ : vide → null. */
+export const entierOptionnel = (libelle: string, min = 0, max = 10_000_000) =>
+  z
+    .union([z.string(), z.number()])
+    .transform((v, ctx) => {
+      const s = String(v).replace(/[\s  ]/g, "");
+      if (s === "") return null;
+      if (!/^-?\d+$/.test(s)) {
+        ctx.addIssue({ code: "custom", message: `${libelle} doit être un nombre entier.` });
+        return z.NEVER;
+      }
+      const n = Number(s);
+      if (n < min || n > max) {
+        ctx.addIssue({ code: "custom", message: `${libelle} : entre ${min} et ${max}.` });
+        return z.NEVER;
+      }
+      return n;
+    });
+
+/** Date « AAAA-MM-JJ » facultative : vide → null. */
+export const dateOptionnelle = (libelle = "La date") =>
+  z
+    .string()
+    .trim()
+    .transform((v, ctx) => {
+      if (v === "") return null;
+      const d = dateCalendaireDepuisISO(v);
+      if (!d) {
+        ctx.addIssue({ code: "custom", message: `${libelle} est invalide.` });
+        return z.NEVER;
+      }
+      return d;
+    });
+
+/** Choix facultatif dans une liste : vide → null. */
+export const choixOptionnel = <T extends string>(valeurs: readonly [T, ...T[]]) =>
+  z.union([z.enum(valeurs), z.literal("")]).transform((v) => (v === "" ? null : (v as T)));
+
+/** Adresse web facultative. */
+export const urlOptionnelle = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || /^https?:\/\/\S+\.\S+/.test(v), "Adresse web invalide (doit commencer par http:// ou https://).")
+  .transform((v) => (v === "" ? null : v));

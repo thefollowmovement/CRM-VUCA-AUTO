@@ -2,6 +2,7 @@
 
 import { Car, HandCoins, KeyRound, Plus, Receipt, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   MenuDeroulant,
   MenuDeroulantContenu,
@@ -14,7 +15,7 @@ type Raccourci = { libelle: string; href: string; icone: LucideIcon; disponible:
 
 // « disponible » passe à true au fur et à mesure des phases.
 const RACCOURCIS: Raccourci[] = [
-  { libelle: "Véhicule", href: "/vehicules/nouveau", icone: Car, disponible: false, phase: 2 },
+  { libelle: "Véhicule", href: "/vehicules/nouveau", icone: Car, disponible: true, phase: 2 },
   { libelle: "Dépense", href: "/depenses/nouvelle", icone: Receipt, disponible: false, phase: 3 },
   { libelle: "Location", href: "/location/contrats/nouveau", icone: KeyRound, disponible: false, phase: 4 },
   { libelle: "Paiement", href: "/location/paiements/nouveau", icone: HandCoins, disponible: false, phase: 6 },
@@ -22,6 +23,9 @@ const RACCOURCIS: Raccourci[] = [
 
 /** Bouton flottant « + » : ajout rapide depuis n'importe quel écran. */
 export function BoutonAjout() {
+  const chemin = usePathname();
+  // Masqué sur les formulaires (il gênerait la barre « Enregistrer »).
+  if (/\/(nouveau|nouvelle|modifier)$/.test(chemin)) return null;
   return (
     <MenuDeroulant>
       <MenuDeroulantDeclencheur asChild>

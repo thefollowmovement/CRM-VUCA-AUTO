@@ -1,4 +1,4 @@
-import { CircleCheck, CircleDashed, HandCoins, Settings, Tags, Users } from "lucide-react";
+import { Car, CircleCheck, CircleDashed, HandCoins, Settings, Tags, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnTetePage } from "@/components/layout/en-tete-page";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 const PHASES = [
   { numero: 1, titre: "Socle : connexion, rôles, navigation, réglages, partenaires", faite: true },
-  { numero: 2, titre: "Véhicules, photos, documents, financement", faite: false },
+  { numero: 2, titre: "Véhicules, photos, documents, financement", faite: true },
   { numero: 3, titre: "Dépenses et moteur de calcul de rentabilité", faite: false },
   { numero: 4, titre: "Location : clients, contrats, planning", faite: false },
   { numero: 5, titre: "État des lieux mobile", faite: false },
@@ -21,13 +21,15 @@ const PHASES = [
 
 export default async function PageDashboard() {
   const utilisateur = await exigerRolePage(ROLES_GESTION);
-  const [nbInvestisseurs, nbUtilisateurs, nbCategories] = await Promise.all([
+  const [nbStock, nbInvestisseurs, nbUtilisateurs, nbCategories] = await Promise.all([
+    db.vehicule.count({ where: { statut: { notIn: ["VENDU", "ARCHIVE"] } } }),
     db.partenaire.count({ where: { type: "INVESTISSEUR", actif: true } }),
     db.utilisateur.count({ where: { actif: true } }),
     db.categorieDepense.count({ where: { actif: true } }),
   ]);
 
   const cartes = [
+    { titre: "Véhicules en stock", valeur: nbStock, icone: Car, href: "/vehicules" },
     { titre: "Investisseurs actifs", valeur: nbInvestisseurs, icone: HandCoins, href: "/investisseurs" },
     { titre: "Utilisateurs", valeur: nbUtilisateurs, icone: Users, href: "/reglages/utilisateurs", admin: true },
     { titre: "Catégories de dépenses", valeur: nbCategories, icone: Tags, href: "/reglages/categories", admin: true },
@@ -39,7 +41,7 @@ export default async function PageDashboard() {
         titre={`Bonjour ${utilisateur.nom.split(" ")[0]} 👋`}
         description="Les indicateurs (bénéfices, stock, location, alertes) arriveront en Phase 7."
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cartes.map(({ titre, valeur, icone: Icone, href }) => (
           <Link key={titre} href={href}>
             <Card className="transition-colors hover:border-primary/50">

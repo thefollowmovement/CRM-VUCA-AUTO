@@ -120,3 +120,8 @@ export function formatNombre(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return new Intl.NumberFormat("fr-FR").format(n);
 }
+
+/** Date du jour à Paris au format « AAAA-MM-JJ » (valeur par défaut des champs date). */
+export function aujourdhuiISO(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSEAU, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}

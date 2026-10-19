@@ -89,12 +89,12 @@ async function main() {
     console.log(`${ligne}\n`);
   }
 
-  // 6. Démo : demandée explicitement, ou au tout premier démarrage si SEED_DEMO=true
-  const demoDemandee = process.argv.includes("--demo");
-  const demoAuto = nouvelleInstallation && process.env.SEED_DEMO === "true";
-  if (demoDemandee || demoAuto) {
+  // 6. Démo : demandée explicitement (--demo) ou activée par SEED_DEMO=true.
+  //    Chaque bloc de démo n'est chargé qu'une seule fois (voir demo.ts).
+  void nouvelleInstallation;
+  if (process.argv.includes("--demo") || process.env.SEED_DEMO === "true") {
     await chargerDemo(db);
-    console.log("Données de démonstration chargées.");
+    console.log("Données de démonstration à jour.");
   }
 
   console.log("Base initialisée.");

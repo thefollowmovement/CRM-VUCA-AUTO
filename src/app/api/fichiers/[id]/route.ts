@@ -1,9 +1,9 @@
 // Sert un fichier UNIQUEMENT à un utilisateur connecté et autorisé.
 import { db } from "@/lib/db";
 import { utilisateurCourant } from "@/lib/permissions";
-import { stockage } from "@/lib/storage";
+import { lireMiniature, stockage } from "@/lib/storage";
 
-export async function GET(_requete: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(requete: Request, { params }: { params: Promise<{ id: string }> }) {
   const utilisateur = await utilisateurCourant();
   if (!utilisateur) return new Response("Non connecté", { status: 401 });
 
@@ -25,11 +25,14 @@ export async function GET(_requete: Request, { params }: { params: Promise<{ id:
     if (!estLogo && !estSonVehicule) return new Response("Accès refusé", { status: 403 });
   }
 
+  // ?taille=mini : miniature JPEG (listes, galeries) — uniquement pour les images.
+  const miniature = new URL(requete.url).searchParams.get("taille") === "mini" && fichier.typeMime.startsWith("image/");
+
   try {
-    const contenu = await stockage.lire(fichier.cleStockage);
+    const contenu = miniature ? await lireMiniature(fichier.cleStockage) : await stockage.lire(fichier.cleStockage);
     return new Response(new Uint8Array(contenu), {
       headers: {
-        "Content-Type": fichier.typeMime,
+        "Content-Type": miniature ? "image/jpeg" : fichier.typeMime,
         "Content-Length": String(contenu.length),
         "Content-Disposition": `inline; filename="${encodeURIComponent(fichier.nomOriginal)}"`,
         "Cache-Control": "private, max-age=3600",
