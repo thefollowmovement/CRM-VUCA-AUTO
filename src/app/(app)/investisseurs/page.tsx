@@ -9,31 +9,38 @@ import { Card } from "@/components/ui/card";
 import { EtatVide } from "@/components/ui/etat-vide";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/lib/db";
-import { masquerIban } from "@/lib/format";
+import { formatEuros } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { resumesPartenaires, type ResumePartenaire } from "@/server/requetes/rentabilite";
 
 export const metadata: Metadata = { title: "Investisseurs" };
 
-export default async function PageInvestisseurs({
-  searchParams,
-}: {
-  searchParams: Promise<{ archives?: string }>;
-}) {
+export default async function PageInvestisseurs({ searchParams }: { searchParams: Promise<{ archives?: string }> }) {
   await exigerRolePage(ROLES_GESTION);
   const voirArchives = (await searchParams).archives === "1";
 
-  const partenaires = await db.partenaire.findMany({
-    where: { actif: !voirArchives },
-    // VUCA AUTO (société) en premier, puis ordre alphabétique.
-    orderBy: [{ type: "asc" }, { nom: "asc" }],
-  });
+  const [partenaires, resumes] = await Promise.all([
+    db.partenaire.findMany({
+      where: { actif: !voirArchives },
+      // VUCA AUTO (société) en premier, puis ordre alphabétique.
+      orderBy: [{ type: "asc" }, { nom: "asc" }],
+    }),
+    resumesPartenaires(),
+  ]);
+  const vide: ResumePartenaire = {
+    capitalEngageCentimes: 0,
+    vehiculesEnCours: 0,
+    beneficesRealisesCentimes: 0,
+    beneficesPrevisionnelsCentimes: 0,
+    resteDuCentimes: 0,
+  };
 
   return (
     <>
       <EnTetePage
         titre="Investisseurs"
-        description="VUCA AUTO et les personnes qui financent les véhicules. Capital engagé, bénéfices et reste dû arrivent en Phases 3 et 7."
+        description="VUCA AUTO et les personnes qui financent les véhicules. Capital engagé = achat + dépenses sur les véhicules pas encore vendus."
         actions={
           <DialoguePartenaire
             declencheur={
@@ -82,8 +89,13 @@ export default async function PageInvestisseurs({
                       {p.type === "SOCIETE" && <Badge>Société</Badge>}
                     </p>
                     <p className="truncate text-sm text-muted-foreground">
-                      {[p.telephone, p.email].filter(Boolean).join(" · ") || "Aucun contact"}
+                      {formatEuros((resumes.get(p.id) ?? vide).capitalEngageCentimes)} engagés ·{" "}
+                      {(resumes.get(p.id) ?? vide).vehiculesEnCours} véhicule
+                      {(resumes.get(p.id) ?? vide).vehiculesEnCours > 1 ? "s" : ""}
                     </p>
+                    {p.type !== "SOCIETE" && (resumes.get(p.id) ?? vide).resteDuCentimes !== 0 && (
+                      <p className="text-sm font-medium">Reste dû : {formatEuros((resumes.get(p.id) ?? vide).resteDuCentimes)}</p>
+                    )}
                   </div>
                   <ChevronRight className="size-5 text-muted-foreground" />
                 </Card>
@@ -97,29 +109,39 @@ export default async function PageInvestisseurs({
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
+                  <TableHead className="text-right">Capital engagé</TableHead>
+                  <TableHead className="text-right">Véhicules en cours</TableHead>
+                  <TableHead className="text-right">Bénéfices réalisés</TableHead>
+                  <TableHead className="text-right">Reste dû</TableHead>
                   <TableHead>Téléphone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>IBAN</TableHead>
                   <TableHead className="w-8" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {partenaires.map((p) => (
-                  <TableRow key={p.id} className="relative">
-                    <TableCell className="font-medium">
-                      <Link href={`/investisseurs/${p.id}`} className="flex items-center gap-2 after:absolute after:inset-0">
-                        {p.type === "SOCIETE" && <Building className="size-4 text-primary" />}
-                        {p.nom}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{p.telephone ?? "—"}</TableCell>
-                    <TableCell>{p.email ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{masquerIban(p.iban)}</TableCell>
-                    <TableCell>
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {partenaires.map((p) => {
+                  const r = resumes.get(p.id) ?? vide;
+                  return (
+                    <TableRow key={p.id} className="relative">
+                      <TableCell className="font-medium">
+                        <Link href={`/investisseurs/${p.id}`} className="flex items-center gap-2 after:absolute after:inset-0">
+                          {p.type === "SOCIETE" && <Building className="size-4 text-primary" />}
+                          {p.nom}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatEuros(r.capitalEngageCentimes)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.vehiculesEnCours}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.beneficesRealisesCentimes < 0 && "text-destructive")}>
+                        {formatEuros(r.beneficesRealisesCentimes)}
+                      </TableCell>
+                      {/* VUCA AUTO garde l'argent des ventes : pas de « reste dû » envers elle-même */}
+                      <TableCell className="text-right font-semibold tabular-nums">{p.type === "SOCIETE" ? "—" : formatEuros(r.resteDuCentimes)}</TableCell>
+                      <TableCell>{p.telephone ?? "—"}</TableCell>
+                      <TableCell>
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>

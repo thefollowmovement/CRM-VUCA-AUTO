@@ -11,7 +11,9 @@ import { EtatVide } from "@/components/ui/etat-vide";
 import { db } from "@/lib/db";
 import { BadgeStatut } from "@/components/vehicules/badge-statut";
 import { formatDate, formatEuros, masquerIban } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { nomVehicule } from "@/lib/vehicule";
+import { bilansVehicules, situationPartenaire } from "@/server/requetes/rentabilite";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Fiche partenaire" };
@@ -23,22 +25,43 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
     where: { id },
     include: {
       utilisateur: { select: { email: true, actif: true } },
-      participations: {
-        orderBy: { vehicule: { dateAchat: "desc" } },
-        include: {
-          vehicule: {
-            select: {
-              id: true, marque: true, modele: true, version: true, immatriculation: true, statut: true,
-              participations: { select: { montantCentimes: true } },
-            },
-          },
-        },
-      },
     },
   });
   if (!partenaire) notFound();
-  const enCours = partenaire.participations.filter((p) => !["VENDU", "ARCHIVE"].includes(p.vehicule.statut));
-  const capitalEngage = enCours.reduce((a, p) => a + p.montantCentimes, 0);
+  // Tous les véhicules où ce partenaire a mis de l'argent, a une part ou a reçu un versement
+  const bilans = await bilansVehicules({
+    OR: [
+      { participations: { some: { partenaireId: id } } },
+      { depenses: { some: { payeParId: id, payeSurRecettes: false } } },
+      { partsFixes: { some: { partenaireId: id } } },
+      { versements: { some: { partenaireId: id } } },
+    ],
+  });
+  const lignes = bilans.map(({ vehicule, bilan }) => ({ vehicule, bilan, s: situationPartenaire(bilan, id) })).filter((l) => l.s.concerne);
+  const actifs = lignes.filter((l) => l.vehicule.statut !== "ARCHIVE");
+  const enCours = actifs.filter((l) => !l.bilan.vendu);
+  const vendus = actifs.filter((l) => l.bilan.vendu);
+  const somme = (ls: typeof lignes, f: (l: (typeof lignes)[number]) => number) => ls.reduce((a, l) => a + f(l), 0);
+  const indicateurs = [
+    {
+      libelle: "Capital engagé",
+      valeur: formatEuros(somme(enCours, (l) => l.s.investiCentimes)),
+      detail: `${enCours.length} véhicule${enCours.length > 1 ? "s" : ""} en cours`,
+    },
+    {
+      libelle: "Bénéfice prévisionnel",
+      valeur: formatEuros(somme(enCours, (l) => l.s.beneficeCentimes ?? 0)),
+      detail: "véhicules en cours",
+    },
+    {
+      libelle: "Bénéfices réalisés",
+      valeur: formatEuros(somme(vendus, (l) => l.s.beneficeCentimes ?? 0)),
+      detail: `${vendus.length} véhicule${vendus.length > 1 ? "s" : ""} vendu${vendus.length > 1 ? "s" : ""}`,
+    },
+    partenaire.type === "SOCIETE"
+      ? { libelle: "Part de VUCA AUTO", valeur: formatEuros(somme(vendus, (l) => l.s.aReverserCentimes)), detail: "capital + bénéfice des véhicules vendus" }
+      : { libelle: "Reste dû", valeur: formatEuros(somme(vendus, (l) => l.s.resteDuCentimes ?? 0)), detail: "à reverser − déjà versé" },
+  ];
 
   const infos = [
     { libelle: "Téléphone", valeur: partenaire.telephone },
@@ -63,9 +86,7 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
             </Badge>
             {!partenaire.actif && <Badge variant="warning">Archivé</Badge>}
           </h1>
-          {partenaire.estSysteme && (
-            <p className="mt-1 text-sm text-muted-foreground">Partenaire principal, non supprimable.</p>
-          )}
+          {partenaire.estSysteme && <p className="mt-1 text-sm text-muted-foreground">Partenaire principal, non supprimable.</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           <DialoguePartenaire
@@ -100,46 +121,67 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
                 </div>
               ))}
             </dl>
-            {partenaire.notes && (
-              <p className="mt-4 whitespace-pre-line rounded-md bg-muted p-3 text-sm">{partenaire.notes}</p>
-            )}
+            {partenaire.notes && <p className="mt-4 whitespace-pre-line rounded-md bg-muted p-3 text-sm">{partenaire.notes}</p>}
           </CardContent>
         </Card>
         <div className="flex flex-col gap-4 lg:col-span-2">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {indicateurs.map((i) => (
+              <Card key={i.libelle} className="p-4">
+                <p className="text-xs text-muted-foreground">{i.libelle}</p>
+                <p className="text-lg font-semibold tabular-nums">{i.valeur}</p>
+                <p className="text-xs text-muted-foreground">{i.detail}</p>
+              </Card>
+            ))}
+          </div>
           <Card>
             <CardHeader>
-              <CardTitle>Véhicules financés ({partenaire.participations.length})</CardTitle>
+              <CardTitle>Véhicules ({lignes.length})</CardTitle>
               <CardDescription>
-                Capital à l&apos;achat engagé sur les véhicules en cours : {formatEuros(capitalEngage)} · Dépenses payées,
-                bénéfices et reste dû arrivent en Phase 3.
+                Investi = participation à l&apos;achat + dépenses payées. Bénéfice et « à reverser » prévisionnels (*) tant que le véhicule
+                n&apos;est pas vendu.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {partenaire.participations.length === 0 ? (
+              {lignes.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Car className="size-4" /> Aucun véhicule financé pour l&apos;instant.
                 </p>
               ) : (
                 <ul className="divide-y">
-                  {partenaire.participations.map((p) => {
-                    const total = p.vehicule.participations.reduce((a, x) => a + x.montantCentimes, 0);
-                    const part = total > 0 ? Math.round((p.montantCentimes / total) * 1000) / 10 : 0;
-                    return (
-                      <li key={p.id}>
-                        <Link href={`/vehicules/${p.vehicule.id}/financement`} className="flex items-center gap-3 py-3 hover:bg-muted/50">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">{nomVehicule(p.vehicule)}</p>
-                            <p className="text-xs text-muted-foreground">{p.vehicule.immatriculation ?? "Sans immatriculation"}</p>
+                  {lignes.map(({ vehicule, bilan, s: sit }) => (
+                    <li key={vehicule.id}>
+                      <Link
+                        href={`/vehicules/${vehicule.id}/financement`}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{nomVehicule(vehicule)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {vehicule.immatriculation ?? "Sans immatriculation"} · investi {formatEuros(sit.investiCentimes)}
+                            {sit.depensesCentimes > 0 && ` (dont dépenses ${formatEuros(sit.depensesCentimes)})`}
+                          </p>
+                        </div>
+                        <BadgeStatut statut={vehicule.statut} className="hidden sm:inline-flex" />
+                        <dl className="grid grid-cols-3 gap-3 text-right text-sm">
+                          <div>
+                            <dt className="text-xs text-muted-foreground">Bénéfice{!bilan.vendu && " *"}</dt>
+                            <dd className={cn("font-medium tabular-nums", (sit.beneficeCentimes ?? 0) < 0 && "text-destructive")}>
+                              {formatEuros(sit.beneficeCentimes)}
+                            </dd>
                           </div>
-                          <BadgeStatut statut={p.vehicule.statut} className="hidden sm:inline-flex" />
-                          <div className="text-right">
-                            <p className="font-semibold tabular-nums">{formatEuros(p.montantCentimes)}</p>
-                            <p className="text-xs text-muted-foreground">{String(part).replace(".", ",")} % de l&apos;achat</p>
+                          <div>
+                            <dt className="text-xs text-muted-foreground">À reverser{!bilan.vendu && " *"}</dt>
+                            <dd className="font-medium tabular-nums">{formatEuros(sit.aReverserCentimes)}</dd>
                           </div>
-                        </Link>
-                      </li>
-                    );
-                  })}
+                          <div>
+                            <dt className="text-xs text-muted-foreground">Reste dû</dt>
+                            <dd className="font-semibold tabular-nums">{formatEuros(sit.resteDuCentimes)}</dd>
+                          </div>
+                        </dl>
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               )}
             </CardContent>
@@ -147,7 +189,7 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
           <EtatVide
             icone={HandCoins}
             titre="Versements et relevés"
-            description="Ce qui a déjà été versé, le reste dû et le relevé PDF arrivent en Phase 7."
+            description="La saisie des versements (capital remboursé, bénéfice versé) et le relevé PDF arrivent en Phase 7."
           />
         </div>
       </div>

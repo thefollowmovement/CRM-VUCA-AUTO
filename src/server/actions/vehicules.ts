@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { CategorieFichier, StatutVehicule } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { formatEuros } from "@/lib/format";
 import { journaliser } from "@/lib/journal";
 import { avecDroits, ErreurMetier, ROLES_ADMIN, ROLES_GESTION } from "@/lib/permissions";
 import { enregistrerFichier, supprimerFichierStocke, TYPES_DOCUMENTS, TYPES_IMAGES } from "@/lib/storage";
@@ -478,7 +479,7 @@ export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
         },
       });
       await tx.historiqueStatutVehicule.create({
-        data: { vehiculeId, ancienStatut: v.statut, nouveauStatut: "VENDU", motif: `Vendu ${formatEurosServeur(d.prixVente)}`, utilisateurId: u.id },
+        data: { vehiculeId, ancienStatut: v.statut, nouveauStatut: "VENDU", motif: `Vendu ${formatEuros(d.prixVente)}`, utilisateurId: u.id },
       });
       await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vente", entiteId: vehiculeId, avant: v, apres: d }, tx);
     });
@@ -510,6 +511,3 @@ export async function annulerVente(vehiculeId: string) {
   });
 }
 
-function formatEurosServeur(centimes: number) {
-  return `${(centimes / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-}

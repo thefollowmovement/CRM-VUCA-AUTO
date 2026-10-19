@@ -14,6 +14,9 @@ export function TableHeader({ className, ...props }: React.ComponentProps<"thead
 export function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
 }
+export function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
+  return <tfoot className={cn("border-t bg-muted/50 font-semibold [&>tr]:last:border-b-0", className)} {...props} />;
+}
 export function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return <tr className={cn("border-b transition-colors hover:bg-muted/50", className)} {...props} />;
 }

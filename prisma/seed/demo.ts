@@ -32,6 +32,7 @@ export async function chargerDemo(db: PrismaClient) {
     }
   });
   await uneFois(db, "demo:vehicules", () => chargerVehiculesDemo(db));
+  await uneFois(db, "demo:depenses", () => chargerDepensesDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -273,6 +274,88 @@ async function chargerVehiculesDemo(db: PrismaClient) {
         categorie: "PHOTO_VEHICULE", cleStockage: cle, nomOriginal: "illustration.jpg", typeMime: "image/jpeg",
         tailleOctets: contenu.length, largeur: 1200, hauteur: 675, estPrincipale: true, ordre: 1, vehiculeId: v.id,
       },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Dépenses, règles de répartition et versements (Phase 3)
+// ---------------------------------------------------------------------
+
+// [immatriculation, code catégorie, payé par, euros, il y a n jours, libellé, options]
+type DepenseDemo = [string, string, string, number, number, string?, { surRecettes?: boolean; fournisseur?: string; km?: number }?];
+
+const DEPENSES: DepenseDemo[] = [
+  // Exemple de référence : carte grise 300 € (VUCA AUTO) + réparation 700 € (Karim)
+  ["FG-208-PA", "CARTE_GRISE", "VUCA AUTO", 300, 45, "Carte grise"],
+  ["FG-208-PA", "MECANIQUE", "Karim Benali", 700, 40, "Embrayage + disques", { fournisseur: "Garage Martin" }],
+  ["GH-451-RC", "NETTOYAGE", "VUCA AUTO", 150, 5, "Préparation esthétique complète"],
+  ["FN-777-DS", "PNEUS", "Sophie Martin", 380, 110, "4 pneus Michelin", { fournisseur: "Euromaster" }],
+  ["FN-777-DS", "PUBLICITE", "VUCA AUTO", 49, 100, "Annonce Leboncoin à la une"],
+  ["EZ-316-VW", "CONTROLE_TECHNIQUE", "VUCA AUTO", 78, 65, "Contrôle technique"],
+  ["EZ-316-VW", "CARROSSERIE", "Thomas Lefèvre", 450, 60, "Pare-chocs avant", { fournisseur: "Carrosserie du Parc" }],
+  ["GK-582-TY", "ENTRETIEN", "VUCA AUTO", 180, 90, "Révision 60 000 km", { km: 61200 }],
+  ["GK-582-TY", "ASSURANCE", "VUCA AUTO", 85, 60, "Assurance flotte (mois)", { surRecettes: true }],
+  ["GK-582-TY", "ASSURANCE", "VUCA AUTO", 85, 30, "Assurance flotte (mois)", { surRecettes: true }],
+  ["GB-303-TS", "PNEUS", "Sophie Martin", 920, 150, "Pneus été Michelin Pilot Sport"],
+  ["GB-303-TS", "ASSURANCE", "VUCA AUTO", 120, 30, "Assurance flotte (mois)", { surRecettes: true }],
+  ["GL-145-CP", "ENTRETIEN", "VUCA AUTO", 160, 45, "Vidange + filtres"],
+  ["EV-930-PG", "MECANIQUE", "Karim Benali", 1200, 150, "Diagnostic boîte automatique", { fournisseur: "Garage Martin" }],
+  ["EV-930-PG", "TRANSPORT", "VUCA AUTO", 250, 195, "Convoyage depuis l'enchère"],
+  ["FA-118-BM", "CARTE_GRISE", "VUCA AUTO", 350, 155, "Carte grise"],
+  ["FA-118-BM", "NETTOYAGE", "VUCA AUTO", 120, 140, "Préparation esthétique"],
+  ["EM-283-CT", "CONTROLE_TECHNIQUE", "Sophie Martin", 78, 105, "Contrôle technique"],
+  ["EM-283-CT", "PIECES", "VUCA AUTO", 210, 100, "Plaquettes + disques"],
+  ["DY-500-FT", "MECANIQUE", "VUCA AUTO", 650, 20, "Courroie de distribution", { fournisseur: "Garage Martin" }],
+];
+
+async function chargerDepensesDemo(db: PrismaClient) {
+  const partenaires = new Map((await db.partenaire.findMany()).map((p) => [p.nom, p.id]));
+  const categories = new Map((await db.categorieDepense.findMany()).map((c) => [c.code, c]));
+  const vehicule = async (immat: string) => db.vehicule.findUnique({ where: { immatriculation: immat }, select: { id: true } });
+
+  for (const [immat, code, payeur, euros, ilYa, libelle, opts] of DEPENSES) {
+    const v = await vehicule(immat);
+    const categorie = categories.get(code);
+    const payeParId = partenaires.get(payeur);
+    if (!v || !categorie || !payeParId) continue; // véhicule de démo supprimé entre-temps
+    await db.depense.create({
+      data: {
+        vehiculeId: v.id, date: j(-ilYa), categorieId: categorie.id, libelle: libelle ?? categorie.nom, montantCentimes: eur(euros),
+        payeParId, payeSurRecettes: opts?.surRecettes ?? false, fournisseur: opts?.fournisseur ?? null, kilometrage: opts?.km ?? null,
+      },
+    });
+  }
+
+  // Règles de répartition : C3 avec commission 15 %, Golf en pourcentages fixes + commission 10 %
+  const c3 = await vehicule("EM-283-CT");
+  if (c3) await db.vehicule.update({ where: { id: c3.id }, data: { commissionGestionBp: 1500 } });
+  const golf = await vehicule("EZ-316-VW");
+  const [vuca, karim, thomas, sophie] = ["VUCA AUTO", "Karim Benali", "Thomas Lefèvre", "Sophie Martin"].map((n) => partenaires.get(n));
+  if (golf && vuca && karim && thomas) {
+    await db.vehicule.update({ where: { id: golf.id }, data: { modeRepartition: "POURCENTAGE_FIXE", commissionGestionBp: 1000 } });
+    await db.partBeneficeFixe.createMany({
+      data: [
+        { vehiculeId: golf.id, partenaireId: vuca, pourcentageBp: 4000 },
+        { vehiculeId: golf.id, partenaireId: karim, pourcentageBp: 3000 },
+        { vehiculeId: golf.id, partenaireId: thomas, pourcentageBp: 3000 },
+      ],
+    });
+  }
+
+  // Versements déjà faits sur les véhicules vendus (il reste un solde dû)
+  if (c3 && sophie) {
+    await db.versement.createMany({
+      data: [
+        { partenaireId: sophie, vehiculeId: c3.id, date: j(-55), montantCentimes: eur(3478), type: "REMBOURSEMENT_CAPITAL", mode: "VIREMENT" },
+        { partenaireId: sophie, vehiculeId: c3.id, date: j(-50), montantCentimes: eur(500), type: "VERSEMENT_BENEFICE", mode: "VIREMENT" },
+      ],
+    });
+  }
+  const p3008 = await vehicule("EV-930-PG");
+  if (p3008 && karim) {
+    await db.versement.create({
+      data: { partenaireId: karim, vehiculeId: p3008.id, date: j(-30), montantCentimes: eur(10000), type: "REMBOURSEMENT_CAPITAL", mode: "VIREMENT" },
     });
   }
 }

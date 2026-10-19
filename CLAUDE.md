@@ -114,6 +114,15 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Tri par type de partenaire : l'enum Postgres suit l'ordre de déclaration (`SOCIETE` puis `INVESTISSEUR`) → `orderBy: { type: "asc" }` pour avoir VUCA AUTO en premier.
 - Démo : `prisma/seed/demo.ts`, blocs `uneFois(db, "demo:…")`.
 
+## Dépenses, rentabilité, vente (Phase 3)
+
+- Calculs : `lib/calculs/repartition.ts` (`calculerInvestissements`, `repartirBenefice`, `diviserArrondi` BigInt) et `rentabilite.ts` (`calculerRentabilite`) — purs, utilisés côté serveur ET dans le simulateur / la page de vente (client).
+- Bilan : `server/requetes/rentabilite.ts` → `bilanVehicule(id)` (avec noms), `bilansVehicules(where)` (3 requêtes pour N véhicules), `situationPartenaire`, `resumesPartenaires`. Revenus hors vente = paiements (REMBOURSEMENT négatif) + indemnités d'assurance.
+- Dépenses : lectures `server/requetes/depenses.ts`, actions `server/actions/depenses.ts`, formulaire unique `components/depenses/formulaire-depense.tsx` (création : dépense puis envoi du justificatif), conversions `lib/depense-formulaire.ts` (`retourSur` n'accepte qu'un chemin interne).
+- Composants finance : `components/finance/` (tableau-repartition sans état, carte-rentabilite, dialogue-repartition, simulateur-vente, formulaire-vente).
+- Vente : `marquerVendu` / `annulerVente` dans `server/actions/vehicules.ts` ; page `/vehicules/[id]/vendre`.
+- Tests navigateur : en-têtes de tableaux en majuscules CSS → comparer en minuscules ; attendre un texte après `router.refresh()`.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

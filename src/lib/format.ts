@@ -125,3 +125,11 @@ export function formatNombre(n: number | null | undefined): string {
 export function aujourdhuiISO(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: FUSEAU, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
+
+/** Points de base → « 36,67 » (sans symbole, pour préremplir un champ). */
+export function bpVersSaisie(bp: number | null | undefined): string {
+  if (bp === null || bp === undefined) return "";
+  const entier = Math.floor(bp / 100);
+  const dec = bp % 100;
+  return dec === 0 ? String(entier) : `${entier},${String(dec).padStart(2, "0").replace(/0$/, "")}`;
+}

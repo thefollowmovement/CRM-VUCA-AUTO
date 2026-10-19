@@ -16,7 +16,7 @@ type Raccourci = { libelle: string; href: string; icone: LucideIcon; disponible:
 // « disponible » passe à true au fur et à mesure des phases.
 const RACCOURCIS: Raccourci[] = [
   { libelle: "Véhicule", href: "/vehicules/nouveau", icone: Car, disponible: true, phase: 2 },
-  { libelle: "Dépense", href: "/depenses/nouvelle", icone: Receipt, disponible: false, phase: 3 },
+  { libelle: "Dépense", href: "/depenses/nouvelle", icone: Receipt, disponible: true, phase: 3 },
   { libelle: "Location", href: "/location/contrats/nouveau", icone: KeyRound, disponible: false, phase: 4 },
   { libelle: "Paiement", href: "/location/paiements/nouveau", icone: HandCoins, disponible: false, phase: 6 },
 ];
@@ -25,7 +25,7 @@ const RACCOURCIS: Raccourci[] = [
 export function BoutonAjout() {
   const chemin = usePathname();
   // Masqué sur les formulaires (il gênerait la barre « Enregistrer »).
-  if (/\/(nouveau|nouvelle|modifier)$/.test(chemin)) return null;
+  if (/\/(nouveau|nouvelle|modifier|vendre)$|^\/depenses\/[^/]+$/.test(chemin)) return null;
   return (
     <MenuDeroulant>
       <MenuDeroulantDeclencheur asChild>

@@ -6,8 +6,8 @@
 |---|---|---|
 | 0 | Arborescence + schéma Prisma complet | ✅ Validée le 18/10/2026 |
 | 1 | Socle : projet, Docker, base, auth, rôles, layout, navigation, réglages, partenaires, seed | ✅ Validée le 19/10/2026 (déployée sur le KVM 2) |
-| 2 | Véhicules : CRUD, photos, documents, financement, statuts | 🟡 Livrée — en attente de validation |
-| 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | ⚪ À faire |
+| 2 | Véhicules : CRUD, photos, documents, financement, statuts | ✅ Validée le 19/10/2026 |
+| 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | 🟡 Livrée — en attente de validation |
 | 4 | Location : clients, contrats, disponibilités, planning, tarification | ⚪ À faire |
 | 5 | État des lieux mobile, comparaison retour, frais, caution | ⚪ À faire |
 | 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ⚪ À faire |
@@ -42,6 +42,17 @@
 - Liens : recherche globale (véhicules), bouton « + » → nouveau véhicule, fiche investisseur (véhicules financés, capital engagé), tableau de bord (véhicules en stock).
 - Démo : 12 véhicules (vendus dont un à perte, en stock, en location, mixte, immobilisé, 3 financeurs à parts égales, écart de financement accepté, exemple Peugeot 208) avec illustrations.
 - Tests : 52 tests unitaires (répartition sans perte, financement, immatriculation, VIN, échéances, CSV…) ; parcours complet dans Chromium (ordinateur + iPhone).
+
+## Phase 3 — livré
+
+- **Moteur de calcul** (`src/lib/calculs/repartition.ts`, `rentabilite.ts`, fonctions pures en centimes) : investissement de chaque partenaire (achat + dépenses payées, hors dépenses « payées avec les recettes »), coût de revient, revenus, bénéfice, marge %, ROI %, répartition au prorata ou en pourcentages fixes, commission de gestion VUCA AUTO sur bénéfice positif, écart d'arrondi à VUCA AUTO. Tous les exemples de référence du cahier des charges sont testés (Peugeot 208, commission 20 %, perte, 100 % VUCA, 3 tiers, 4 partenaires, % fixe, perte + commission, dépenses sans achat cofinancé…).
+- **Dépenses** : liste globale (filtres véhicule / catégorie / payeur / période, totaux par catégorie et par payeur, export Excel), saisie rapide pensée pour le téléphone (photo du ticket → montant → catégorie en grille d'icônes → payé par, VUCA AUTO présélectionné → véhicule), « Enregistrer et en saisir une autre », justificatifs (photo ou PDF, type vérifié), modification, suppression avec confirmation. Un kilométrage saisi plus élevé met à jour le compteur du véhicule.
+- **Fiche véhicule** : onglet Dépenses (liste + totaux, ajout prérempli) ; Résumé avec carte Rentabilité (réelle ou prévisionnelle sur prix cible / valeur estimée) et carte Vente ; Entretien avec l'historique des entretiens et réparations ; Financement avec le tableau de répartition (achat, dépenses, investi, part, bénéfice dont commission, à reverser, déjà versé, reste dû), les règles de partage (prorata / % fixes avec contrôle du total, commission) et un simulateur « et si je vends à… ».
+- **Vente** : page « Marquer comme vendu » (prix prérempli avec le prix cible, date, km, acheteur, mode de paiement) avec calcul final et répartition en direct ; « Annuler la vente » (retour au statut précédent, tracé dans l'historique).
+- **Investisseurs** : capital engagé, véhicules en cours, bénéfices réalisés et reste dû dans la liste ; fiche avec la situation véhicule par véhicule.
+- Bouton « + » → Dépense disponible.
+- Démo : 20 dépenses (dont l'exemple 208 : carte grise 300 € VUCA, embrayage 700 € Karim), assurances payées sur recettes, C3 avec commission 15 %, Golf en % fixes 40/30/30 + commission 10 %, versements partiels (reste dû Sophie 255,76 €, Karim 49,12 €).
+- Tests : 71 tests unitaires ; parcours complet dans Chromium (ordinateur + iPhone, sans débordement horizontal ni erreur console).
 
 ## Déploiement VPS (19/10/2026)
 
@@ -78,6 +89,12 @@
   - Les paramètres de répartition (mode prorata / pourcentage fixe, commission de gestion) seront saisis en Phase 3 avec le moteur de calcul.
   - Blocs de démo chargés une seule fois (repères `demo:*` dans `Compteur`) ; avec `SEED_DEMO=true`, un nouveau bloc se charge à la mise à jour suivante. Supprimer des données de démo ne les fait pas revenir.
   - Export « Excel » = CSV compatible Excel FR ; un vrai fichier .xlsx viendra avec les rapports (Phase 7).
+- Phase 3 :
+  - Écart d'arrondi : à VUCA AUTO si elle est concernée, sinon au partenaire le plus engagé.
+  - Mode « pourcentage fixe » : les % ne concernent que le bénéfice ; chacun récupère toujours son investissement.
+  - « Déjà versé » = remboursements de capital + bénéfices versés sur ce véhicule (les apports supplémentaires sont ignorés). La saisie des versements arrive en Phase 7.
+  - VUCA AUTO garde l'argent des ventes : pas de « reste dû » envers elle-même dans la liste des investisseurs.
+  - Véhicule de location sans prix cible : bénéfice prévisionnel calculé sur la valeur estimée (+ revenus de location encaissés dès la Phase 6).
 
 ## Questions ouvertes
 

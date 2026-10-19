@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bpVersSaisie,
   centimesVersSaisie,
   dateCalendaireDepuisISO,
   dateCalendaireVersISO,
@@ -77,5 +78,16 @@ describe("masquerIban", () => {
   it("ne montre que le début et la fin", () => {
     expect(masquerIban("FR76 3000 6000 0112 3456 7890 189")).toBe("FR76 •••• •••• •••• 0189");
     expect(masquerIban(null)).toBe("—");
+  });
+});
+
+describe("bpVersSaisie", () => {
+  it("convertit des points de base en saisie française", () => {
+    expect(bpVersSaisie(2000)).toBe("20");
+    expect(bpVersSaisie(3667)).toBe("36,67");
+    expect(bpVersSaisie(1250)).toBe("12,5");
+    expect(bpVersSaisie(305)).toBe("3,05");
+    expect(bpVersSaisie(0)).toBe("0");
+    expect(bpVersSaisie(null)).toBe("");
   });
 });

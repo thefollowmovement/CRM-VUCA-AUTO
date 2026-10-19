@@ -1,13 +1,16 @@
-import { ExternalLink } from "lucide-react";
+import { BadgeEuro, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CarteRentabilite } from "@/components/finance/carte-rentabilite";
 import { CarteEstimations } from "@/components/vehicules/carte-estimations";
 import { GaleriePhotos } from "@/components/vehicules/galerie-photos";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListeInfos } from "@/components/ui/liste-infos";
-import { coutDeRevient, joursEnStock, margePrevisionnelle } from "@/lib/calculs/vehicule";
+import { joursEnStock } from "@/lib/calculs/vehicule";
 import { db } from "@/lib/db";
 import { aujourdhuiISO, formatDate, formatEuros, formatNombre } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { LIBELLES_MODE_PAIEMENT } from "@/lib/validations/finance";
 import {
   LIBELLES_BOITE,
   LIBELLES_CARBURANT,
@@ -15,6 +18,7 @@ import {
   LIBELLES_PROVENANCE,
   nomVehicule,
 } from "@/lib/vehicule";
+import { bilanVehicule } from "@/server/requetes/rentabilite";
 import { obtenirVehicule } from "@/server/requetes/vehicules";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -26,12 +30,11 @@ export default async function PageResumeVehicule({ params }: { params: Promise<{
   const { id } = await params;
   const v = await obtenirVehicule(id);
   if (!v) notFound();
-  const totalDepenses = (await db.depense.aggregate({ where: { vehiculeId: id }, _sum: { montantCentimes: true } }))._sum.montantCentimes ?? 0;
+  const bilan = await bilanVehicule(id);
+  if (!bilan) notFound();
 
   const photos = v.fichiers.filter((f) => f.categorie === "PHOTO_VEHICULE");
-  const cout = coutDeRevient(v.prixAchatCentimes, totalDepenses);
-  const vendu = v.statut === "VENDU" && v.prixVenteCentimes !== null;
-  const marge = vendu ? v.prixVenteCentimes! - cout : margePrevisionnelle(cout, v.prixCibleCentimes, v.estimations[0]?.montantCentimes ?? null);
+  const vendu = bilan.vendu;
   const location = v.typeExploitation !== "ACHAT_REVENTE";
   const modifiable = v.statut !== "ARCHIVE";
 
@@ -126,37 +129,45 @@ export default async function PageResumeVehicule({ params }: { params: Promise<{
       </div>
 
       <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Rentabilité</CardTitle>
-            <CardDescription>
-              {vendu ? "Véhicule vendu." : "Prévisionnel"} · Le calcul complet (bénéfice, ROI, part de chacun) arrive en Phase 3.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground">Coût de revient</dt>
-                <dd className="text-lg font-semibold tabular-nums">{formatEuros(cout)}</dd>
-                <dd className="text-xs text-muted-foreground">dont dépenses {formatEuros(totalDepenses)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">{vendu ? "Prix de vente" : "Prix cible"}</dt>
-                <dd className="text-lg font-semibold tabular-nums">{formatEuros(vendu ? v.prixVenteCentimes : v.prixCibleCentimes)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">{vendu ? "Marge" : "Marge prévisionnelle"}</dt>
-                <dd className={cn("text-lg font-semibold tabular-nums", marge !== null && (marge < 0 ? "text-destructive" : "text-success"))}>
-                  {formatEuros(marge)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Jours en stock</dt>
-                <dd className="text-lg font-semibold tabular-nums">{joursEnStock(v.dateAchat, v.dateVente)}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+        <CarteRentabilite
+          rentabilite={bilan.rentabilite}
+          totalDepensesCentimes={bilan.totalDepenses}
+          autresRevenusCentimes={bilan.autresRevenus}
+          jours={joursEnStock(v.dateAchat, v.dateVente)}
+          action={
+            modifiable && !vendu ? (
+              <Button size="sm" asChild>
+                <Link href={`/vehicules/${v.id}/vendre`}>
+                  <BadgeEuro /> Vendre
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+
+        {vendu && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Vente</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <ListeInfos
+                className="sm:grid-cols-2"
+                elements={[
+                  { libelle: "Date de vente", valeur: formatDate(v.dateVente) },
+                  { libelle: "Prix de vente", valeur: formatEuros(v.prixVenteCentimes) },
+                  { libelle: "Kilométrage", valeur: v.kilometrageVente !== null ? `${formatNombre(v.kilometrageVente)} km` : null },
+                  { libelle: "Paiement", valeur: v.modePaiementVente && LIBELLES_MODE_PAIEMENT[v.modePaiementVente] },
+                  { libelle: "Acheteur", valeur: v.acheteurNom },
+                  { libelle: "Téléphone", valeur: v.acheteurTelephone },
+                  { libelle: "Email", valeur: v.acheteurEmail },
+                  { libelle: "Adresse", valeur: v.acheteurAdresse },
+                ]}
+              />
+              {v.notesVente && <p className="whitespace-pre-line rounded-md bg-muted p-3 text-sm">{v.notesVente}</p>}
+            </CardContent>
+          </Card>
+        )}
 
         <CarteEstimations vehiculeId={v.id} estimations={v.estimations} aujourdhui={aujourdhuiISO()} modifiable={modifiable} />
       </div>

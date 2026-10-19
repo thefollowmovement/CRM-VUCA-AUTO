@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, Ellipsis, LoaderCircle, Pencil, RefreshCw, Trash } from "lucide-react";
+import { Archive, ArchiveRestore, BadgeEuro, Ellipsis, LoaderCircle, Pencil, RefreshCw, Trash, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { StatutVehicule } from "@/generated/prisma/enums";
 import { LIBELLES_STATUT, STATUTS_MANUELS } from "@/lib/vehicule";
 import { schemaChangementStatut } from "@/lib/validations/vehicule";
-import { archiverVehicule, changerStatutVehicule, restaurerVehicule, supprimerVehicule } from "@/server/actions/vehicules";
+import { annulerVente, archiverVehicule, changerStatutVehicule, restaurerVehicule, supprimerVehicule } from "@/server/actions/vehicules";
 
 export function ActionsVehicule({
   id,
@@ -37,6 +37,7 @@ export function ActionsVehicule({
   const [dialogueStatut, setDialogueStatut] = useState(false);
   const [confirmerArchive, setConfirmerArchive] = useState(false);
   const [confirmerSuppression, setConfirmerSuppression] = useState(false);
+  const [confirmerAnnulation, setConfirmerAnnulation] = useState(false);
   const archive = statut === "ARCHIVE";
   const statutModifiable = statut !== "VENDU" && !archive;
 
@@ -46,6 +47,13 @@ export function ActionsVehicule({
         <Button variant="outline" asChild>
           <Link href={`/vehicules/${id}/modifier`}>
             <Pencil /> Modifier
+          </Link>
+        </Button>
+      )}
+      {statutModifiable && (
+        <Button asChild>
+          <Link href={`/vehicules/${id}/vendre`}>
+            <BadgeEuro /> Marquer comme vendu
           </Link>
         </Button>
       )}
@@ -72,6 +80,11 @@ export function ActionsVehicule({
           </Button>
         </MenuDeroulantDeclencheur>
         <MenuDeroulantContenu align="end">
+          {statut === "VENDU" && (
+            <MenuDeroulantElement onSelect={() => setConfirmerAnnulation(true)}>
+              <Undo2 /> Annuler la vente
+            </MenuDeroulantElement>
+          )}
           {!archive && (
             <MenuDeroulantElement onSelect={() => setConfirmerArchive(true)}>
               <Archive /> Archiver
@@ -106,6 +119,32 @@ export function ActionsVehicule({
               }}
             >
               Archiver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmerAnnulation} onOpenChange={setConfirmerAnnulation}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annuler la vente de {nom} ?</DialogTitle>
+            <DialogDescription>
+              À utiliser si la vente a été saisie par erreur : le prix, la date et l&apos;acheteur sont effacés et le véhicule
+              retrouve son statut précédent. L&apos;opération est tracée dans l&apos;historique.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmerAnnulation(false)}>
+              Garder la vente
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setConfirmerAnnulation(false);
+                if (traiterResultat(await annulerVente(id))) router.refresh();
+              }}
+            >
+              Annuler la vente
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -163,7 +202,7 @@ function DialogueStatut({ id, statut, onFermer }: { id: string; statut: StatutVe
         <DialogHeader>
           <DialogTitle>Changer le statut</DialogTitle>
           <DialogDescription>
-            Statut actuel : {LIBELLES_STATUT[statut]}. « Vendu » se fait avec « Marquer comme vendu » (Phase 3) et
+            Statut actuel : {LIBELLES_STATUT[statut]}. « Vendu » se fait avec le bouton « Marquer comme vendu » et
             « En location » automatiquement avec les contrats (Phase 4).
           </DialogDescription>
         </DialogHeader>
