@@ -35,7 +35,10 @@
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
 - Domaine temporaire : `crm-vuca.<ip>.sslip.io`, SSL Let's Encrypt.
 - Testé dans le bac à sable : 5 cas (ports libres, Traefik, nginx avec retour arrière, logiciel inconnu, mise à jour) ; routage HTTPS via Traefik vérifié de bout en bout.
-- Pas encore lancé sur le VPS réel : Claude n'a pas d'accès SSH depuis son environnement ; l'utilisateur lance la commande dans le terminal web de Hostinger.
+- Serveur cible : **KVM 2** Hostinger (`srv1075545.hstgr.cloud`, 72.61.164.158), **Ubuntu 24.04 + HestiaCP**. Le gestionnaire Docker de Hostinger n'y est pas disponible et le connecteur ne permet pas d'exécuter de commandes.
+- `scripts/installer-hestia.sh` : installation native (sans Docker) via les commandes Hestia (`v-add-web-domain`, modèle nginx `vuca-crm`, `v-add-letsencrypt-domain`). Testé dans le bac à sable avec une imitation de Hestia + vrai nginx : installation complète, reprise après interruption, HTTPS (modèle .stpl), connexion + envoi de fichier dans Chromium, mise à jour avec conservation des données.
+- Domaine prévu : `crm-vuca.72-61-164-158.sslip.io`.
+- Pas encore lancé sur le VPS réel : l'utilisateur lance la commande dans le terminal web de Hostinger.
 
 ## Décisions prises
 

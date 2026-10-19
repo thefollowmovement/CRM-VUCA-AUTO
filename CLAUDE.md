@@ -129,6 +129,9 @@ docker compose up -d          # lancement complet (app + Postgres)
 - Règle d'or : ne jamais modifier un fichier existant du serveur de l'utilisateur (d'autres projets y tournent) ; s'arrêter si la configuration n'est pas reconnue.
 - Traefik : Docker 29 exige Traefik ≥ 3.6 (API Docker minimale 1.44).
 - Claude n'a pas d'accès SSH sortant depuis l'environnement cloud : l'utilisateur lance le script via le terminal web Hostinger et renvoie la sortie.
+- **Serveur réel : KVM 2 Hostinger (id 1075545, 72.61.164.158) sous HestiaCP** → `scripts/installer-hestia.sh` : pas de Docker ; Node privé `/opt/vuca-crm/node`, code `/opt/vuca-crm/app`, `.env` `/opt/vuca-crm/.env` (root:vuca-crm 640), fichiers `/var/lib/vuca-crm/storage`, service systemd `vuca-crm`, base PostgreSQL locale `vuca_crm`, domaine Hestia (utilisateur `admin`) avec modèle nginx `vuca-crm` (.tpl/.stpl) et SSL Let's Encrypt de Hestia. Repère `/opt/vuca-crm/.installation` (ETAT=en_cours|terminee). Journal d'installation `/var/log/vuca-crm-installation.log`.
+- Phase 4 (contrainte anti-chevauchement) : l'extension `btree_gist` doit être créée par le superutilisateur PostgreSQL sur ce serveur (le rôle `vuca_crm` n'est pas superutilisateur) → prévoir l'étape dans `installer-hestia.sh`.
+- Connecteur Hostinger (MCP) : lecture des VPS possible ; pas d'exécution de commandes ; Docker Manager indisponible sur le modèle HestiaCP.
 
 ### Notes pour l'environnement cloud de Claude
 - PostgreSQL 16 local : `service postgresql start` ; utilisateur `vuca` / `vuca`, base `vuca_crm`.

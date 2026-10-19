@@ -133,6 +133,7 @@ Selon ce qu'il trouve :
 |---|---|
 | Ports 80/443 libres | démarre un petit proxy Caddy qui gère le HTTPS automatiquement |
 | Traefik dans Docker (ex. modèle n8n, Coolify) | branche l'application sur ce Traefik, sans modifier sa configuration |
+| **HestiaCP** | passe par les commandes de Hestia (script `installer-hestia.sh`, voir ci-dessous) |
 | nginx installé | ajoute un fichier `vuca-crm.conf`, vérifie (`nginx -t`), recharge, puis obtient le certificat avec certbot |
 | Autre chose | s'arrête et n'installe rien |
 
@@ -151,6 +152,22 @@ Selon ce qu'il trouve :
 4. À la fin s'affichent l'adresse `https://…sslip.io` et le mot de passe administrateur : **notez-le**.
 
 Pour seulement voir ce que le script ferait : ajoutez `--simulation` à la fin de la commande.
+
+### Serveur avec HestiaCP
+
+Sur un serveur géré par HestiaCP, le script `scripts/installer-hestia.sh` (appelé automatiquement par `installer-vps.sh`) :
+
+- installe l'application **sans Docker** (qui entre en conflit avec le pare-feu de Hestia) : Node.js privé dans `/opt/vuca-crm`, base PostgreSQL `vuca_crm`, service `vuca-crm` sur `127.0.0.1` uniquement, fichiers dans `/var/lib/vuca-crm` ;
+- crée le domaine **avec les commandes de Hestia** et un modèle nginx dédié `vuca-crm` : le site apparaît dans le panneau Hestia, le certificat Let's Encrypt est géré et renouvelé par Hestia ;
+- ne touche à aucun autre site ; en cas d'interruption, une nouvelle exécution retire ses propres éléments et recommence.
+
+Commande (terminal du navigateur Hostinger, en root) :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thefollowmovement/CRM-VUCA-AUTO/claude/zealous-euler-5gd2q0/scripts/installer-hestia.sh -o installer-hestia.sh && BRANCHE=claude/zealous-euler-5gd2q0 bash installer-hestia.sh
+```
+
+Mise à jour : `bash /opt/vuca-crm/app/scripts/installer-hestia.sh` · Journal : `journalctl -u vuca-crm -n 100`
 
 ### Mettre à jour plus tard
 

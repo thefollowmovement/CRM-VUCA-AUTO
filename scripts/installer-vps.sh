@@ -47,6 +47,14 @@ arret() {
 trap 'rouge "Erreur inattendue à la ligne $LINENO. Copiez ce qui est affiché et envoyez-le à Claude."' ERR
 
 [[ $EUID -eq 0 ]] || arret "lancez ce script en root (ou avec sudo)."
+
+# Serveur géré par HestiaCP : installation dédiée, qui passe par les commandes de Hestia.
+if [[ -d /usr/local/hestia ]]; then
+  jaune "HestiaCP détecté : utilisation du script d'installation dédié à HestiaCP."
+  SCRIPT_HESTIA=$(mktemp /tmp/installer-hestia.XXXXXX.sh)
+  curl -fsSL "https://raw.githubusercontent.com/thefollowmovement/CRM-VUCA-AUTO/$BRANCHE/scripts/installer-hestia.sh" -o "$SCRIPT_HESTIA"
+  BRANCHE="$BRANCHE" exec bash "$SCRIPT_HESTIA" "$@"
+fi
 command -v apt-get >/dev/null || arret "système non pris en charge (Ubuntu ou Debian attendu)."
 # Sans « ss », impossible de savoir quels ports sont occupés : on ne devine pas.
 command -v ss >/dev/null || arret "la commande « ss » est absente (paquet iproute2) : impossible de vérifier les ports utilisés."

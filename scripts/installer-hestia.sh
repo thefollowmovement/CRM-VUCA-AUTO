@@ -36,6 +36,7 @@ NODE_DIR="$RACINE/node"
 ENV_FICHIER="$RACINE/.env"
 FICHIER_INSTALL="$RACINE/.installation"
 DONNEES="/var/lib/vuca-crm"
+JOURNAL="/var/log/vuca-crm-installation.log"
 UTILISATEUR_SYS="vuca-crm"
 SERVICE="vuca-crm"
 BASE="vuca_crm"
@@ -66,6 +67,16 @@ port_libre() { [[ -z "$(ss -ltnH "( sport = :$1 )" 2>/dev/null)" ]]; }
 en_appli() {
   runuser -u "$UTILISATEUR_SYS" -- env -i HOME="$RACINE" PATH="$NODE_DIR/bin:/usr/bin:/bin" \
     NEXT_TELEMETRY_DISABLED=1 bash -c "set -a; . '$ENV_FICHIER'; set +a; cd '$APP'; $1"
+}
+ecrire_repere() {
+  cat >"$FICHIER_INSTALL" <<FIN
+ETAT=$1
+DOMAINE=$DOMAINE
+APP_PORT=$APP_PORT
+BRANCHE=$BRANCHE
+UTILISATEUR_HESTIA=$UTILISATEUR_HESTIA
+DATE_ETAT="$(date '+%d/%m/%Y %H:%M')"
+FIN
 }
 pg() { (cd /tmp && runuser -u postgres -- psql -v ON_ERROR_STOP=1 -tA "$@"); }
 git_appli() { runuser -u "$UTILISATEUR_SYS" -- env HOME="$RACINE" git "$@"; }
@@ -110,36 +121,52 @@ echo "Modèles nginx  : $DOSSIER_MODELES (type $TYPE_MODELE)"
 echo "Utilisateur Hestia : $UTILISATEUR_HESTIA"
 
 MISE_A_JOUR=false
+REPRISE=false
+ETAT=""
 if [[ -f "$FICHIER_INSTALL" ]]; then
-  MISE_A_JOUR=true
   # shellcheck disable=SC1090
   . "$FICHIER_INSTALL"
+fi
+if [[ "$ETAT" == "terminee" ]]; then
+  MISE_A_JOUR=true
   vert "VUCA AUTO CRM est déjà installé → mode MISE À JOUR (domaine $DOMAINE)."
 else
-  [[ -e "$RACINE" ]] && arret "le dossier $RACINE existe déjà mais n'a pas été créé par ce script."
-  id "$UTILISATEUR_SYS" >/dev/null 2>&1 && arret "l'utilisateur système $UTILISATEUR_SYS existe déjà."
-  [[ -e "/etc/systemd/system/$SERVICE.service" ]] && arret "le service $SERVICE existe déjà."
-  ls "$DOSSIER_MODELES/$MODELE".* >/dev/null 2>&1 && arret "un modèle nginx « $MODELE » existe déjà dans Hestia."
+  if [[ "$ETAT" == "en_cours" ]]; then
+    REPRISE=true
+    jaune "Une installation précédente s'est interrompue : ses éléments (vuca-crm uniquement) seront retirés, puis l'installation relancée."
+  else
+    [[ -e "$RACINE" ]] && arret "le dossier $RACINE existe déjà mais n'a pas été créé par ce script."
+    id "$UTILISATEUR_SYS" >/dev/null 2>&1 && arret "l'utilisateur système $UTILISATEUR_SYS existe déjà."
+    [[ -e "/etc/systemd/system/$SERVICE.service" ]] && arret "le service $SERVICE existe déjà."
+    ls "$DOSSIER_MODELES/$MODELE".* >/dev/null 2>&1 && arret "un modèle nginx « $MODELE » existe déjà dans Hestia."
+  fi
 
-  IP=$(curl -4 -fsS --max-time 10 https://api.ipify.org || hostname -I | awk '{print $1}')
+  IP=$(curl -4 -fs --max-time 10 https://api.ipify.org || hostname -I | awk '{print $1}')
   [[ "$IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || arret "adresse IP publique introuvable."
-  DOMAINE="${DOMAINE:-crm-vuca.${IP//./-}.sslip.io}"
+  [[ "$REPRISE" == true ]] || DOMAINE="${DOMAINE:-crm-vuca.${IP//./-}.sslip.io}"
   IP_DOMAINE=$(getent ahostsv4 "$DOMAINE" | awk 'NR==1 {print $1}' || true)
   echo "IP publique    : $IP"
   echo "Domaine        : $DOMAINE → ${IP_DOMAINE:-introuvable}"
   [[ "$IP_DOMAINE" == "$IP" ]] || arret "le domaine $DOMAINE ne pointe pas vers ce serveur."
-  "$VBIN/v-list-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" plain >/dev/null 2>&1 &&
+  if [[ "$REPRISE" == false ]] && "$VBIN/v-list-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" plain >/dev/null 2>&1; then
     arret "le domaine $DOMAINE existe déjà dans Hestia."
+  fi
 
-  APP_PORT=3100
-  while ! port_libre "$APP_PORT"; do APP_PORT=$((APP_PORT + 1)); done
-  echo "Port interne   : 127.0.0.1:$APP_PORT (libre)"
+  if [[ "$REPRISE" == false || -z "${APP_PORT:-}" ]]; then
+    APP_PORT=3100
+    while ! port_libre "$APP_PORT"; do APP_PORT=$((APP_PORT + 1)); done
+  fi
+  echo "Port interne   : 127.0.0.1:$APP_PORT"
 
-  if command -v psql >/dev/null && systemctl is-active --quiet postgresql; then
+  if command -v psql >/dev/null; then
     PG_PRESENT=true
+    systemctl is-active --quiet postgresql ||
+      arret "PostgreSQL est installé mais arrêté. Je n'y touche pas : démarrez-le ou contactez Claude."
     echo "PostgreSQL     : déjà installé ($(psql --version | awk '{print $3}'))"
-    [[ "$(pg -c "select 1 from pg_roles where rolname='$BASE'")" == "1" ]] && arret "le rôle PostgreSQL $BASE existe déjà."
-    [[ "$(pg -c "select 1 from pg_database where datname='$BASE'")" == "1" ]] && arret "la base PostgreSQL $BASE existe déjà."
+    if [[ "$REPRISE" == false ]]; then
+      [[ "$(pg -c "select 1 from pg_roles where rolname='$BASE'")" == "1" ]] && arret "le rôle PostgreSQL $BASE existe déjà."
+      [[ "$(pg -c "select 1 from pg_database where datname='$BASE'")" == "1" ]] && arret "la base PostgreSQL $BASE existe déjà."
+    fi
   else
     PG_PRESENT=false
     jaune "PostgreSQL     : absent → il sera installé (paquets Ubuntu, écoute en local uniquement)."
@@ -154,6 +181,7 @@ if [[ "$MISE_A_JOUR" == true ]]; then
   echo " • Reconstruire l'application, appliquer les migrations de la base, redémarrer le service $SERVICE"
   echo " • Données, configuration et domaine Hestia conservés."
 else
+  [[ "$REPRISE" == true ]] && echo " • Retirer les éléments de l'installation interrompue (service, dossier, base, domaine « vuca-crm »)"
   [[ "$PG_PRESENT" == false ]] && echo " • Installer PostgreSQL (apt install postgresql)"
   echo " • Créer l'utilisateur système « $UTILISATEUR_SYS » et le dossier $RACINE"
   echo " • Installer Node.js 22 dans $NODE_DIR (privé, n'affecte pas le reste du serveur)"
@@ -174,6 +202,8 @@ fi
 echo
 read -r -p "Continuer ? Tapez « oui » puis Entrée : " REPONSE || REPONSE=""
 [[ "$REPONSE" == "oui" ]] || { jaune "Annulé, rien n'a été modifié."; exit 0; }
+touch "$JOURNAL" && chmod 600 "$JOURNAL"
+echo "=== $(date '+%d/%m/%Y %H:%M') ===" >>"$JOURNAL"
 
 # =====================================================================
 titre "3. Installation"
@@ -193,13 +223,37 @@ installer_node() {
   rm -rf "$tmp"
 }
 
+# Retire UNIQUEMENT les éléments créés par une installation interrompue de ce script.
+nettoyer_reprise() {
+  echo "→ Nettoyage de l'installation interrompue…"
+  systemctl disable --now "$SERVICE" >/dev/null 2>&1 || true
+  rm -f "/etc/systemd/system/$SERVICE.service"
+  systemctl daemon-reload || true
+  if "$VBIN/v-list-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" plain >/dev/null 2>&1; then
+    "$VBIN/v-delete-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" >/dev/null || true
+  fi
+  rm -f "$DOSSIER_MODELES/$MODELE.tpl" "$DOSSIER_MODELES/$MODELE.stpl"
+  if command -v psql >/dev/null; then
+    pg -c "DROP DATABASE IF EXISTS $BASE;" >/dev/null
+    pg -c "DROP ROLE IF EXISTS $BASE;" >/dev/null
+  fi
+  rm -rf /opt/vuca-crm /var/lib/vuca-crm
+  if id "$UTILISATEUR_SYS" >/dev/null 2>&1; then userdel "$UTILISATEUR_SYS"; fi
+}
+
+etape() {
+  local libelle=$1 commande=$2
+  echo "→ $libelle…"
+  if ! en_appli "$commande" >>"$JOURNAL" 2>&1; then
+    tail -n 30 "$JOURNAL"
+    arret "échec de l'étape « $libelle » (journal complet : $JOURNAL)."
+  fi
+}
+
 construire() {
-  echo "→ Installation des dépendances (quelques minutes)…"
-  en_appli "npm ci --no-audit --no-fund --loglevel=error"
-  echo "→ Construction de l'application…"
-  en_appli "npm run build >/dev/null"
-  echo "→ Mise à jour de la base de données…"
-  en_appli "npx prisma migrate deploy"
+  etape "Installation des dépendances (quelques minutes)" "npm ci --no-audit --no-fund --loglevel=error"
+  etape "Construction de l'application" "npm run build"
+  etape "Mise à jour de la base de données" "npx prisma migrate deploy"
 }
 
 if [[ "$MISE_A_JOUR" == true ]]; then
@@ -208,19 +262,25 @@ if [[ "$MISE_A_JOUR" == true ]]; then
   git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
   git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
   construire
-  en_appli "npx tsx prisma/seed/index.ts" >/dev/null
+  etape "Données de base" "npx tsx prisma/seed/index.ts"
   systemctl restart "$SERVICE"
 else
   echo "→ Paquets système nécessaires…"
   PAQUETS=(git curl xz-utils)
   [[ "$PG_PRESENT" == false ]] && PAQUETS+=(postgresql)
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${PAQUETS[@]}" >/dev/null
+  apt-get update -qq >>"$JOURNAL" 2>&1 || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${PAQUETS[@]}" >>"$JOURNAL" 2>&1 ||
+    arret "échec de l'installation des paquets (journal : $JOURNAL)."
   systemctl enable --now postgresql >/dev/null 2>&1 || true
 
+  if [[ "$REPRISE" == true ]]; then nettoyer_reprise; fi
+
   echo "→ Utilisateur système et dossiers…"
+  mkdir -p "$RACINE"
+  # Repère « en cours » : permet de reprendre proprement si l'installation s'interrompt.
+  ecrire_repere en_cours
   useradd --system --home-dir "$RACINE" --shell /usr/sbin/nologin "$UTILISATEUR_SYS"
-  mkdir -p "$RACINE" "$DONNEES/storage"
+  mkdir -p "$DONNEES/storage"
   chown "$UTILISATEUR_SYS:$UTILISATEUR_SYS" "$RACINE" "$DONNEES" "$DONNEES/storage"
   chmod 750 "$DONNEES"
 
@@ -254,7 +314,8 @@ EOF
   construire
 
   echo "→ Données de base et compte administrateur…"
-  SORTIE_SEED=$(en_appli "npx tsx prisma/seed/index.ts")
+  SORTIE_SEED=$(en_appli "npx tsx prisma/seed/index.ts" 2>>"$JOURNAL") ||
+    arret "échec de l'initialisation des données (journal : $JOURNAL)."
   MDP_ADMIN=$(grep "Mot de passe :" <<<"$SORTIE_SEED" | head -1 | awk -F': ' '{print $2}' | tr -d ' \r' || true)
 
   echo "→ Service systemd…"
@@ -284,21 +345,14 @@ EOF
   systemctl daemon-reload
   systemctl enable --now "$SERVICE" >/dev/null 2>&1
 
-  cat >"$FICHIER_INSTALL" <<EOF
-DOMAINE=$DOMAINE
-APP_PORT=$APP_PORT
-BRANCHE=$BRANCHE
-UTILISATEUR_HESTIA=$UTILISATEUR_HESTIA
-INSTALLE_LE="$(date '+%d/%m/%Y %H:%M')"
-EOF
 fi
 
 echo "→ Attente du démarrage de l'application…"
 for _ in $(seq 1 40); do
-  curl -fsS -o /dev/null "http://127.0.0.1:$APP_PORT/connexion" && break
+  curl -fs -o /dev/null "http://127.0.0.1:$APP_PORT/connexion" && break
   sleep 3
 done
-curl -fsS -o /dev/null "http://127.0.0.1:$APP_PORT/connexion" ||
+curl -fs -o /dev/null "http://127.0.0.1:$APP_PORT/connexion" ||
   arret "l'application ne répond pas. Journal : journalctl -u $SERVICE -n 50"
 vert "Application démarrée."
 
@@ -365,15 +419,15 @@ EOF
   }
 
   echo "→ Création du domaine $DOMAINE dans Hestia…"
-  "$VBIN/v-add-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" ||
+  "$VBIN/v-add-web-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" >>"$JOURNAL" 2>&1 ||
     { annuler_hestia; arret "Hestia a refusé la création du domaine (rien n'a été laissé dans Hestia)."; }
   # Hestia ajoute un alias « www. » par défaut : inutile ici.
   "$VBIN/v-delete-web-domain-alias" "$UTILISATEUR_HESTIA" "$DOMAINE" "www.$DOMAINE" no >/dev/null 2>&1 || true
 
   if [[ "$TYPE_MODELE" == "proxy" ]]; then
-    "$VBIN/v-change-web-domain-proxy-tpl" "$UTILISATEUR_HESTIA" "$DOMAINE" "$MODELE" || CHANGEMENT_KO=1
+    "$VBIN/v-change-web-domain-proxy-tpl" "$UTILISATEUR_HESTIA" "$DOMAINE" "$MODELE" >>"$JOURNAL" 2>&1 || CHANGEMENT_KO=1
   else
-    "$VBIN/v-change-web-domain-tpl" "$UTILISATEUR_HESTIA" "$DOMAINE" "$MODELE" || CHANGEMENT_KO=1
+    "$VBIN/v-change-web-domain-tpl" "$UTILISATEUR_HESTIA" "$DOMAINE" "$MODELE" >>"$JOURNAL" 2>&1 || CHANGEMENT_KO=1
   fi
   if [[ -n "${CHANGEMENT_KO:-}" ]] || ! nginx -t >/dev/null 2>&1; then
     annuler_hestia
@@ -382,18 +436,22 @@ EOF
   fi
 
   echo "→ Certificat SSL Let's Encrypt (via Hestia)…"
-  if "$VBIN/v-add-letsencrypt-domain" "$UTILISATEUR_HESTIA" "$DOMAINE"; then
+  if "$VBIN/v-add-letsencrypt-domain" "$UTILISATEUR_HESTIA" "$DOMAINE" >>"$JOURNAL" 2>&1; then
+    vert "Certificat SSL obtenu."
     "$VBIN/v-add-web-domain-ssl-force" "$UTILISATEUR_HESTIA" "$DOMAINE" >/dev/null 2>&1 || true
   else
+    tail -n 5 "$JOURNAL"
     jaune "Le certificat n'a pas pu être obtenu pour l'instant (le site répond en http://$DOMAINE)."
     jaune "Vous pourrez réessayer dans Hestia : Web → $DOMAINE → SSL → Let's Encrypt."
   fi
 fi
 
+[[ "$MISE_A_JOUR" == false ]] && ecrire_repere terminee
+
 # =====================================================================
 titre "4. Vérification"
 # =====================================================================
-if curl -fsS -o /dev/null --max-time 15 "https://$DOMAINE/connexion"; then
+if curl -fs -o /dev/null --max-time 15 "https://$DOMAINE/connexion"; then
   vert "HTTPS opérationnel : https://$DOMAINE"
 else
   jaune "https://$DOMAINE ne répond pas encore : réessayez dans 2 minutes."
