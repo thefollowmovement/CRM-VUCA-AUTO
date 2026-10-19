@@ -114,6 +114,13 @@ else
   arret "configuration web de Hestia non reconnue (ni proxy nginx, ni nginx seul)."
 fi
 [[ -d "$DOSSIER_MODELES" ]] || arret "dossier des modèles Hestia introuvable : $DOSSIER_MODELES"
+# Si nginx refuse déjà sa propre configuration, Hestia ne pourra ajouter aucun domaine :
+# on s'arrête avant toute modification et on montre l'erreur (sans y toucher).
+if ! SORTIE_NGINX=$(nginx -t 2>&1); then
+  echo "$SORTIE_NGINX" | grep -vi "warn" | tail -n 5
+  arret "la configuration nginx actuelle du serveur est déjà en erreur (ci-dessus). Je n'y touche pas."
+fi
+echo "nginx          : configuration valide"
 echo "Modèles nginx  : $DOSSIER_MODELES (type $TYPE_MODELE)"
 
 # Compte Hestia qui portera le domaine : celui d'une installation précédente,
