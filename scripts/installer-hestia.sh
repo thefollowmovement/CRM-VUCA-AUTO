@@ -17,7 +17,7 @@
 #  Usage (en root) :
 #    bash installer-hestia.sh                # installe, ou met à jour
 #    bash installer-hestia.sh --simulation   # analyse seulement
-#  Variables facultatives : DOMAINE=crm.mondomaine.fr  BRANCHE=main  UTILISATEUR_HESTIA=admin
+#  Variables facultatives : DOMAINE=crm.mondomaine.fr  BRANCHE=main  UTILISATEUR_HESTIA=<compte Hestia>
 # =====================================================================
 set -euo pipefail
 
@@ -41,7 +41,7 @@ UTILISATEUR_SYS="vuca-crm"
 SERVICE="vuca-crm"
 BASE="vuca_crm"
 MODELE="vuca-crm"
-UTILISATEUR_HESTIA="${UTILISATEUR_HESTIA:-admin}"
+UTILISATEUR_HESTIA="${UTILISATEUR_HESTIA:-}"   # détecté automatiquement si vide
 export HESTIA="/usr/local/hestia"
 VBIN="$HESTIA/bin"
 SIMULATION=false
@@ -116,9 +116,26 @@ fi
 [[ -d "$DOSSIER_MODELES" ]] || arret "dossier des modèles Hestia introuvable : $DOSSIER_MODELES"
 echo "Modèles nginx  : $DOSSIER_MODELES (type $TYPE_MODELE)"
 
+# Compte Hestia qui portera le domaine : celui d'une installation précédente,
+# sinon le compte administrateur du panneau (rôle « admin »), sinon le seul compte existant.
+COMPTES=$(find "$HESTIA/data/users" -mindepth 2 -maxdepth 2 -name user.conf -printf '%h\n' 2>/dev/null | xargs -rn1 basename | sort)
+echo "Comptes Hestia : $(tr '\n' ' ' <<<"$COMPTES")"
+if [[ -z "$UTILISATEUR_HESTIA" && -f "$FICHIER_INSTALL" ]]; then
+  UTILISATEUR_HESTIA=$(grep -E '^UTILISATEUR_HESTIA=' "$FICHIER_INSTALL" | cut -d= -f2 || true)
+fi
+if [[ -z "$UTILISATEUR_HESTIA" ]]; then
+  ADMINS=$(grep -lE "^ROLE='?admin'?" "$HESTIA"/data/users/*/user.conf 2>/dev/null | xargs -rn1 dirname | xargs -rn1 basename || true)
+  if [[ $(grep -c . <<<"$ADMINS") -eq 1 ]]; then
+    UTILISATEUR_HESTIA=$ADMINS
+  elif [[ $(grep -c . <<<"$COMPTES") -eq 1 ]]; then
+    UTILISATEUR_HESTIA=$COMPTES
+  else
+    arret "plusieurs comptes Hestia possibles. Relancez en précisant le compte, par exemple : UTILISATEUR_HESTIA=nomducompte bash installer-hestia.sh"
+  fi
+fi
 "$VBIN/v-list-user" "$UTILISATEUR_HESTIA" plain >/dev/null 2>&1 ||
-  arret "l'utilisateur Hestia « $UTILISATEUR_HESTIA » n'existe pas (précisez UTILISATEUR_HESTIA=…)."
-echo "Utilisateur Hestia : $UTILISATEUR_HESTIA"
+  arret "le compte Hestia « $UTILISATEUR_HESTIA » n'existe pas (comptes disponibles ci-dessus)."
+echo "Compte Hestia utilisé : $UTILISATEUR_HESTIA (le domaine du CRM lui sera rattaché)"
 
 MISE_A_JOUR=false
 REPRISE=false
