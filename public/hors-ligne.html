@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hors connexion · VUCA AUTO</title>
+    <style>
+      :root { color-scheme: light dark; --fond: #f8fafc; --texte: #0f172a; --doux: #64748b; --bleu: #2546c4; }
+      @media (prefers-color-scheme: dark) { :root { --fond: #0f172a; --texte: #f1f5f9; --doux: #94a3b8; --bleu: #6b8cff; } }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--fond); color: var(--texte); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; box-sizing: border-box; }
+      main { max-width: 360px; text-align: center; }
+      h1 { font-size: 1.3rem; margin: 16px 0 8px; }
+      p { color: var(--doux); line-height: 1.5; margin: 0 0 20px; }
+      button { background: var(--bleu); color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 1rem; font-weight: 600; width: 100%; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#2546c4"/><path d="M17 18h8.5L32 38.5 38.5 18H47L36 47h-8z" fill="#fff"/></svg>
+      <h1>Pas de connexion internet</h1>
+      <p>VUCA AUTO CRM a besoin d'internet pour afficher des données à jour. Vérifiez le Wi-Fi ou le réseau mobile, puis réessayez.</p>
+      <button type="button" onclick="location.reload()">Réessayer</button>
+    </main>
+  </body>
+</html>

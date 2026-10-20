@@ -1,4 +1,4 @@
-import { ArrowLeft, Car, FileText, HandCoins, Pencil } from "lucide-react";
+import { ArrowLeft, Car, Eye, FileText, HandCoins, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -78,7 +78,14 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
     { libelle: "Téléphone", valeur: partenaire.telephone },
     { libelle: "Email", valeur: partenaire.email },
     { libelle: "IBAN", valeur: partenaire.iban ? masquerIban(partenaire.iban) : null },
-    { libelle: "Accès au portail", valeur: partenaire.utilisateur ? partenaire.utilisateur.email : "Aucun compte" },
+    {
+      libelle: "Accès au portail",
+      valeur: partenaire.utilisateur
+        ? `${partenaire.utilisateur.email}${partenaire.utilisateur.actif ? "" : " (désactivé)"}`
+        : partenaire.type === "INVESTISSEUR"
+          ? "Aucun compte — à créer dans Réglages → Utilisateurs (rôle Investisseur)"
+          : null,
+    },
     { libelle: "Ajouté le", valeur: formatDate(partenaire.creeLe) },
   ];
 
@@ -100,6 +107,13 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
           {partenaire.estSysteme && <p className="mt-1 text-sm text-muted-foreground">Partenaire principal, non supprimable.</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          {utilisateur.role === "ADMIN" && partenaire.type === "INVESTISSEUR" && (
+            <Button variant="outline" asChild>
+              <Link href={`/portail?partenaire=${partenaire.id}`}>
+                <Eye /> Voir son espace
+              </Link>
+            </Button>
+          )}
           <DialoguePartenaire
             partenaire={partenaire}
             declencheur={

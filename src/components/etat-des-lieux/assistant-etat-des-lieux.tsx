@@ -544,7 +544,7 @@ export function AssistantEtatDesLieux(p: PropsAssistant) {
                   <dt>Reste à payer</dt>
                   <dd className="tabular-nums">{formatEuros(resteDu)}</dd>
                 </div>
-                <p className="text-xs text-muted-foreground">L&apos;encaissement du solde se fera avec les paiements (Phase 6).</p>
+                <p className="text-xs text-muted-foreground">Le solde s&apos;encaisse ensuite depuis la fiche du contrat (« Encaisser un paiement »).</p>
               </dl>
             </CardContent>
           </Card>

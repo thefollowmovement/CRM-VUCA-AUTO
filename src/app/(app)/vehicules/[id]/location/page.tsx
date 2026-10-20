@@ -47,7 +47,7 @@ export default async function PageLocationVehicule({ params }: { params: Promise
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Revenus encaissés</p>
           <p className="text-lg font-semibold tabular-nums">{formatEuros(occupation?.revenusCentimes ?? 0)}</p>
-          <p className="text-xs text-muted-foreground">paiements (Phase 6)</p>
+          <p className="text-xs text-muted-foreground">loyers, frais et cautions retenues</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Contrats</p>

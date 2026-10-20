@@ -203,7 +203,7 @@ function DialogueStatut({ id, statut, onFermer }: { id: string; statut: StatutVe
           <DialogTitle>Changer le statut</DialogTitle>
           <DialogDescription>
             Statut actuel : {LIBELLES_STATUT[statut]}. « Vendu » se fait avec le bouton « Marquer comme vendu » et
-            « En location » automatiquement avec les contrats (Phase 4).
+            « En location » automatiquement au départ d'une location.
           </DialogDescription>
         </DialogHeader>
         <form

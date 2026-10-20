@@ -11,16 +11,26 @@ export async function GET(requete: Request, { params }: { params: Promise<{ id: 
   const fichier = await db.fichier.findUnique({ where: { id } });
   if (!fichier) return new Response("Introuvable", { status: 404 });
 
-  // Investisseur : uniquement le logo et les photos des véhicules qu'il finance.
+  // Investisseur : uniquement le logo et les photos des véhicules auxquels il participe
+  // (participation à l'achat, dépense payée, part fixe ou versement reçu).
   if (utilisateur.role === "INVESTISSEUR_LECTURE") {
     const estLogo = fichier.categorie === "LOGO";
     let estSonVehicule = false;
-    if (fichier.categorie === "PHOTO_VEHICULE" && fichier.vehiculeId && utilisateur.partenaireId) {
-      const participation = await db.participation.findFirst({
-        where: { vehiculeId: fichier.vehiculeId, partenaireId: utilisateur.partenaireId },
+    const partenaireId = utilisateur.partenaireId;
+    if (fichier.categorie === "PHOTO_VEHICULE" && fichier.vehiculeId && partenaireId) {
+      const vehicule = await db.vehicule.findFirst({
+        where: {
+          id: fichier.vehiculeId,
+          OR: [
+            { participations: { some: { partenaireId } } },
+            { depenses: { some: { payeParId: partenaireId, payeSurRecettes: false } } },
+            { partsFixes: { some: { partenaireId } } },
+            { versements: { some: { partenaireId } } },
+          ],
+        },
         select: { id: true },
       });
-      estSonVehicule = !!participation;
+      estSonVehicule = !!vehicule;
     }
     if (!estLogo && !estSonVehicule) return new Response("Accès refusé", { status: 403 });
   }

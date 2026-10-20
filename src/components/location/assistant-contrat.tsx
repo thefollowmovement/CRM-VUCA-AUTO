@@ -613,7 +613,7 @@ export function AssistantContrat({
                 <ChampMontant id="franchise" {...register("franchise")} />
               </Champ>
               {v.type === "MENSUELLE" ? (
-                <Champ label="Jour d'échéance mensuelle" htmlFor="jourEcheanceMensuelle" erreur={err("jourEcheanceMensuelle")} aide="Du 1 au 28 (échéancier en Phase 6).">
+                <Champ label="Jour d'échéance mensuelle" htmlFor="jourEcheanceMensuelle" erreur={err("jourEcheanceMensuelle")} aide="Du 1 au 28 : jour où chaque loyer est dû (échéancier automatique).">
                   <Input id="jourEcheanceMensuelle" inputMode="numeric" {...register("jourEcheanceMensuelle")} />
                 </Champ>
               ) : (

@@ -222,7 +222,8 @@ function DialogueVersement({
 }
 
 /** Relevé PDF de l'investisseur sur une période (par défaut : depuis le 1er janvier). */
-export function ReleveInvestisseur({ partenaireId, nom }: { partenaireId: string; nom: string }) {
+export function ReleveInvestisseur({ partenaireId, nom, chemin }: { partenaireId: string; nom: string; chemin?: string }) {
+  const base = chemin ?? `/api/pdf/releve/${partenaireId}`;
   const auj = aujourdhuiISO();
   const [du, setDu] = useState(`${auj.slice(0, 4)}-01-01`);
   const [au, setAu] = useState(auj);
@@ -240,7 +241,7 @@ export function ReleveInvestisseur({ partenaireId, nom }: { partenaireId: string
         </label>
       </div>
       {valide ? (
-        <BoutonPdf url={`/api/pdf/releve/${partenaireId}?du=${du}&au=${au}`} libelle="Générer le relevé PDF" nomFichier={`releve-${nom.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${du}-${au}.pdf`} />
+        <BoutonPdf url={`${base}${base.includes("?") ? "&" : "?"}du=${du}&au=${au}`} libelle="Générer le relevé PDF" nomFichier={`releve-${nom.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${du}-${au}.pdf`} />
       ) : (
         <p className="flex items-center gap-2 text-sm text-destructive">
           <FileText className="size-4" /> Choisissez une période valide.

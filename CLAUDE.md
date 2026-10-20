@@ -159,6 +159,13 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Exports : `/api/rapports/pdf|excel` (ExcelJS, `server/excel/rapport.ts`), `/api/pdf/releve/[partenaireId]?du&au`, `/api/export/paiements`. PDF d'analyse : `server/pdf/analyses.tsx` ; césure automatique désactivée (`Font.registerHyphenationCallback`), titres `minPresenceAhead`.
 - Versements : `server/actions/versements.ts`, `lib/validations/finance.ts` (`schemaVersement`), `components/partenaires/versements.tsx` (+ `ReleveInvestisseur`). `resumesPartenaires()` inclut `verseCentimes` et déduit `versementsSansVehicule()` du reste dû.
 
+## Portail, PWA, sauvegardes (Phase 8)
+
+- Portail : `server/requetes/portail.ts` (`partenairePortail(u, ?partenaire)` — investisseur = son `partenaireId`, admin = aperçu via `?partenaire=` ; `donneesPortail`, `vehiculePortail` ; même filtre « concerné » que la fiche investisseur : participation, dépense payée hors recettes, part fixe, versement). Pages `(portail)/portail` et `/portail/vehicules/[id]`, bandeau `components/portail/apercu-admin.tsx`. Relevé : `/api/portail/releve` (investisseur → toujours le sien). Middleware : `/api/portail` autorisé aux investisseurs. Ne jamais exposer le nom des autres financeurs.
+- PWA : `src/app/manifest.ts`, `public/icones/*`, `public/sw.js` (cache uniquement `/_next/static` + `hors-ligne.html` ; changer `CACHE` si le SW évolue), `public/hors-ligne.html` (autonome, logo en SVG inline), enregistrement `components/layout/enregistrement-sw.tsx` (production). Exclusions du middleware : `sw.js`, `hors-ligne.html`, `icones`, `manifest.webmanifest`, `favicon.ico`.
+- Sauvegardes : `scripts/sauvegarde-serveur.sh` / `restaurer-serveur.sh` (Hestia, systemd `vuca-crm-sauvegarde.timer`, variables `VUCA_*` pour tester ailleurs ; pg_restore lit le fichier sur l'entrée standard car le dossier est réservé à root) ; `scripts/sauvegarde-docker.sh` / `restaurer-docker.sh` (service `sauvegarde` de Compose, l'hôte de la base s'appelle `db`).
+- Piège shell : un heredoc `<<'EOF'` qui contient lui-même `EOF` se termine trop tôt → utiliser un autre délimiteur (`FIN_UNITE`…) ou un fichier.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

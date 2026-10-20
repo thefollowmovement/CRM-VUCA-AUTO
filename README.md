@@ -2,7 +2,16 @@
 
 Application de gestion pour **VUCA AUTO** : achat-revente de véhicules, location (journalière, hebdomadaire, mensuelle), suivi des investisseurs et de la répartition des bénéfices.
 
-> État d'avancement : voir [`PROGRESS.md`](PROGRESS.md). Spécification complète : [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
+**Ce que fait l'application**
+
+- **Véhicules** : fiche complète, photos, documents, financement par VUCA AUTO et les investisseurs, entretien (CT, assurance, vidange), dommages, historique.
+- **Dépenses et rentabilité** : chaque dépense est payée par un partenaire ; coût de revient, bénéfice, marge, ROI et répartition du bénéfice calculés automatiquement ; simulateur de prix de vente ; vente.
+- **Location** : clients, contrats (prix calculé, options, caution), planning, états des lieux au téléphone (photos, schéma des dommages, signatures au doigt), retour avec frais proposés, échéancier, paiements et reçus, impayés, PV (conducteur retrouvé automatiquement), sinistres, factures et PDF.
+- **Pilotage** : dashboard (indicateurs, graphiques, alertes), rapports par période (PDF / Excel), versements aux investisseurs, relevés PDF.
+- **Portail investisseur** : chaque investisseur voit ses véhicules et ses chiffres, en lecture seule.
+- **Application installable** sur téléphone, **sauvegarde automatique** chaque nuit.
+
+> Avancement et décisions : [`PROGRESS.md`](PROGRESS.md). Spécification : [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
 
 ---
 
@@ -93,6 +102,7 @@ Toujours depuis le Terminal, après `cd ~/CRM-VUCA-AUTO` :
 | Arrêter l'application | `docker compose stop` |
 | Voir si elle tourne | `docker compose ps` |
 | Voir les messages de l'application | `docker compose logs -f app` (quitter : `Ctrl + C`) |
+| Faire une sauvegarde maintenant | `docker compose exec sauvegarde /scripts/sauvegarde-docker.sh maintenant` |
 | Installer une nouvelle version | remplacer le dossier par la nouvelle version (garder votre `.env`), puis `docker compose up -d --build` |
 | **Effacer toutes les données** et recharger la démo | `docker compose exec app npm run demo:reinitialiser` puis `docker compose restart app` ⚠️ irréversible |
 
@@ -106,19 +116,79 @@ Un autre administrateur peut le réinitialiser dans **Réglages → Utilisateurs
 
 ## 3. Utiliser l'application sur téléphone
 
-- **Sur le même Wi-Fi que le Mac** : ouvrez `http://<nom-du-mac>.local:3000` sur le téléphone (le nom du Mac se trouve dans Réglages Système → Général → Partage).
-- **Partout (parking, rue…)** : installez l'application sur un serveur en ligne (voir section 5). C'est la solution recommandée pour les états des lieux.
+L'application s'utilise dans le navigateur du téléphone, et peut s'**installer comme une vraie application** (icône sur l'écran d'accueil, plein écran) :
+
+- **iPhone (Safari)** : ouvrez l'adresse du CRM → bouton **Partager** (carré avec une flèche) → **Sur l'écran d'accueil** → **Ajouter**.
+- **Android (Chrome)** : ouvrez l'adresse → menu **⋮** → **Installer l'application** (ou « Ajouter à l'écran d'accueil »).
+
+Adresse à utiliser :
+
+- **Serveur en ligne** (recommandé, fonctionne partout : parking, rue…) : l'adresse `https://…` du serveur (section 5).
+- **Mac à la maison, téléphone sur le même Wi-Fi** : `http://<nom-du-mac>.local:3000` (nom du Mac : Réglages Système → Général → Partage). L'installation sur l'écran d'accueil demande une adresse `https`, donc un serveur en ligne.
+
+Sans internet, l'application affiche une page « Pas de connexion internet » avec un bouton **Réessayer** (aucune donnée n'est gardée sur le téléphone).
 
 ---
 
 ## 4. Sauvegardes
 
-La sauvegarde automatique quotidienne (base + fichiers, conservation 30 jours) et la procédure de restauration arrivent en **Phase 8**.
-En attendant, vos données sont conservées dans deux volumes Docker (`donnees_postgres` et `fichiers`) qui survivent aux arrêts et redémarrages. Ne lancez jamais `docker compose down -v` : le `-v` efface ces volumes.
+Une **sauvegarde automatique** de la base de données et des fichiers (photos, justificatifs, signatures, logo) est faite **chaque nuit à 3 h 30**. Les sauvegardes de plus de **30 jours** sont supprimées automatiquement.
+
+### Sur le serveur en ligne (HestiaCP — votre KVM 2)
+
+Installée automatiquement par le script d'installation / de mise à jour.
+
+| Je veux… | Commande (terminal du navigateur Hostinger, en root) |
+|---|---|
+| Voir les sauvegardes | `ls -lh /var/backups/vuca-crm` |
+| Faire une sauvegarde maintenant | `bash /opt/vuca-crm/app/scripts/sauvegarde-serveur.sh` |
+| Vérifier que la sauvegarde nocturne est programmée | `systemctl list-timers vuca-crm-sauvegarde.timer` |
+| Lister les sauvegardes restaurables | `bash /opt/vuca-crm/app/scripts/restaurer-serveur.sh` |
+| **Restaurer** une sauvegarde | `bash /opt/vuca-crm/app/scripts/restaurer-serveur.sh 2026-10-20_033000` (remplacez par une date de la liste, puis tapez `oui`) |
+
+La restauration fait d'abord une sauvegarde de l'état actuel (au cas où), arrête l'application, remet la base et les fichiers de la date choisie, puis redémarre. Les anciens fichiers sont gardés dans un dossier `storage.avant-restauration-…` à supprimer quand tout est vérifié.
+
+**Conseil** : de temps en temps, téléchargez une sauvegarde sur votre Mac (ou un disque externe) : si le serveur disparaissait, vous auriez une copie. Les trois fichiers d'une même date (`base-…dump`, `fichiers-…tar.gz`, `env-…`) suffisent pour tout réinstaller.
+
+### Avec Docker (Mac)
+
+Un service `sauvegarde` tourne à côté de l'application et écrit dans le dossier **`sauvegardes`** à côté de `docker-compose.yml` (visible dans le Finder).
+
+| Je veux… | Commande (dans le dossier du projet) |
+|---|---|
+| Faire une sauvegarde maintenant | `docker compose exec sauvegarde /scripts/sauvegarde-docker.sh maintenant` |
+| Lister les sauvegardes | `docker compose exec sauvegarde /scripts/restaurer-docker.sh` |
+| **Restaurer** une sauvegarde | `docker compose stop app` puis `docker compose exec sauvegarde /scripts/restaurer-docker.sh 2026-10-20_033000` puis `docker compose start app` |
+
+Le Mac doit être allumé à 3 h 30 pour la sauvegarde automatique (sinon, lancez-en une à la main). Ne lancez jamais `docker compose down -v` : le `-v` efface les données.
 
 ---
 
-## 5. Installation sur un serveur (VPS Hostinger ou autre)
+## 5. Portail investisseur
+
+Chaque investisseur peut avoir son propre accès, **en lecture seule** : il ne voit que les véhicules qu'il finance et ses chiffres (capital engagé, bénéfices, déjà versé, reste dû, versements, relevé PDF), jamais les autres investisseurs.
+
+1. **Réglages → Utilisateurs → Nouveau compte** : nom, email, rôle **Investisseur**, puis choisissez l'investisseur concerné.
+2. Un mot de passe temporaire s'affiche : transmettez-le à l'investisseur avec l'adresse du CRM. Il choisira son propre mot de passe à la première connexion.
+3. Pour voir exactement ce qu'il voit : fiche de l'investisseur → **Voir son espace**.
+
+Pour couper un accès : **Réglages → Utilisateurs** → modifier le compte → décocher **Compte actif** (effet immédiat).
+
+---
+
+## 6. Premiers pas dans l'application
+
+1. **Réglages** (admin) : informations de la société et logo (utilisés dans les PDF), conditions générales de location, mention des factures, options de location, check-list des états des lieux, seuils d'alerte, frais de retour.
+2. **Investisseurs** : ajoutez les personnes qui financent les véhicules (VUCA AUTO existe déjà).
+3. **Véhicules → Nouveau véhicule** : prix d'achat et qui a financé quoi ; type achat-revente, location ou mixte ; tarifs de location.
+4. **Dépenses** : bouton **+** → Dépense, en indiquant qui a payé (photo du justificatif possible).
+5. **Vendre** : fiche du véhicule → **Marquer comme vendu** : la répartition entre partenaires est calculée, puis enregistrez les **versements** sur la fiche de chaque investisseur.
+6. **Louer** : **Location → Nouvelle location** (client, dates, véhicule disponible, prix calculé), puis **Départ** et **Retour** au téléphone (états des lieux), **Encaisser un paiement**, factures et PDF depuis la fiche du contrat.
+7. **Dashboard** : chiffres de la période, alertes « À traiter » ; **Rapports** : bilan PDF / Excel à transmettre au comptable.
+
+---
+
+## 7. Installation sur un serveur (VPS Hostinger ou autre)
 
 Le script `scripts/installer-vps.sh` installe l'application sur un VPS **qui héberge déjà d'autres projets**, sans les toucher :
 
@@ -171,17 +241,16 @@ Mise à jour : `bash /opt/vuca-crm/app/scripts/installer-hestia.sh` · Journal :
 
 ### Mettre à jour plus tard
 
-```bash
-bash /opt/vuca-crm/scripts/installer-vps.sh
-```
+- Serveur **HestiaCP** (votre KVM 2) : `bash /opt/vuca-crm/app/scripts/installer-hestia.sh`
+- Serveur avec Docker : `bash /opt/vuca-crm/scripts/installer-vps.sh`
 
-Les données sont conservées ; seuls les conteneurs `vuca-crm` sont reconstruits.
+Les données sont conservées. La mise à jour installe aussi la sauvegarde automatique si elle n'existe pas encore.
 
 ### Passer à un vrai nom de domaine
 
 Faites pointer le domaine (enregistrement A) vers l'IP du serveur, puis contactez Claude : il faudra ajuster `AUTH_URL` dans `/opt/vuca-crm/.env` et la configuration du proxy.
 
-## 6. Pour les développeurs
+## 8. Pour les développeurs
 
 Prérequis : Node.js 22, PostgreSQL 16+.
 

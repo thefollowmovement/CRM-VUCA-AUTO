@@ -359,6 +359,38 @@ etape() {
   fi
 }
 
+# Sauvegarde automatique chaque nuit (fichiers propres au CRM uniquement : deux unités systemd « vuca-crm-sauvegarde »)
+installer_sauvegardes() {
+  echo "→ Sauvegarde automatique quotidienne…"
+  cat >"/etc/systemd/system/$SERVICE-sauvegarde.service" <<FIN_UNITE
+# VUCA AUTO CRM — sauvegarde (créé par installer-hestia.sh)
+[Unit]
+Description=Sauvegarde de VUCA AUTO CRM (base + fichiers)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $APP/scripts/sauvegarde-serveur.sh
+Nice=10
+IOSchedulingClass=idle
+FIN_UNITE
+  cat >"/etc/systemd/system/$SERVICE-sauvegarde.timer" <<FIN_UNITE
+# VUCA AUTO CRM — chaque nuit à 3 h 30 (rattrapée au démarrage si le serveur était éteint)
+[Unit]
+Description=Sauvegarde quotidienne de VUCA AUTO CRM
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
+FIN_UNITE
+  systemctl daemon-reload
+  systemctl enable --now "$SERVICE-sauvegarde.timer" >/dev/null 2>&1 || jaune "Le minuteur de sauvegarde n'a pas pu être activé."
+}
+
 construire() {
   etape "Installation des dépendances (quelques minutes)" "npm ci --no-audit --no-fund --loglevel=error"
   etape "Construction de l'application" "npm run build"
@@ -372,6 +404,7 @@ if [[ "$MISE_A_JOUR" == true ]]; then
   git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
   construire
   etape "Données de base" "npx tsx prisma/seed/index.ts"
+  installer_sauvegardes
   systemctl restart "$SERVICE"
 else
   echo "→ Paquets système nécessaires…"
@@ -453,6 +486,7 @@ WantedBy=multi-user.target
 EOF
   systemctl daemon-reload
   systemctl enable --now "$SERVICE" >/dev/null 2>&1
+  installer_sauvegardes
 
 fi
 
@@ -581,4 +615,5 @@ else
 fi
 echo
 echo "Mettre à jour plus tard : bash $APP/scripts/installer-hestia.sh"
+echo "Sauvegardes (chaque nuit, 30 jours) : /var/backups/vuca-crm — restaurer : bash $APP/scripts/restaurer-serveur.sh"
 echo "Journal de l'application : journalctl -u $SERVICE -n 100"

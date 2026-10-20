@@ -35,6 +35,24 @@ services:
     volumes:
       - fichiers:/app/storage
 
+  # Sauvegarde automatique chaque nuit (base + fichiers) dans le dossier ./sauvegardes, gardée 30 jours
+  sauvegarde:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Europe/Paris
+      HEURE_SAUVEGARDE: ${HEURE_SAUVEGARDE:-03:30}
+      GARDER_JOURS: ${GARDER_JOURS:-30}
+    entrypoint: ["/scripts/sauvegarde-docker.sh"]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./sauvegardes:/sauvegardes
+      - fichiers:/storage
+
 volumes:
   donnees_postgres: # la base de données
   fichiers: # photos, justificatifs, scans, logo

@@ -11,8 +11,8 @@
 | 4 | Location : clients, contrats, disponibilités, planning, tarification | ✅ Validée le 19/10/2026 |
 | 5 | État des lieux mobile, comparaison retour, frais, caution | ✅ Validée le 19/10/2026 |
 | 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ✅ Validée le 20/10/2026 |
-| 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | 🟡 Livrée — en attente de validation |
-| 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ⚪ À faire |
+| 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ✅ Validée le 20/10/2026 |
+| 8 | Portail investisseur, PWA, sauvegardes, finitions, README | 🟡 Livrée — en attente de validation |
 
 ## Phase 1 — livré
 
@@ -105,6 +105,18 @@
 - Démo : un versement mensuel de résultat de location (Thomas Lefèvre).
 - Tests : 112 tests unitaires (dont le résultat par période) ; parcours complet dans Chromium (44 vérifications : indicateurs, graphiques, filtres, cohérence du CA avec la base, exports PDF / Excel / CSV, versement et reste dû, relevé, liens des alertes, iPhone sans débordement) ; non-régression Phases 3 à 6.
 
+## Phase 8 — livré
+
+- **Portail investisseur** (lecture seule) : indicateurs (capital engagé, bénéfice prévisionnel, bénéfices réalisés, déjà versé, reste dû), ses véhicules (photo, statut, investi, bénéfice, part ou reste dû), fiche de chaque véhicule (sa part détaillée, rentabilité, location, dépenses par catégorie, ses versements), ses versements, son relevé PDF. Jamais le nom des autres investisseurs. Accès créé par l'admin (Réglages → Utilisateurs, rôle Investisseur) ; **aperçu admin** (« Voir son espace » sur la fiche investisseur). Connexion d'un investisseur → directement sur `/portail`.
+- Cloisonnement vérifié côté serveur : pages de gestion, exports et PDF refusés ; véhicule d'un autre → 404 ; photos limitées à ses véhicules ; relevé du portail toujours le sien.
+- **Application installable (PWA)** : manifeste, icônes (dont iPhone et « maskable »), service worker minimal (fichiers techniques seulement, aucune donnée privée en cache), page « Pas de connexion internet ».
+- **Sauvegarde automatique quotidienne** (base + fichiers, 30 jours) :
+  - serveur HestiaCP : `scripts/sauvegarde-serveur.sh` lancé à 3 h 30 par le minuteur systemd `vuca-crm-sauvegarde.timer` (installé par `installer-hestia.sh`, installation ET mise à jour), dossier `/var/backups/vuca-crm` (root, 700), copie du `.env` ; restauration `scripts/restaurer-serveur.sh <date>` (sauvegarde de sécurité avant, confirmation « oui ») ;
+  - Docker : service `sauvegarde` (image postgres) dans `docker-compose.yml`, dossier `./sauvegardes`, `scripts/sauvegarde-docker.sh` / `restaurer-docker.sh`.
+  - Testé : sauvegarde → modification → restauration (base et fichiers revenus), sur PostgreSQL local et avec de vrais conteneurs Docker.
+- **Finitions** : README complet (fonctionnalités, téléphone et installation de l'application, sauvegardes et restauration, portail investisseur, premiers pas), `.env.example` (heure et durée des sauvegardes), favicon, textes « Phase N » retirés de l'interface, composants « bientôt » supprimés.
+- Tests : 112 tests unitaires ; parcours Phase 8 dans Chromium (≈ 35 vérifications : création de l'accès, aperçu admin, connexion investisseur, cloisonnement, PWA, hors connexion) ; non-régression Phases 3 à 7.
+
 ## Déploiement VPS (19/10/2026)
 
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
@@ -169,6 +181,10 @@
   - Indemnité d'assurance comptée à la date du sinistre.
   - Filtre partenaire : véhicules où il a investi (ou a une part fixe) ; les montants affichés sont ceux des véhicules, avec sa part du bénéfice en plus.
   - Versement sans véhicule : réduit le reste dû global de l'investisseur. Pas de versement pour VUCA AUTO.
+- Phase 8 :
+  - Portail : l'investisseur voit sa part et les chiffres globaux du véhicule (prix, dépenses, bénéfice), pas les autres financeurs.
+  - Pas de compte investisseur dans les données de démo (le serveur réel charge la démo : aucun mot de passe connu ne doit exister).
+  - Sauvegardes : 3 h 30 chaque nuit, 30 jours, sur le même serveur ; conseil de copie régulière ailleurs (README).
 
 ## Questions ouvertes
 

@@ -1,6 +1,6 @@
 // =====================================================================
 //  Indicateurs simples d'un véhicule (section 5.1).
-//  Le moteur complet (bénéfice, répartition) arrive en Phase 3.
+//  Le moteur complet (bénéfice, répartition) est dans rentabilite.ts et repartition.ts.
 // =====================================================================
 
 const MS_PAR_JOUR = 24 * 60 * 60 * 1000;
