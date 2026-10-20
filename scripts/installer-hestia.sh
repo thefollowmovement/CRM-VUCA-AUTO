@@ -263,7 +263,11 @@ if [[ "$SIMULATION" == true ]]; then
   exit 0
 fi
 echo
-read -r -p "Continuer ? Tapez « oui » puis Entrée : " REPONSE || REPONSE=""
+if [[ -n "${VUCA_NOUVEAU_SCRIPT:-}" ]]; then
+  REPONSE="oui" # déjà confirmé avant le téléchargement de la nouvelle version
+else
+  read -r -p "Continuer ? Tapez « oui » puis Entrée : " REPONSE || REPONSE=""
+fi
 [[ "$REPONSE" == "oui" ]] || { jaune "Annulé, rien n'a été modifié."; exit 0; }
 touch "$JOURNAL" && chmod 600 "$JOURNAL"
 echo "=== $(date '+%d/%m/%Y %H:%M') ===" >>"$JOURNAL"
@@ -432,9 +436,15 @@ EOF
 
 if [[ "$MISE_A_JOUR" == true ]]; then
   installer_node
-  echo "→ Téléchargement de la dernière version…"
-  git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
-  git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
+  if [[ -z "${VUCA_NOUVEAU_SCRIPT:-}" ]]; then
+    echo "→ Téléchargement de la dernière version…"
+    git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
+    git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
+    # Ce script a pu changer avec la nouvelle version : la suite est faite par la version
+    # TÉLÉCHARGÉE (sinon ses nouveautés ne s'appliqueraient qu'à la mise à jour suivante).
+    echo "→ Suite de la mise à jour avec la nouvelle version du script…"
+    VUCA_COPIE="" VUCA_NOUVEAU_SCRIPT=1 exec bash "$APP/scripts/installer-hestia.sh" "$@"
+  fi
   construire
   etape "Données de base" "npx tsx prisma/seed/index.ts"
   installer_sauvegardes

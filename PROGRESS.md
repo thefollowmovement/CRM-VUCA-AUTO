@@ -34,6 +34,7 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 
 - Symptôme : `crm.vuca-auto.fr/apercu-site` → « Internal Server Error » (journal : `Failed to proxy https://localhost:3100/…`). Concernait aussi l'accueil de vuca-auto.fr.
 - Cause : le service lançait `next start -H 127.0.0.1` ; Next.js prend alors ses réécritures internes pour des adresses externes.
+- 1re mise à jour sans effet sur le service : le script de mise à jour exécutait sa propre ancienne version (copie) ; il se relance désormais avec la version téléchargée.
 - Correction : service lancé avec `-H localhost` + `NODE_OPTIONS=--dns-result-order=ipv4first` (toujours joignable uniquement depuis le serveur) ; l'unité systemd est réécrite à chaque mise à jour. Reproduit puis vérifié en local derrière un relais HTTPS ; tests S3 verts avec ce lancement.
 
 ## Phase S3 — livré
