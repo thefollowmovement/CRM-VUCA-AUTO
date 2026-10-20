@@ -30,6 +30,12 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
 
+## Correctif du 20/10/2026 — aperçu en erreur 500 sur le serveur
+
+- Symptôme : `crm.vuca-auto.fr/apercu-site` → « Internal Server Error » (journal : `Failed to proxy https://localhost:3100/…`). Concernait aussi l'accueil de vuca-auto.fr.
+- Cause : le service lançait `next start -H 127.0.0.1` ; Next.js prend alors ses réécritures internes pour des adresses externes.
+- Correction : service lancé avec `-H localhost` + `NODE_OPTIONS=--dns-result-order=ipv4first` (toujours joignable uniquement depuis le serveur) ; l'unité systemd est réécrite à chaque mise à jour. Reproduit puis vérifié en local derrière un relais HTTPS ; tests S3 verts avec ce lancement.
+
 ## Phase S3 — livré
 
 - **Pages publiques de vuca-auto.fr** (groupe `app/(site)`, rendues à chaque demande) :
