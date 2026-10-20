@@ -5,5 +5,5 @@ import { partageSite, policesPartage } from "@/server/site/partage";
 
 export async function GET() {
   const [d, polices] = await Promise.all([partageSite(), policesPartage()]);
-  return new ImageResponse(<ImagePartage d={d} />, { ...TAILLE_PARTAGE, fonts: polices, headers: { "Cache-Control": "public, max-age=3600" } });
+  return new ImageResponse(<ImagePartage d={d} />, { ...TAILLE_PARTAGE, fonts: polices, headers: { "Cache-Control": d.prive ? "private, no-store" : "public, max-age=3600" } });
 }
