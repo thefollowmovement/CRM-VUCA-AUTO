@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Eye } from "lucide-react";
 import Link from "next/link";
 import { EnTetePage } from "@/components/layout/en-tete-page";
 import { NavSiteWeb } from "@/components/site-web/nav-site-web";
@@ -29,6 +29,11 @@ export default async function LayoutSiteWeb({ children }: { children: React.Reac
           <>
             <Button variant="outline" size="sm" asChild>
               <Link href="/site-preview">Composants</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <a href="/apercu-site" target="_blank" rel="noopener noreferrer">
+                <Eye /> Aperçu du site
+              </a>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <a href={urlSite()} target="_blank" rel="noopener noreferrer">

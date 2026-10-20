@@ -22,13 +22,26 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 |---|---|---|
 | S0 | Routage site / CRM, champs Prisma, arborescence | ✅ Validée (routage par domaine + choix : vendeur unique, immatriculation masquée, site en maintenance par défaut) |
 | S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ✅ Validée le 20/10/2026 |
-| S2 | Système de design + page `/site-preview` | 🟡 Livrée le 20/10/2026, en attente de validation du style |
-| S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ⚪ À faire |
+| S2 | Système de design + page `/site-preview` | ✅ Validée le 20/10/2026 |
+| S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | 🟡 Livrée le 20/10/2026, en attente de validation |
 | S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S3 — livré
+
+- **Pages publiques de vuca-auto.fr** (groupe `app/(site)`, rendues à chaque demande) :
+  - **Accueil** : hero (titre, sous-titre, « Voir les voitures » / « Écrire sur WhatsApp »), bande de 3 engagements activés, 6 à 9 dernières voitures + « Voir toutes les voitures (N) », « Pourquoi nous faire confiance » (engagements + chiffres réels : ventes au-delà du seuil, années d'activité), 3 étapes, avis réels (masqués s'il n'y en a pas) + lien Google, FAQ, contact (WhatsApp, téléphone, horaires, adresse, lien Google Maps — pas de carte intégrée : aucun traceur tiers).
+  - **/voitures** : grille de cartes, filtres (marque, prix max, km max, année min, carburant, boîte) et tri (plus récentes, prix ↑↓, km) gardés dans l'adresse ; feuille du bas sur téléphone ; puces des filtres actifs ; état vide avec « Dites-nous ce que vous cherchez » ; section « Récemment vendues » (réglage).
+  - **Fiche /voitures/[slug]** : titre « Peugeot 208 Allure 2020 – 64 350 km – 11 500 € | VUCA AUTO », galerie (défilement au doigt, flèches, vignettes, compteur, plein écran avec zoom et clavier), prix + « négociable », badge Réservé, tuiles de caractéristiques, « Ce qui a été vérifié », description, équipements repliables, travaux réalisés, bloc « Vous avez une question ? » (prénom/photo/délai), WhatsApp avec message pré-rempli (marque, modèle, année, prix, lien), Appeler, Partager, « Annonce mise à jour le … · Réf. VA-0001 », 3 véhicules similaires, barre collante prix + WhatsApp sur téléphone. Vendu : page conservée avec bandeau, sans prix ni contact.
+  - **À propos, Contact, Mentions légales, Confidentialité** (texte du CRM ou modèle généré), **404** sobre.
+- **Photos publiques** `/photos/[id]/[largeur]` : uniquement les photos « publiques » d'une annonce visible (ou les images du site choisies dans les réglages) ; recadrage 4:3 du CRM, jamais agrandies, AVIF/WebP selon le navigateur, aucune métadonnée (EXIF/GPS), cache disque + cache navigateur d'un an (adresse versionnée par le recadrage).
+- **Maintenance** (réglage par défaut) : toutes les pages affichent « Notre site arrive bientôt » (non indexé, plan du site vide, rien du véhicule même dans le titre de l'onglet) ; la 404 reste une 404.
+- **Aperçu du vrai site depuis le CRM** : `crm.vuca-auto.fr/apercu-site/…` (connexion exigée), même en maintenance ; boutons « Aperçu du site » (onglet Site web) et « Aperçu » (onglet Annonce). L'en-tête interne d'aperçu est retiré de toute requête venue de l'extérieur.
+- Plan du site : accueil, liste, annonces visibles (date de mise à jour), pages fixes.
+- Tests : 169 tests unitaires (dont filtres, similaires, routage de l'aperçu) ; parcours navigateur S3 (≈ 100 vérifications : maintenance, photos et sécurité, aperçu, accueil → liste → filtre → tri → fiche → galerie → lien WhatsApp exact, vendu, annonce retirée → 404, aucune donnée interne dans la page, aucun cookie, mobile, sombre) ; S1, S2, domaines et phase 8 toujours verts.
 
 ## Phase S2 — livré
 

@@ -19,7 +19,9 @@ export type Decision =
   | { type: "libre" }
   /** 404 : page du site « introuvable » ou réponse JSON pour une API. */
   | { type: "introuvable"; api: boolean }
-  | { type: "redirection"; url: string; statut: 307 | 308 };
+  | { type: "redirection"; url: string; statut: 307 | 308 }
+  /** Aperçu du vrai site depuis le CRM (connexion exigée) : page du site servie sous /apercu-site. */
+  | { type: "apercu"; chemin: string };
 
 /** Accueil du site : `/` sur le domaine public est servi par cette page interne du groupe `(site)`. */
 export const ACCUEIL_SITE = "/site-accueil";
@@ -34,6 +36,10 @@ const FICHIERS_COMMUNS = ["/favicon.ico", "/icon.svg", "/icones/", "/manifest.we
 const FICHIERS_CRM = ["/sw.js", "/hors-ligne.html", "/api/auth"];
 /** Pages du CRM qui montrent le site (aperçu), protégées par la connexion. */
 const APERCU_CRM = ["/site-preview"];
+/** Préfixe de l'aperçu du vrai site sur le domaine du CRM (même si le site est en maintenance). */
+export const PREFIXE_APERCU = "/apercu-site";
+/** En-tête posé UNIQUEMENT par le middleware pour signaler une page vue en aperçu (retiré de toute requête entrante). */
+export const ENTETE_APERCU = "x-vuca-apercu";
 
 const correspond = (chemin: string, prefixes: string[]) =>
   prefixes.some((p) => (p.endsWith("/") ? chemin.startsWith(p) : chemin === p || chemin.startsWith(`${p}/`)));
@@ -76,6 +82,12 @@ export function deciderRoutage(hoteBrut: string | null | undefined, chemin: stri
   // ---- Domaine du CRM (crm.vuca-auto.fr, alias sslip.io, localhost…) : comportement actuel
   if (correspond(chemin, FICHIERS_COMMUNS) || correspond(chemin, FICHIERS_CRM)) return { type: "libre" };
   if (correspond(chemin, APERCU_CRM)) return { type: "crm" };
+  if (correspond(chemin, [PREFIXE_APERCU])) {
+    const interne = chemin.slice(PREFIXE_APERCU.length) || "/";
+    if (interne === "/") return { type: "apercu", chemin: ACCUEIL_SITE };
+    if (interne !== ACCUEIL_SITE && interne !== INTROUVABLE_SITE && correspond(interne, PREFIXES_SITE)) return { type: "apercu", chemin: interne };
+    return { type: "apercu", chemin: INTROUVABLE_SITE };
+  }
   if (chemin !== "/" && estCheminSite(chemin)) {
     // Les pages du site ne sont pas servies ici : on renvoie vers le domaine public
     if (config.site && !api && chemin !== INTROUVABLE_SITE) {

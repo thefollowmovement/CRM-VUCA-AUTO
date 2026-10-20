@@ -6,7 +6,7 @@ import { PublicationAnnonce } from "@/components/annonces/publication-annonce";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { annonceVersSaisie } from "@/lib/annonce-formulaire";
 import { db } from "@/lib/db";
-import { urlAnnonce } from "@/lib/domaines";
+import { PREFIXE_APERCU, urlAnnonce } from "@/lib/domaines";
 import { dateCalendaireVersISO, formatNombre } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import type { Recadrage } from "@/lib/site/recadrage";
@@ -65,6 +65,7 @@ export default async function PageAnnonce({ params }: { params: Promise<{ id: st
         misAJourLe={annonce.misAJourLe}
         dejaPubliee={!!annonce.publieeLe}
         siteEnLigne={reglages.enLigne}
+        urlApercu={annonce.publiee || (annonce.publieeLe && v.statut === "VENDU") ? `${PREFIXE_APERCU}/voitures/${annonce.slug}` : null}
       />
 
       <Card>

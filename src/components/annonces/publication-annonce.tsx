@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Globe, LoaderCircle, TriangleAlert } from "lucide-react";
+import { ExternalLink, Eye, Globe, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { traiterResultat } from "@/components/formulaires/soumission";
@@ -23,6 +23,8 @@ export function PublicationAnnonce(p: {
   misAJourLe: Date;
   dejaPubliee: boolean;
   siteEnLigne: boolean;
+  /** Aperçu de la page (visible seulement depuis le CRM, même site en maintenance) */
+  urlApercu: string | null;
 }) {
   const router = useRouter();
   const [enCours, setEnCours] = useState(false);
@@ -65,13 +67,22 @@ export function PublicationAnnonce(p: {
             ))}
           </ul>
         )}
-        {(p.publiee || p.dejaPubliee) && (
-          <Button variant="outline" size="sm" className="self-start" asChild>
-            <a href={p.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink /> Voir l&apos;annonce sur le site
-            </a>
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {(p.publiee || p.dejaPubliee) && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={p.url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink /> Voir l&apos;annonce sur le site
+              </a>
+            </Button>
+          )}
+          {p.urlApercu && (
+            <Button variant="ghost" size="sm" asChild>
+              <a href={p.urlApercu} target="_blank" rel="noopener noreferrer">
+                <Eye /> Aperçu
+              </a>
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

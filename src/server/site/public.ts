@@ -5,6 +5,8 @@
 // =====================================================================
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { lireConfigDomaines } from "@/lib/domaines";
+import { modeleConfidentialite, modeleMentionsLegales, type EntreeLegal } from "@/lib/site/legal";
 import { accentValide, texteSurCouleur } from "@/lib/site/couleurs";
 import { lireEngagements, lireFaq, lireHoraires, lireListe, lireReseaux } from "@/lib/site/reglages-defaut";
 import type { ReglagesPublics } from "@/lib/site/reglages-publics";
@@ -13,6 +15,7 @@ import { normaliserNumero } from "@/lib/site/whatsapp";
 import { LIBELLES_SOURCE_AVIS } from "@/lib/validations/site";
 import type { AvisPublic } from "@/lib/site/reglages-publics";
 import { STATUTS_PUBLIABLES } from "./annonces";
+import { OU_ANNONCE_VISIBLE } from "./visibilite";
 
 const vide = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
 
@@ -90,25 +93,85 @@ const SELECTION_PUBLIQUE = {
     select: {
       marque: true, modele: true, version: true, annee: true, dateMiseEnCirculation: true, carburant: true, boite: true, couleur: true,
       nombrePlaces: true, critAir: true, kilometrageActuel: true, immatriculation: true, statut: true, dateVente: true,
-      fichiers: { where: { categorie: "PHOTO_VEHICULE", publique: true }, select: { id: true }, orderBy: [{ ordrePublic: "asc" }, { creeLe: "asc" }] },
+      fichiers: { where: { categorie: "PHOTO_VEHICULE", publique: true }, select: { id: true, recadrage: true }, orderBy: [{ ordrePublic: "asc" }, { creeLe: "asc" }] },
     },
   },
 } satisfies Prisma.AnnonceSelect;
 
-/** Annonces en ligne (véhicules En vente / Réservé), les plus récentes d'abord. */
-export async function annoncesPubliees(limite?: number): Promise<VehiculePublic[]> {
-  const [lignes, options] = await Promise.all([
-    db.annonce.findMany({
-      where: { publiee: true, vehicule: { statut: { in: [...STATUTS_PUBLIABLES] }, archiveLe: null } },
-      select: SELECTION_PUBLIQUE,
-      orderBy: { publieeLe: "desc" },
-      take: limite,
-    }),
-    db.reglagesSite.findUnique({ where: { id: 1 }, select: { immatriculationVisible: true } }),
-  ]);
+type LigneAnnonce = Prisma.AnnonceGetPayload<{ select: typeof SELECTION_PUBLIQUE }>;
+
+async function versPublic(lignes: LigneAnnonce[]): Promise<VehiculePublic[]> {
+  const options = await db.reglagesSite.findUnique({ where: { id: 1 }, select: { immatriculationVisible: true } });
   return lignes.map(({ vehicule: { fichiers, ...vehicule }, ...annonce }) =>
     toPublicVehicle({ annonce, vehicule, photos: fichiers }, { immatriculationVisible: options?.immatriculationVisible ?? false }),
   );
+}
+
+const EN_LIGNE: Prisma.AnnonceWhereInput = { publiee: true, vehicule: { statut: { in: [...STATUTS_PUBLIABLES] }, archiveLe: null } };
+
+/** Annonces en ligne (véhicules En vente / Réservé), les plus récentes d'abord. */
+export async function annoncesPubliees(limite?: number): Promise<VehiculePublic[]> {
+  return versPublic(await db.annonce.findMany({ where: EN_LIGNE, select: SELECTION_PUBLIQUE, orderBy: { publieeLe: "desc" }, take: limite }));
+}
+
+/** Page d'une annonce (en ligne, ou vendue avec le bandeau « vendu ») ; null = 404. */
+export async function annonceParSlug(slug: string): Promise<VehiculePublic | null> {
+  if (!/^[a-z0-9-]{3,120}$/.test(slug)) return null;
+  const ligne = await db.annonce.findFirst({ where: { slug, ...OU_ANNONCE_VISIBLE }, select: SELECTION_PUBLIQUE });
+  return ligne ? ((await versPublic([ligne]))[0] ?? null) : null;
+}
+
+/** Véhicules vendus depuis moins de `jours` jours dont l'annonce avait été publiée (badge « Vendu », sans prix). */
+export async function annoncesVenduesRecemment(jours: number, limite = 6): Promise<VehiculePublic[]> {
+  const depuis = new Date(Date.now() - jours * 86_400_000);
+  return versPublic(
+    await db.annonce.findMany({
+      where: { publieeLe: { not: null }, vehicule: { statut: "VENDU", archiveLe: null, dateVente: { gte: depuis } } },
+      select: SELECTION_PUBLIQUE,
+      orderBy: { vehicule: { dateVente: "desc" } },
+      take: limite,
+    }),
+  );
+}
+
+/** Nombre total de véhicules vendus (chiffre réel affiché si le réglage l'autorise et le seuil est atteint). */
+export async function nombreVehiculesVendus(): Promise<number> {
+  return db.vehicule.count({ where: { statut: "VENDU" } });
+}
+
+/** Réglages de la section « vendus » et du compteur de ventes. */
+export async function reglagesVendus() {
+  const r = await db.reglagesSite.findUnique({ where: { id: 1 }, select: { afficherVendus: true, joursVendus: true, afficherNombreVendus: true, seuilNombreVendus: true } });
+  return { afficherVendus: r?.afficherVendus ?? false, joursVendus: r?.joursVendus ?? 60, afficherNombreVendus: r?.afficherNombreVendus ?? false, seuilNombreVendus: r?.seuilNombreVendus ?? 20 };
+}
+
+/** Textes légaux : ceux saisis dans le CRM, sinon le modèle généré à partir des réglages. */
+export async function textesLegaux(): Promise<{ mentionsLegales: string; confidentialite: string }> {
+  const r = await db.reglagesSite.findUnique({
+    where: { id: 1 },
+    select: { mentionsLegales: true, confidentialite: true, nomAffiche: true, formeJuridique: true, siret: true, adresseSiege: true, email: true, telephone: true, plausibleDomaine: true, googleAnalyticsId: true },
+  });
+  const entree: EntreeLegal = {
+    nomAffiche: vide(r?.nomAffiche) ?? "VUCA AUTO",
+    formeJuridique: vide(r?.formeJuridique),
+    siret: vide(r?.siret),
+    adresseSiege: vide(r?.adresseSiege),
+    email: vide(r?.email),
+    telephone: vide(r?.telephone),
+    domaine: lireConfigDomaines(process.env).site,
+    plausible: !!r?.plausibleDomaine,
+    googleAnalytics: !!r?.googleAnalyticsId,
+  };
+  return {
+    mentionsLegales: vide(r?.mentionsLegales) ?? modeleMentionsLegales(entree),
+    confidentialite: vide(r?.confidentialite) ?? modeleConfidentialite(entree),
+  };
+}
+
+/** Texte et photo de la page « À propos ». */
+export async function texteAPropos(): Promise<{ texte: string | null; photoId: string | null }> {
+  const r = await db.reglagesSite.findUnique({ where: { id: 1 }, select: { aProposTexte: true, aProposPhotoId: true } });
+  return { texte: vide(r?.aProposTexte), photoId: r?.aProposPhotoId ?? null };
 }
 
 /** Avis clients affichés (actifs, authenticité certifiée), dans l'ordre choisi dans le CRM. */
@@ -124,5 +187,13 @@ export async function avisPublics(): Promise<AvisPublic[]> {
 
 /** Nombre d'annonces en ligne (bouton « Voir toutes les voitures (N) »). */
 export async function nombreAnnoncesPubliees(): Promise<number> {
-  return db.annonce.count({ where: { publiee: true, vehicule: { statut: { in: [...STATUTS_PUBLIABLES] }, archiveLe: null } } });
+  return db.annonce.count({ where: EN_LIGNE });
+}
+
+/** Pour le plan du site : site en ligne ? + adresses des annonces visibles et date de mise à jour. */
+export async function planDuSite(): Promise<{ enLigne: boolean; annonces: { slug: string; misAJourLe: Date }[] }> {
+  const r = await db.reglagesSite.findUnique({ where: { id: 1 }, select: { enLigne: true } });
+  if (!r?.enLigne) return { enLigne: false, annonces: [] };
+  const annonces = await db.annonce.findMany({ where: OU_ANNONCE_VISIBLE, select: { slug: true, misAJourLe: true }, orderBy: { publieeLe: "desc" } });
+  return { enLigne: true, annonces };
 }

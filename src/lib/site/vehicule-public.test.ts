@@ -76,7 +76,7 @@ const entree = {
     dateVente: null,
     ...internes,
   },
-  photos: [{ id: "photo-1" }, { id: "photo-2" }, { id: "photo-3" }],
+  photos: [{ id: "photo-1" }, { id: "photo-2", recadrage: { x: 10, y: 5, l: 80 } }, { id: "photo-3" }],
   ...internes,
 } as unknown as EntreeVehiculePublic;
 
@@ -120,6 +120,10 @@ describe("toPublicVehicle() : aucune donnée interne ne sort", () => {
     expect(pub.equipements).toEqual({ confort: ["Climatisation"], securite: ["ABS"], multimedia: [], exterieur: [], autres: ["Tapis"] });
     expect(pub.photos.map((p) => p.id)).toEqual(["photo-2", "photo-1", "photo-3"]); // couverture en premier
     expect(pub.photos[0]!.alt).toBe("Peugeot 208 1.2 PureTech 100 Allure 2021 — photo 1 sur 3");
+    // Version d'URL : change avec le recadrage, « 0 » sans recadrage ; le recadrage lui-même ne sort pas
+    expect(pub.photos[0]!.v).not.toBe("0");
+    expect(pub.photos[1]!.v).toBe("0");
+    expect(Object.keys(pub.photos[0]!).sort()).toEqual(["alt", "id", "v"]);
     expect(pub.confiance.map((c) => c.cle)).toEqual(["ct", "proprietaires", "garantie", "carnet", "revise", "km", "nonFumeur"]);
     expect(pub.confiance[0]!.detail).toBe("Le 12/05/2026");
   });

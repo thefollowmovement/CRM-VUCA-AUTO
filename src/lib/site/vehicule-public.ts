@@ -10,6 +10,7 @@
 // =====================================================================
 import { LIBELLES_BOITE, LIBELLES_CARBURANT, LIBELLES_CRITAIR } from "@/lib/vehicule";
 import { normaliserEquipements, type Equipements } from "./equipements";
+import { versionRecadrage } from "./photos";
 
 /** Ce que les lectures publiques fournissent (sélection Prisma restreinte, voir server/site). */
 export type EntreeVehiculePublic = {
@@ -54,8 +55,8 @@ export type EntreeVehiculePublic = {
     statut: string;
     dateVente: Date | null;
   };
-  /** Photos cochées « publiques », dans l'ordre choisi. */
-  photos: { id: string }[];
+  /** Photos cochées « publiques », dans l'ordre choisi (le recadrage ne sert qu'à la version d'URL). */
+  photos: { id: string; recadrage?: unknown }[];
 };
 
 export type PointConfiance = { cle: string; libelle: string; detail: string | null };
@@ -85,7 +86,7 @@ export type VehiculePublic = {
   confiance: PointConfiance[];
   travauxRealises: string | null;
   /** Photos publiques : la couverture d'abord. */
-  photos: { id: string; alt: string }[];
+  photos: { id: string; alt: string; v: string }[];
   /** Seulement si le réglage « immatriculation visible » est activé. */
   immatriculation: string | null;
   misAJourLe: string;
@@ -120,7 +121,8 @@ export function pointsConfiance(a: EntreeVehiculePublic["annonce"]): PointConfia
 export function toPublicVehicle(e: EntreeVehiculePublic, options: { immatriculationVisible: boolean }): VehiculePublic {
   const { annonce: a, vehicule: v } = e;
   const titre = a.titre.trim() || [v.marque, v.modele].join(" ");
-  const ordre = a.couvertureId && e.photos.some((p) => p.id === a.couvertureId) ? [a.couvertureId, ...e.photos.map((p) => p.id).filter((id) => id !== a.couvertureId)] : e.photos.map((p) => p.id);
+  const couverture = e.photos.find((p) => p.id === a.couvertureId);
+  const ordre = couverture ? [couverture, ...e.photos.filter((p) => p !== couverture)] : e.photos;
   const vendu = v.statut === "VENDU";
   return {
     reference: a.reference,
@@ -145,7 +147,7 @@ export function toPublicVehicle(e: EntreeVehiculePublic, options: { immatriculat
     equipements: normaliserEquipements(a.equipements),
     confiance: pointsConfiance(a),
     travauxRealises: a.reviseAvantVente ? a.travauxRealises : null,
-    photos: ordre.map((id, i) => ({ id, alt: `${titre}${v.annee ? ` ${v.annee}` : ""} — photo ${i + 1} sur ${ordre.length}` })),
+    photos: ordre.map((p, i) => ({ id: p.id, alt: `${titre}${v.annee ? ` ${v.annee}` : ""} — photo ${i + 1} sur ${ordre.length}`, v: versionRecadrage(p.recadrage) })),
     immatriculation: options.immatriculationVisible ? v.immatriculation : null,
     misAJourLe: a.misAJourLe.toISOString(),
     vendueLe: vendu && v.dateVente ? v.dateVente.toISOString().slice(0, 10) : null,

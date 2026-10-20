@@ -70,6 +70,21 @@ describe("domaine du CRM crm.vuca-auto.fr (et son alias sslip.io)", () => {
     expect(crm("/site-preview")).toEqual({ type: "crm" });
     expect(alias("/site-preview")).toEqual({ type: "crm" });
   });
+  it("aperçu du vrai site sous /apercu-site (connexion exigée par le middleware)", () => {
+    expect(crm("/apercu-site")).toEqual({ type: "apercu", chemin: ACCUEIL_SITE });
+    expect(crm("/apercu-site/")).toEqual({ type: "apercu", chemin: ACCUEIL_SITE });
+    expect(crm("/apercu-site/voitures")).toEqual({ type: "apercu", chemin: "/voitures" });
+    expect(alias("/apercu-site/voitures/peugeot-208-a1b2")).toEqual({ type: "apercu", chemin: "/voitures/peugeot-208-a1b2" });
+    expect(crm("/apercu-site/photos/abc/960")).toEqual({ type: "apercu", chemin: "/photos/abc/960" });
+    // Seules les pages du site : rien d'autre ne passe par l'aperçu
+    expect(crm("/apercu-site/dashboard")).toEqual({ type: "apercu", chemin: "/site-introuvable" });
+    expect(crm("/apercu-site/site-accueil")).toEqual({ type: "apercu", chemin: "/site-introuvable" });
+    expect(crm("/apercu-sitex")).toEqual({ type: "crm" });
+    // Sur le domaine public, l'aperçu n'existe pas
+    expect(site("/apercu-site")).toEqual({ type: "introuvable", api: false });
+    expect(site("/apercu-site/voitures")).toEqual({ type: "introuvable", api: false });
+    expect(deciderRoutage("localhost", "/apercu-site/voitures", "", lireConfigDomaines({}))).toEqual({ type: "apercu", chemin: "/voitures" });
+  });
   it("les pages du site ne sont pas servies : renvoi vers vuca-auto.fr", () => {
     expect(crm("/voitures/peugeot-208", "?a=1")).toEqual({ type: "redirection", url: "https://vuca-auto.fr/voitures/peugeot-208?a=1", statut: 307 });
     expect(alias("/a-propos")).toEqual({ type: "redirection", url: "https://vuca-auto.fr/a-propos", statut: 307 });
