@@ -1,14 +1,14 @@
 import { PageProvisoire } from "@/components/site/page-provisoire";
-import { lireReglages } from "@/lib/reglages";
+import { coordonneesPubliques } from "@/server/site/public";
 
 // Accueil de vuca-auto.fr (servi sur « / » par le middleware). Provisoire jusqu'à la Phase S3.
 // Rendue à la demande (lit les coordonnées dans les réglages) : la construction ne dépend pas de la base.
 export const dynamic = "force-dynamic";
 
 export default async function AccueilSite() {
-  const r = await lireReglages();
-  const telephone = r.societeTelephone?.trim();
-  const email = r.societeEmail?.trim();
+  const c = await coordonneesPubliques();
+  const telephone = c.telephone;
+  const email = c.email;
   return (
     <PageProvisoire titre="Notre site arrive bientôt." texte="Achat et vente de véhicules d'occasion. En attendant, contactez-nous directement.">
       {(telephone || email) && (
@@ -25,7 +25,7 @@ export default async function AccueilSite() {
           )}
         </div>
       )}
-      {r.societeSiret && <p className="mt-16 text-sm text-[var(--site-texte-2)]">{r.societeNom} · SIRET {r.societeSiret}</p>}
+      {c.siret && <p className="mt-16 text-sm text-[var(--site-texte-2)]">{c.nom} · SIRET {c.siret}</p>}
     </PageProvisoire>
   );
 }

@@ -20,8 +20,8 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 
 | Phase | Contenu | Statut |
 |---|---|---|
-| S0 | Routage site / CRM, champs Prisma, arborescence | 🟡 Routage par domaine livré (vuca-auto.fr / crm.vuca-auto.fr) ; champs Prisma en attente de validation |
-| S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ⚪ À faire |
+| S0 | Routage site / CRM, champs Prisma, arborescence | ✅ Validée (routage par domaine + choix : vendeur unique, immatriculation masquée, site en maintenance par défaut) |
+| S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | 🟡 Livrée le 20/10/2026, en attente de validation |
 | S2 | Système de design + page `/site-preview` | ⚪ À faire |
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ⚪ À faire |
 | S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
@@ -29,6 +29,16 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S1 — livré
+
+- **Base** : migration `site_public` (Annonce, ReglagesSite ligne unique, AvisClient, StatistiqueSite ; photos `publique` / `ordrePublic` / `recadrage`). Contraintes SQL : note 1–5, avis certifié obligatoire, prix et compteurs ≥ 0.
+- **Sécurité** : `toPublicVehicle()` (`src/lib/site/vehicule-public.ts`) construit l'objet public champ par champ (liste blanche) ; tests : aucun champ interne (prix d'achat, dépenses, marge, partenaires, VIN, notes, provenance…), immatriculation masquée par défaut, vendu = sans prix. Test « garde-fou » : aucun fichier du site public n'importe Prisma, la base ou les requêtes du CRM.
+- **Onglet « Annonce »** (fiche véhicule) : interrupteur « Publier sur le site » (seulement En vente / Réservé, prix et ≥ 1 photo publique exigés), avertissements (< 8 photos, site en maintenance), référence VA-0001, « mise à jour le », lien « Voir l'annonce sur le site », statistiques vues / clics WhatsApp 7 et 30 jours ; photos : choix des publiques, ordre par glisser-déposer ou flèches, couverture, recadrage 4:3 (cadre déplaçable au doigt + zoom) ; titre, prix affiché + négociable, puissance, description (gras, listes, aperçu, bouton « Générer une description » factuel), équipements par catégorie + libres, points de confiance (CT, carnet, Histovec, propriétaires, garantie, non-fumeur, révision, kilométrage vérifié).
+- **Dépublication automatique** quand le véhicule n'est plus En vente / Réservé (vendu, archivé, immobilisé…) ; pas de republication automatique. Adresse (slug) figée à la 1re publication.
+- **Onglet « Site web »** (ADMIN + GESTIONNAIRE) : Général (en ligne / maintenance, nom, slogan, couleur, logos, favicon), Contact & WhatsApp (numéro validé et affiché lisiblement, messages avec variables + aperçu façon WhatsApp, horaires 7 jours, délai de réponse, interlocuteur + photo), Confiance (SIRET, forme, siège, engagements activables, paiements, livraison, reprise, avis Google, vendus récents, compteur de ventes avec seuil, immatriculation), Avis (réels uniquement : case « Je certifie… » obligatoire), Contenu (accueil, à propos + photo, FAQ, bandeau, réseaux), Référencement (titre / description + aperçu Google, image de partage, Plausible / GA), Légal (modèles générés depuis les réglages, informations manquantes signalées), Statistiques (compteurs 7 / 30 jours, annonces les plus vues). Chaque modification est tracée dans le journal et met à jour le site.
+- **Démo** (`demo:site`) : 5 véhicules en vente de plus, 8 annonces publiées (5 à 9 photos d'illustration neutres), 3 annonces de véhicules vendus, statistiques sur 30 jours, numéro WhatsApp fictif (+33 6 39 98 00 00, réservé aux fictions). **Aucun avis.**
+- Tests : 159 tests unitaires ; parcours navigateur S1 (≈ 60 vérifications, ordinateur + téléphone) ; non-régression des parcours des phases 3 à 8.
 
 ## Phase 1 — livré
 

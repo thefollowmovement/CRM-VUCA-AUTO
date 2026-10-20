@@ -168,13 +168,17 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 
 ## Site web public (projet 2 — en cours)
 
-- Phases S0 à S6 dans `PROGRESS.md` ; proposition initiale `docs/SITE_PHASE0.md`.
+- Phases S0 à S6 dans `PROGRESS.md` ; proposition initiale `docs/SITE_PHASE0.md`. Choix validés : un seul interlocuteur (nom + photo) dans les réglages, immatriculation = réglage global masqué par défaut, site en maintenance par défaut (démo retirée avant la mise en ligne, méthode en S6).
 - **Routage par domaine** (`src/middleware.ts` + règles pures testées `src/lib/domaines.ts`, `deciderRoutage`) : `SITE_DOMAIN` (vuca-auto.fr) → uniquement le groupe `app/(site)` (accueil `/` réécrit vers `/site-accueil`, toute autre adresse → 404 du site via `/site-introuvable`, API hors `/api/site` → 404 JSON, `www` → 308 sans www) ; `CRM_DOMAIN` et tout autre nom (alias sslip.io, localhost) → CRM inchangé (Auth.js), pages du site redirigées vers le domaine public, `/site-preview` reste au CRM. Auth.js n'est appelé QUE pour le CRM → aucun cookie sur le site ; cookie de session sans `Domain` = limité à l'hôte qui l'a posé.
 - **`AUTH_URL` ne doit pas être définie** en production multi-domaines (sinon la connexion renvoie vers ce seul domaine) : `AUTH_TRUST_HOST=true` suffit. Tests locaux : le `.env` du bac à sable contient `AUTH_URL=localhost` et Next le recharge → le mettre de côté (voir `lancer-domaines.sh` du scratchpad).
 - Fichiers dépendant du domaine, rendus à chaque demande (`dynamic = "force-dynamic"`) : `app/robots.txt/route.ts`, `app/manifest.ts`, `app/(site)/sitemap.xml/route.ts`. Adresses publiques : `urlSite()`, `urlAnnonce(slug)` (https://vuca-auto.fr/…) pour liens du CRM, sitemap, canoniques, images de partage.
 - Layout racine minimal ; les fournisseurs du CRM (thème, notifications, service worker) sont dans les layouts `(app)`, `(compte)`, `(portail)`, `(public)` et la 404 racine. Le site a `app/(site)/layout.tsx` + `site.css` (indexable, mode sombre automatique).
 - Déploiement des domaines : `scripts/configurer-domaines.sh` (`.env`, Caddy via le seul fichier `/etc/caddy/vuca-crm.caddy` si besoin, vérifications).
 - Règle absolue : les pages publiques ne reçoivent que `toPublicVehicle()` (liste blanche, `lib/site/`) ; jamais de prix d'achat, dépenses, marge, partenaires, VIN, notes, clients.
+
+- **Phase S1** : pur et testé dans `src/lib/site/` (`vehicule-public.ts` = `toPublicVehicle`, `slug.ts` (slug figé à la 1re publication), `whatsapp.ts`, `texte-riche.ts` (gras + listes, jamais de HTML ; `max` pour les textes légaux), `description.ts`, `equipements.ts`, `recadrage.ts` (cadre 4:3 en % : x, y, l), `legal.ts` (modèles), `reglages-defaut.ts` (lecture tolérante des JSON)). Serveur : `src/server/site/` (`public.ts` = seule source des pages publiques, `annonces.ts` (`annoncePourVehicule`, `depublierSiNecessaire`, `marquerAnnonceModifiee`), `reglages.ts` (`lireReglagesSite`), `revalidation.ts`, `statistiques.ts` (`jourStat` = jour de Paris en @db.Date)). Actions : `server/actions/annonces.ts`, `server/actions/site.ts`. UI : `components/annonces/`, `components/site-web/`, pages `vehicules/[id]/annonce` et `site-web/*`.
+- Les fichiers de `app/(site)`, `app/api/site`, `components/site` ne doivent JAMAIS importer `@/lib/db`, Prisma, `@/server/(requetes|actions)` ni `@/lib/reglages` (test garde-fou dans `site.test.ts`).
+- Seed : `demo-site.ts` et `demo.ts` s'importent mutuellement → aucune constante de module qui appelle `j()` (utiliser des fonctions).
 
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).

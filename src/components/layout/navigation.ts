@@ -1,6 +1,7 @@
 import {
   Car,
   ChartColumn,
+  Globe,
   HandCoins,
   KeyRound,
   LayoutDashboard,
@@ -27,6 +28,7 @@ export const NAVIGATION: EntreeNavigation[] = [
   { href: "/depenses", libelle: "Dépenses", icone: Receipt, barreMobile: true },
   { href: "/investisseurs", libelle: "Investisseurs", icone: HandCoins },
   { href: "/rapports", libelle: "Rapports", icone: ChartColumn },
+  { href: "/site-web", libelle: "Site web", icone: Globe },
   { href: "/reglages", libelle: "Réglages", icone: Settings, adminSeulement: true },
 ];
 

@@ -13,6 +13,7 @@ import { lignesPrixContrat } from "../../src/lib/calculs/lignes-contrat";
 import { calculerPrixLocation } from "../../src/lib/calculs/location";
 import { dateDepuisParis, partiesParis } from "../../src/lib/dates";
 import { prochainNumeroAnnuel, recalculerImputation, synchroniserEcheances } from "../../src/server/echeances";
+import { chargerSiteDemo } from "./demo-site";
 
 export const INVESTISSEURS_DEMO = [
   { nom: "Karim Benali", telephone: "06 12 34 56 78", email: "karim.benali@exemple.fr", iban: "FR7630006000011234567890189", notes: "Investisseur historique, préfère les citadines." },
@@ -41,6 +42,7 @@ export async function chargerDemo(db: PrismaClient) {
   await uneFois(db, "demo:etats-des-lieux", () => chargerEtatsDesLieuxDemo(db));
   await uneFois(db, "demo:paiements", () => chargerPaiementsDemo(db));
   await uneFois(db, "demo:versements", () => chargerVersementsDemo(db));
+  await uneFois(db, "demo:site", () => chargerSiteDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -49,13 +51,13 @@ export async function chargerDemo(db: PrismaClient) {
 
 const JOUR = 24 * 60 * 60 * 1000;
 /** Date calendaire à J+n (n négatif = dans le passé). */
-function j(n: number): Date {
+export function j(n: number): Date {
   const d = new Date(Date.now() + n * JOUR);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
-const eur = (euros: number) => Math.round(euros * 100);
+export const eur = (euros: number) => Math.round(euros * 100);
 
-type Demo = {
+export type Demo = {
   donnees: Omit<Prisma.VehiculeUncheckedCreateInput, "id">;
   financement: [string, number][]; // [nom du partenaire, euros]
   couleurIllustration: string;
@@ -240,11 +242,11 @@ async function illustration(couleur: string): Promise<Buffer> {
   return sharp(Buffer.from(svg)).jpeg({ quality: 80 }).toBuffer();
 }
 
-async function chargerVehiculesDemo(db: PrismaClient) {
+export async function chargerVehiculesDemo(db: PrismaClient, liste: Demo[] = VEHICULES) {
   const partenaires = new Map((await db.partenaire.findMany()).map((p) => [p.nom, p.id]));
   const racine = path.resolve(process.env.STORAGE_DIR ?? "./storage");
 
-  for (const demo of VEHICULES) {
+  for (const demo of liste) {
     // Ne pas dupliquer si l'immatriculation existe déjà
     if (demo.donnees.immatriculation && (await db.vehicule.findUnique({ where: { immatriculation: demo.donnees.immatriculation } }))) continue;
 

@@ -280,6 +280,7 @@ enum CategorieFichier {
   // Divers
   PDF_ARCHIVE // copie figée d'un PDF signé (contrat, EDL)
   LOGO
+  IMAGE_SITE // logos, favicon, photos « À propos » / vendeur, image de partage du site public
 }
 
 // =====================================================================
@@ -445,6 +446,7 @@ model Vehicule {
   sinistres         Sinistre[]
   versements        Versement[]
   factures          Facture[]
+  annonce           Annonce?
 
   @@index([statut])
   @@index([typeExploitation])
@@ -643,11 +645,11 @@ model ContratLocation {
   // (au tarif journalier) ou dernier mois entamé (mensuel ÷ 30 × jours).
   joursSupplementaires    Int  @default(0)
   tarifJournalierCentimes Int? // tarif journalier figé (hebdomadaire : jours restants)
-  remiseCentimes         Int  @default(0)
-  fraisLivraisonCentimes Int  @default(0)
-  prixTotalCentimes      Int // tarif × durée − remise + options + livraison
-  acompteCentimes        Int? // location courte : acompte demandé
-  jourEcheanceMensuelle  Int? // location mensuelle : jour du mois (1–28)
+  remiseCentimes          Int  @default(0)
+  fraisLivraisonCentimes  Int  @default(0)
+  prixTotalCentimes       Int // tarif × durée − remise + options + livraison
+  acompteCentimes         Int? // location courte : acompte demandé
+  jourEcheanceMensuelle   Int? // location mensuelle : jour du mois (1–28)
 
   // --- Kilométrage ---
   kilometrageIllimite Boolean @default(false)
@@ -1032,6 +1034,10 @@ model Fichier {
   libelle       String?
   ordre         Int              @default(0)
   estPrincipale Boolean          @default(false) // photo principale du véhicule
+  // --- Site public (photos de véhicule uniquement) ---
+  publique      Boolean          @default(false) // servie par la route publique si l'annonce est en ligne
+  ordrePublic   Int              @default(0) // ordre dans l'annonce (glisser-déposer)
+  recadrage     Json? // zone 4:3 choisie, en % de l'image : { x, y, l } (h déduit de l'image)
   envoyeParId   String?
   envoyePar     Utilisateur?     @relation(fields: [envoyeParId], references: [id], onDelete: SetNull)
   creeLe        DateTime         @default(now())
@@ -1114,4 +1120,162 @@ model Reglages {
 model Compteur {
   cle    String @id
   valeur Int    @default(0)
+}
+
+// =====================================================================
+//  SITE WEB PUBLIC (vuca-auto.fr) — piloté depuis le CRM
+//  Les pages publiques ne lisent ces données qu'à travers toPublicVehicle()
+//  et les lectures de src/server/site (listes blanches).
+// =====================================================================
+
+enum SourceAvis {
+  GOOGLE
+  LEBONCOIN
+  DIRECT
+}
+
+enum TypeStatSite {
+  VUE_SITE
+  VUE_ANNONCE
+  CLIC_WHATSAPP
+  CLIC_APPEL
+}
+
+/// Annonce publique d'un véhicule (une par véhicule).
+model Annonce {
+  id         String   @id @default(cuid())
+  vehiculeId String   @unique
+  vehicule   Vehicule @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  reference  String   @unique // VA-0042
+  slug       String   @unique // figé à la 1re publication
+
+  publiee     Boolean   @default(false)
+  publieeLe   DateTime? // 1re mise en ligne
+  depublieeLe DateTime?
+
+  titre               String
+  prixAfficheCentimes Int?
+  prixNegociable      Boolean @default(false)
+  puissanceCh         Int?
+  description         String? // texte simple : **gras** et listes « - »
+  equipements         Json    @default("{}") // { confort: [], securite: [], multimedia: [], exterieur: [], autres: [] }
+
+  // Points de confiance (affichés seulement si cochés)
+  ctAJour             Boolean   @default(false)
+  ctDate              DateTime? @db.Date
+  carnetEntretien     Boolean   @default(false)
+  rapportHistovec     Boolean   @default(false)
+  nombreProprietaires Int?
+  premiereMain        Boolean   @default(false)
+  garantieMois        Int?
+  garantieTexte       String?
+  nonFumeur           Boolean   @default(false)
+  reviseAvantVente    Boolean   @default(false)
+  travauxRealises     String?
+  kilometrageVerifie  Boolean   @default(false)
+  sourceKilometrage   String?
+
+  couvertureId String? // photo de couverture (Fichier publique du véhicule)
+  misAJourLe   DateTime @default(now()) // « Annonce mise à jour le … »
+  creeLe       DateTime @default(now())
+  modifieLe    DateTime @updatedAt
+
+  statistiques StatistiqueSite[]
+
+  @@index([publiee])
+}
+
+/// Réglages du site public (ligne unique, id = 1).
+model ReglagesSite {
+  id Int @id @default(1)
+
+  // --- Général ---
+  enLigne       Boolean @default(false) // false = page « Bientôt de retour »
+  nomAffiche    String  @default("VUCA AUTO")
+  slogan        String?
+  couleurAccent String  @default("#0071E3")
+  logoClairId   String? // IMAGE_SITE
+  logoFonceId   String?
+  faviconId     String?
+
+  // --- Contact & WhatsApp ---
+  whatsapp                String? // +33612345678
+  messageWhatsappVehicule String  @default("Bonjour, je suis intéressé par la {marque} {modele} {annee} à {prix} ({lien}). Est-elle toujours disponible ?")
+  messageWhatsappGeneral  String  @default("Bonjour, je souhaiterais avoir des informations sur vos véhicules.")
+  telephone               String?
+  email                   String?
+  adresse                 String?
+  lienGoogleMaps          String?
+  horaires                Json    @default("[]") // 7 jours : { jour, ouvert, plages }
+  delaiReponse            String?
+  vendeurNom              String?
+  vendeurPhotoId          String?
+
+  // --- Confiance ---
+  siret                  String?
+  formeJuridique         String?
+  adresseSiege           String?
+  engagements            Json    @default("[]") // { icone, titre, phrase, actif }
+  moyensPaiement         Json    @default("[]") // libellés
+  livraison              Boolean @default(false)
+  zoneLivraison          String?
+  reprise                Boolean @default(false)
+  lienAvisGoogle         String?
+  afficherVendus         Boolean @default(false)
+  joursVendus            Int     @default(60)
+  afficherNombreVendus   Boolean @default(false)
+  seuilNombreVendus      Int     @default(20)
+  anneeCreation          Int?
+  immatriculationVisible Boolean @default(false)
+
+  // --- Contenu ---
+  accueilTitre     String?
+  accueilSousTitre String?
+  aProposTexte     String?
+  aProposPhotoId   String?
+  faq              Json    @default("[]") // { question, reponse }
+  bandeau          String?
+  reseaux          Json    @default("{}") // { instagram, tiktok, facebook, leboncoin, lacentrale }
+
+  // --- Référencement ---
+  seoTitre          String?
+  seoDescription    String?
+  imagePartageId    String?
+  plausibleDomaine  String?
+  googleAnalyticsId String?
+
+  // --- Légal (vide = texte généré automatiquement) ---
+  mentionsLegales String?
+  confidentialite String?
+
+  modifieLe DateTime @updatedAt
+}
+
+/// Avis client réel (saisi à la main, authenticité certifiée).
+model AvisClient {
+  id                  String     @id @default(cuid())
+  auteur              String // prénom + initiale
+  note                Int // 1 à 5
+  texte               String
+  date                DateTime   @db.Date
+  vehiculeAchete      String?
+  source              SourceAvis @default(DIRECT)
+  certifieAuthentique Boolean
+  actif               Boolean    @default(true)
+  ordre               Int        @default(0)
+  creeLe              DateTime   @default(now())
+}
+
+/// Compteurs agrégés par jour (aucune donnée personnelle, aucune adresse IP).
+model StatistiqueSite {
+  id        String       @id @default(cuid())
+  jour      DateTime     @db.Date
+  type      TypeStatSite
+  cle       String // id de l'annonce, ou « site »
+  annonceId String?
+  annonce   Annonce?     @relation(fields: [annonceId], references: [id], onDelete: Cascade)
+  compte    Int          @default(0)
+
+  @@unique([jour, type, cle])
+  @@index([annonceId, jour])
 }

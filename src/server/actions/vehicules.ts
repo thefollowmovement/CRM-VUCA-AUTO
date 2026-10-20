@@ -1,5 +1,6 @@
 "use server";
 
+import { depublierSiNecessaire, revaliderAnnonceDuVehicule } from "@/server/site/annonces";
 import { revalidatePath } from "next/cache";
 import type { CategorieFichier, StatutVehicule } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
@@ -192,6 +193,7 @@ export async function modifierVehicule(id: string, saisie: SaisieVehicule) {
         await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vehicule", entiteId: id, avant, apres: { ...apres, financement: d.financement } }, tx);
       });
       rafraichir(id);
+      await revaliderAnnonceDuVehicule(id);
       return { ok: true, message: "Modifications enregistrées." };
     } catch (erreur) {
       const message = messageDoublon(erreur);
@@ -238,7 +240,10 @@ export async function changerStatutVehicule(id: string, saisie: SaisieChangement
       await tx.historiqueStatutVehicule.create({
         data: { vehiculeId: id, ancienStatut: v.statut, nouveauStatut: lecture.data.statut, motif: lecture.data.motif, utilisateurId: u.id },
       });
+      // Site public : retirée si le véhicule n'est plus à vendre (sinon badge « Réservé » à jour)
+      await depublierSiNecessaire(tx, id, lecture.data.statut);
     });
+    await revaliderAnnonceDuVehicule(id);
     rafraichir(id);
     return { ok: true, message: "Statut mis à jour." };
   });
@@ -255,6 +260,7 @@ export async function archiverVehicule(id: string) {
         data: { vehiculeId: id, ancienStatut: v.statut, nouveauStatut: "ARCHIVE", motif: "Archivage", utilisateurId: u.id },
       });
       await journaliser({ utilisateurId: u.id, action: "ARCHIVAGE", entite: "Vehicule", entiteId: id }, tx);
+      await depublierSiNecessaire(tx, id, "ARCHIVE");
     });
     rafraichir(id);
     return { ok: true, message: "Véhicule archivé." };
@@ -394,6 +400,7 @@ export async function supprimerFichierVehicule(fichierId: string) {
       await journaliser({ utilisateurId: u.id, action: "SUPPRESSION", entite: "FichierVehicule", entiteId: vehiculeId, avant: fichier }, tx);
     });
     await supprimerFichierStocke(fichier.cleStockage);
+    if (fichier.publique) await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: fichier.categorie === "PHOTO_VEHICULE" ? "Photo supprimée." : "Document supprimé." };
   });
@@ -493,7 +500,10 @@ export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
         data: { vehiculeId, ancienStatut: v.statut, nouveauStatut: "VENDU", motif: `Vendu ${formatEuros(d.prixVente)}`, utilisateurId: u.id },
       });
       await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vente", entiteId: vehiculeId, avant: v, apres: d }, tx);
+      // Annonce retirée du site (sa page reste visible avec le bandeau « vendu »)
+      await depublierSiNecessaire(tx, vehiculeId, "VENDU");
     });
+    await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: "Véhicule marqué comme vendu." };
   });
@@ -520,6 +530,7 @@ export async function annulerVente(vehiculeId: string) {
       await tx.historiqueStatutVehicule.create({ data: { vehiculeId, ancienStatut: "VENDU", nouveauStatut: statut, motif: "Vente annulée", utilisateurId: u.id } });
       await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "AnnulationVente", entiteId: vehiculeId, avant: v }, tx);
     });
+    await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: "Vente annulée." };
   });
