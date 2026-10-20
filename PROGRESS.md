@@ -14,6 +14,20 @@
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ✅ Validée le 20/10/2026 |
 | 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ✅ Validée le 20/10/2026 |
 
+## Site web public (projet 2)
+
+Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depuis le CRM (onglet « Site web »). Proposition détaillée : [`docs/SITE_PHASE0.md`](docs/SITE_PHASE0.md).
+
+| Phase | Contenu | Statut |
+|---|---|---|
+| S0 | Routage site / CRM, champs Prisma, arborescence | 🟡 Proposée — en attente de validation |
+| S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ⚪ À faire |
+| S2 | Système de design + page `/site-preview` | ⚪ À faire |
+| S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ⚪ À faire |
+| S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
+| S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
+| S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
+
 ## Phase 1 — livré
 
 - Projet Next.js 15.5 + TypeScript strict + Tailwind 4 + composants style shadcn/ui, mode sombre, toasts.

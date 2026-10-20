@@ -166,6 +166,11 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Sauvegardes : `scripts/sauvegarde-serveur.sh` / `restaurer-serveur.sh` (Hestia, systemd `vuca-crm-sauvegarde.timer`, variables `VUCA_*` pour tester ailleurs ; pg_restore lit le fichier sur l'entrée standard car le dossier est réservé à root) ; `scripts/sauvegarde-docker.sh` / `restaurer-docker.sh` (service `sauvegarde` de Compose, l'hôte de la base s'appelle `db`).
 - Piège shell : un heredoc `<<'EOF'` qui contient lui-même `EOF` se termine trop tôt → utiliser un autre délimiteur (`FIN_UNITE`…) ou un fichier.
 
+## Site web public (projet 2 — en cours)
+
+- Proposition validée ou non : `docs/SITE_PHASE0.md` (phases S0 à S6 dans `PROGRESS.md`). Routage par domaine (`SITE_DOMAINES`) : pages publiques dans `src/app/site/` servies par réécriture du middleware ; le CRM reste inchangé derrière l'auth.
+- Règle absolue : les pages publiques ne reçoivent que `toPublicVehicle()` (liste blanche, `lib/site/`) ; jamais de prix d'achat, dépenses, marge, partenaires, VIN, notes, clients.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.
