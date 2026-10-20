@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { BandeauApercu } from "@/components/site/bandeau-apercu";
 import { Bandeau } from "@/components/site/mise-en-page";
+import { MesureSite } from "@/components/site/mesure";
 import { NavigationSite } from "@/components/site/navigation-site";
 import { PiedDePage } from "@/components/site/pied-de-page";
 import { inter } from "@/components/site/police";
@@ -62,6 +63,8 @@ export default async function LayoutSite({ children }: { children: React.ReactNo
         infos={{ logo, slogan: r.slogan, formeJuridique: r.formeJuridique, siret: r.siret, adresse: r.adresse, telephone: r.telephone, email: r.email, reseaux: r.reseaux }}
       />
       {whatsapp && <WhatsappFlottantSite lien={whatsapp} />}
+      {/* Compteurs anonymes : jamais dans l'aperçu du CRM (ni en maintenance, où ce bloc n'est pas affiché) */}
+      {!apercu && <MesureSite />}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Coins,
   Gauge,
+  Globe,
   HandCoins,
   KeyRound,
   PiggyBank,
@@ -22,11 +23,12 @@ import { FiltrePeriode } from "@/components/analyse/filtre-periode";
 import { Anneau, GraphiqueMensuel } from "@/components/analyse/graphiques";
 import { EnTetePage } from "@/components/layout/en-tete-page";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, formatEuros, formatPourcentageBp } from "@/lib/format";
+import { formatDate, formatEuros, formatNombre, formatPourcentageBp } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { lirePeriode } from "@/lib/periode-url";
 import { cn } from "@/lib/utils";
 import { donneesDashboard } from "@/server/requetes/tableau-de-bord";
+import { resumeSite } from "@/server/site/statistiques";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -51,7 +53,7 @@ function CarteIndicateur({ i }: { i: Indicateur }) {
 export default async function PageDashboard({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const utilisateur = await exigerRolePage(ROLES_GESTION);
   const { periode, du, au, partenaire } = lirePeriode(await searchParams);
-  const d = await donneesDashboard(du, au, partenaire);
+  const [d, site] = await Promise.all([donneesDashboard(du, au, partenaire), resumeSite(7)]);
   const t = d.totaux;
   const plage = `du=${du}&au=${au}`;
   const qRapport = new URLSearchParams({ periode, ...(periode === "perso" ? { du, au } : {}), ...(d.partenaire ? { partenaire: d.partenaire.id } : {}) }).toString();
@@ -97,6 +99,13 @@ export default async function PageDashboard({ searchParams }: { searchParams: Pr
       negatif: d.impayes.montantCentimes > 0,
     },
     { titre: "Investisseurs", valeur: String(d.capitalParPartenaire.length), detail: "avec du capital engagé", icone: Wallet, href: "/investisseurs" },
+    {
+      titre: "Site web (7 jours)",
+      valeur: `${formatNombre(site.visites)} visite${site.visites > 1 ? "s" : ""}`,
+      detail: `${formatNombre(site.clicsWhatsapp)} clic${site.clicsWhatsapp > 1 ? "s" : ""} WhatsApp`,
+      icone: Globe,
+      href: "/site-web/statistiques?periode=7",
+    },
   ];
 
   return (

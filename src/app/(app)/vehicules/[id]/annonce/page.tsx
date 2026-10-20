@@ -1,4 +1,5 @@
 import { Eye, MessageCircle } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormulaireAnnonce } from "@/components/annonces/formulaire-annonce";
 import { PhotosAnnonce, type PhotoAnnonce } from "@/components/annonces/photos-annonce";
@@ -71,7 +72,12 @@ export default async function PageAnnonce({ params }: { params: Promise<{ id: st
       <Card>
         <CardHeader>
           <CardTitle>Statistiques</CardTitle>
-          <CardDescription>Visites de la page de l&apos;annonce et clics sur « Écrire sur WhatsApp ».</CardDescription>
+          <CardDescription>
+            Visites de la page de l&apos;annonce et clics sur « Écrire sur WhatsApp ».{" "}
+            <Link href="/site-web/statistiques" className="text-primary hover:underline">
+              Toutes les statistiques du site
+            </Link>
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           <Statistique icone={<Eye className="size-4" />} libelle="Vues" sept={stats.vues7} trente={stats.vues30} />

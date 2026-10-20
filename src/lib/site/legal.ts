@@ -55,7 +55,7 @@ export function modeleMentionsLegales(e: EntreeLegal): string {
 export function modeleConfidentialite(e: EntreeLegal): string {
   const contact = e.email ?? e.telephone ?? A_COMPLETER("email de contact");
   const mesure = [
-    "- Des compteurs anonymes (nombre de visites et de clics par jour et par annonce). Aucune adresse IP, aucun identifiant n'est conservé.",
+    "- Des compteurs anonymes : nombre de visites, de vues d'annonces et de clics « WhatsApp » ou « Appeler », par jour. Pour ne pas compter deux fois la même visite, une empreinte non réversible de votre adresse IP est gardée quelques minutes en mémoire, puis oubliée : elle n'est jamais enregistrée. Aucun cookie, aucun identifiant n'est conservé.",
     e.plausible && "- Plausible Analytics, un outil de mesure d'audience sans cookie et sans donnée personnelle.",
     e.googleAnalytics && "- Google Analytics, uniquement si vous l'acceptez dans le bandeau prévu à cet effet. Vous pouvez retirer votre accord à tout moment.",
   ].filter(Boolean) as string[];

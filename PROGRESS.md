@@ -23,12 +23,20 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S0 | Routage site / CRM, champs Prisma, arborescence | ✅ Validée (routage par domaine + choix : vendeur unique, immatriculation masquée, site en maintenance par défaut) |
 | S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ✅ Validée le 20/10/2026 |
 | S2 | Système de design + page `/site-preview` | ✅ Validée le 20/10/2026 |
-| S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | 🟡 Livrée le 20/10/2026, en attente de validation |
-| S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
+| S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ✅ Validée le 21/10/2026 |
+| S4 | WhatsApp, compteurs, statistiques | 🟡 Livrée le 21/10/2026, en attente de validation |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S4 — livré
+
+- **Compteurs du site** : routes `POST /api/site/vue` (visite, vue d'annonce) et `POST /api/site/clic` (« Écrire sur WhatsApp », « Appeler »), envoyées par `navigator.sendBeacon` sans jamais bloquer la navigation ni l'ouverture de WhatsApp. Un seul composant (`components/site/mesure.tsx`) compte toutes les pages et tous les liens wa.me / tel:, où qu'ils soient ; un clic sur une fiche est rattaché à son annonce.
+- **Limitation de débit et doublons** (en mémoire, `lib/site/limiteur.ts`) : une visite par visiteur toutes les 30 min, une vue par annonce et par visiteur toutes les 30 min, double clic ignoré (10 s), 60 requêtes/min au plus (429 au-delà). Robots, aperçus de liens et navigateurs automatiques ignorés ; requêtes venues d'un autre site ignorées ; rien n'est compté en maintenance ni dans l'aperçu du CRM.
+- **Aucune donnée personnelle** : seuls des totaux par jour sont enregistrés ; l'adresse IP ne sert qu'à une empreinte non réversible gardée quelques minutes en mémoire (politique de confidentialité générée mise à jour).
+- **Site web → Statistiques** : période 7 / 30 / 90 jours ; tuiles Visites, Vues d'annonces, Clics WhatsApp, Clics « Appeler », Taux de contact, avec l'évolution vs la période précédente ; graphiques « Visites par jour » et « Clics WhatsApp par jour » (infobulles, chiffres en tableau) ; détail par annonce (vues, WhatsApp, appels, taux de contact). Lien depuis l'onglet Annonce ; tuile « Site web (7 jours) » sur le dashboard.
+- Tests : 177 tests unitaires (dont limiteur, agrégation des statistiques) ; parcours S4 (≈ 35 vérifications : maintenance, contrôles des routes, robots, autre site, débit, visiteurs réels ordinateur et téléphone, doublons, clics WhatsApp/Appeler, aperçu non compté, statistiques et graphiques du CRM, mobile) ; S1, S3, domaines, phases 7 et 8 toujours verts.
 
 ## Correctif du 20/10/2026 — aperçu en erreur 500 sur le serveur
 
