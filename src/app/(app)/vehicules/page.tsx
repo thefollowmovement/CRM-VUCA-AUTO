@@ -6,6 +6,7 @@ import { FiltresVehicules } from "@/components/vehicules/filtres-vehicules";
 import { CartesVehicules, TableauVehicules } from "@/components/vehicules/liste-vehicules";
 import { Button } from "@/components/ui/button";
 import { EtatVide } from "@/components/ui/etat-vide";
+import { formatDate } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { lireFiltres, listerVehicules, optionsFiltres } from "@/server/requetes/vehicules";
@@ -18,6 +19,13 @@ const ETATS = [
   { valeur: "archives", libelle: "Archivés" },
   { valeur: "tous", libelle: "Tous" },
 ] as const;
+
+const LIBELLES_ALERTE = {
+  stock: "en stock depuis longtemps",
+  ct: "CT ou assurance à renouveler",
+  entretien: "vidange ou révision proche",
+  financement: "participations différentes du prix d'achat",
+} as const;
 
 export default async function PageVehicules({
   searchParams,
@@ -92,6 +100,17 @@ export default async function PageVehicules({
           </Button>
         </div>
       </div>
+
+      {(filtres.alerte || filtres.venteDu || filtres.venteAu) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1">
+            {filtres.alerte ? `Alerte : ${LIBELLES_ALERTE[filtres.alerte]}` : `Vendus du ${formatDate(filtres.venteDu)} au ${formatDate(filtres.venteAu)}`}
+          </span>
+          <Link href={lien({ alerte: null, venteDu: null, venteAu: null })} scroll={false} className="font-medium text-primary hover:underline">
+            Retirer ce filtre
+          </Link>
+        </div>
+      )}
 
       <div className="mb-4">
         <FiltresVehicules marques={options.marques} financeurs={options.financeurs} />

@@ -10,8 +10,8 @@
 | 3 | Dépenses + moteur de calcul + tests + rentabilité/répartition + vente | ✅ Validée le 19/10/2026 |
 | 4 | Location : clients, contrats, disponibilités, planning, tarification | ✅ Validée le 19/10/2026 |
 | 5 | État des lieux mobile, comparaison retour, frais, caution | ✅ Validée le 19/10/2026 |
-| 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | 🟡 Livrée — en attente de validation |
-| 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ⚪ À faire |
+| 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ✅ Validée le 20/10/2026 |
+| 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | 🟡 Livrée — en attente de validation |
 | 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ⚪ À faire |
 
 ## Phase 1 — livré
@@ -94,6 +94,17 @@
 - Démo : paiements et reçus, un impayé (versement partiel), une franchise non payée, 2 PV (un refacturé, un reçu), un sinistre avec indemnité, une facture.
 - Tests : 105 tests unitaires (dont échéancier et imputation) ; parcours complet dans Chromium (47 vérifications : encaissement + reçu, prolongation, factures émises / annulées, PV identifié + refacturé, sinistre + franchise + photo, facture de vente, 8 PDF, recherche, iPhone sans débordement) ; non-régression Phases 3, 4 et 5.
 
+## Phase 7 — livré
+
+- **Dashboard** : filtre de période (ce mois, mois dernier, trimestre, année, personnalisée) et filtre par partenaire (véhicules qu'il finance + sa part du bénéfice). 12 indicateurs cliquables : bénéfice net, CA ventes, revenus location, dépenses, stock, capital immobilisé, marge moyenne par vente, durée moyenne de revente, taux d'occupation de la flotte, loués / disponibles, impayés, investisseurs. Graphiques : bénéfice mensuel sur 12 mois (ventes / location, infobulle au survol), dépenses par catégorie (anneau + légende chiffrée), véhicules les plus et les moins rentables, occupation par véhicule, capital investi par partenaire.
+- **Alertes « À traiter »** (chacune ouvre la liste filtrée) : locations en retard, échéances impayées, retours aujourd'hui / demain, CT ou assurance à renouveler, vidange / révision proche, stock ancien (seuil des réglages, hors flotte de location), participations ≠ prix d'achat, permis client expiré, PV non traités. Nouveaux filtres : véhicules `?alerte=` et vendus sur une période, clients « Permis expiré ».
+- **Rapports** : bilan d'une période (même filtre) — véhicules vendus (bénéfice, marge, jours) et achetés, location par véhicule, dépenses par catégorie, bénéfice par partenaire. **Export PDF et Excel (.xlsx, une feuille par tableau)**.
+- **Versements** aux investisseurs (fiche investisseur) : remboursement de capital, versement de bénéfice, apport supplémentaire ; rattachés à un véhicule ou non ; montant proposé = reste dû ; modification, suppression (admin). « Déjà versé » et « reste dû » partout (liste, fiche, onglet Financement du véhicule).
+- **Relevé investisseur PDF** sur une période : capital engagé, résultat de la période et sa part, véhicules vendus (à reverser, déjà versé, reste dû), versements de la période.
+- Export CSV du journal des paiements.
+- Démo : un versement mensuel de résultat de location (Thomas Lefèvre).
+- Tests : 112 tests unitaires (dont le résultat par période) ; parcours complet dans Chromium (44 vérifications : indicateurs, graphiques, filtres, cohérence du CA avec la base, exports PDF / Excel / CSV, versement et reste dû, relevé, liens des alertes, iPhone sans débordement) ; non-régression Phases 3 à 6.
+
 ## Déploiement VPS (19/10/2026)
 
 - `scripts/installer-vps.sh` : installation prudente sur un VPS partagé (analyse sans modification → plan → confirmation « oui » → n'ajoute que ses fichiers). Modes : Caddy (ports libres), Traefik existant (étiquettes + réseau externe), nginx existant (nouveau fichier + certbot). Arrêt si configuration inconnue. `--simulation` et mode mise à jour.
@@ -152,6 +163,12 @@
   - Les frais supplémentaires (retour, PV, franchise) ne créent pas d'échéance : ils entrent dans le « reste à payer » et dans les locations terminées non soldées.
   - Loyer mensuel dû au jour d'échéance choisi qui suit le début de la période (ex. le 5 : période du 29/10 → due le 05/11), le 1er loyer au départ.
   - PDF en police Helvetica intégrée (pas de police à télécharger).
+- Phase 7 :
+  - Résultat d'une période : achat-revente → bénéfice compté le jour de la vente (prix de vente − achat − dépenses) ; location / mixte → loyers encaissés − charges à leur date, et à la vente prix de vente − prix d'achat. La somme des périodes redonne le bénéfice du véhicule (5.1 / 5.4).
+  - Bénéfice par partenaire d'une période = résultat de chaque véhicule réparti selon ses règles (5.3, commission comprise).
+  - Indemnité d'assurance comptée à la date du sinistre.
+  - Filtre partenaire : véhicules où il a investi (ou a une part fixe) ; les montants affichés sont ceux des véhicules, avec sa part du bénéfice en plus.
+  - Versement sans véhicule : réduit le reste dû global de l'investisseur. Pas de versement pour VUCA AUTO.
 
 ## Questions ouvertes
 

@@ -151,6 +151,14 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - UI : `components/paiements/`, `components/documents/` (`BoutonPdf`, `Factures`), `components/incidents/`. `?encaisser=1` sur la fiche contrat ouvre l'encaissement.
 - Tests navigateur : `waitForURL` d'une fiche créée → regex sur l'id (`c[a-z0-9]{20,}`), sinon `/nouvelle` correspond aussi.
 
+## Dashboard, rapports, versements (Phase 7)
+
+- Résultat par période : `lib/calculs/periode.ts` (`resultatPeriode` — chaque dépense dans un seul panier : vente pour ACHAT_REVENTE, charges datées pour LOCATION/MIXTE —, `bornesPeriode`, `derniersMois`), testé. Période depuis l'URL : `lib/periode-url.ts` (`periode`, `du`, `au`, `partenaire`).
+- `server/requetes/analyse.ts` : `chargerAnalyse()` charge tous les véhicules une fois ; `analyserPeriode(vehicules, du, au, partenaireId?)` (lignes, totaux, dépenses par catégorie, bénéfice par partenaire via `repartirBenefice`), `bilanVente`, `occupationPeriode`. Dashboard : `tableau-de-bord.ts` ; alertes : `alertes.ts` (`vehiculesEnAlerte` sert aussi au filtre `?alerte=` de la liste des véhicules) ; rapports et relevés : `rapports.ts`.
+- Graphiques : Recharts dans `components/analyse/graphiques.tsx` (`GraphiqueMensuel`, `Anneau` avec légende chiffrée, « Autres » au-delà de 5) ; couleurs `--serie-1…6` / `--serie-autre` dans `globals.css` (palette validée, ordre fixe). Filtre : `components/analyse/filtre-periode.tsx`.
+- Exports : `/api/rapports/pdf|excel` (ExcelJS, `server/excel/rapport.ts`), `/api/pdf/releve/[partenaireId]?du&au`, `/api/export/paiements`. PDF d'analyse : `server/pdf/analyses.tsx` ; césure automatique désactivée (`Font.registerHyphenationCallback`), titres `minPresenceAhead`.
+- Versements : `server/actions/versements.ts`, `lib/validations/finance.ts` (`schemaVersement`), `components/partenaires/versements.tsx` (+ `ReleveInvestisseur`). `resumesPartenaires()` inclut `verseCentimes` et déduit `versementsSansVehicule()` du reste dû.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.

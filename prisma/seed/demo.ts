@@ -40,6 +40,7 @@ export async function chargerDemo(db: PrismaClient) {
   await uneFois(db, "demo:location", () => chargerLocationDemo(db));
   await uneFois(db, "demo:etats-des-lieux", () => chargerEtatsDesLieuxDemo(db));
   await uneFois(db, "demo:paiements", () => chargerPaiementsDemo(db));
+  await uneFois(db, "demo:versements", () => chargerVersementsDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -707,6 +708,22 @@ async function chargerPaiementsDemo(db: PrismaClient) {
           totalCentimes: lignes.reduce((a, l) => a + l.totalCentimes, 0), mention: reglages?.mentionFacture ?? null, lignes: { create: lignes },
         },
       });
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Versements aux investisseurs (Phase 7)
+// ---------------------------------------------------------------------
+
+async function chargerVersementsDemo(db: PrismaClient) {
+  // (Les versements des véhicules vendus existent depuis la démo de la Phase 3.)
+  // Thomas Lefèvre : part du résultat de location de la Yaris, versée au mois
+  const thomas = await db.partenaire.findFirst({ where: { nom: "Thomas Lefèvre" } });
+  const yaris = await db.vehicule.findUnique({ where: { immatriculation: "GK-582-TY" } });
+  if (thomas && yaris) {
+    await db.versement.create({
+      data: { partenaireId: thomas.id, vehiculeId: yaris.id, date: j(-15), montantCentimes: eur(250), type: "VERSEMENT_BENEFICE", mode: "VIREMENT", note: "Part du résultat de location de septembre" },
     });
   }
 }

@@ -8,7 +8,7 @@ import { totalEncaisse } from "@/server/echeances";
 
 const nom = (c: { nom: string; prenom: string | null }) => [c.prenom, c.nom].filter(Boolean).join(" ");
 
-export async function journalPaiements(f: { du?: string; au?: string; mode?: string }) {
+export async function journalPaiements(f: { du?: string; au?: string; mode?: string }, limite: number | undefined = 500) {
   const du = f.du ? dateCalendaireDepuisISO(f.du) : null;
   const au = f.au ? dateCalendaireDepuisISO(f.au) : null;
   const where: Prisma.PaiementWhereInput = {
@@ -18,7 +18,7 @@ export async function journalPaiements(f: { du?: string; au?: string; mode?: str
   const paiements = await db.paiement.findMany({
     where,
     orderBy: [{ date: "desc" }, { creeLe: "desc" }],
-    take: 500,
+    take: limite,
     include: { contrat: { select: { id: true, numero: true, client: { select: { nom: true, prenom: true } }, vehicule: { select: { immatriculation: true, marque: true, modele: true, version: true } } } } },
   });
   return paiements.map((p) => ({ ...p, client: nom(p.contrat.client), vehicule: p.contrat.vehicule.immatriculation ?? nomVehicule(p.contrat.vehicule) }));

@@ -1,8 +1,11 @@
 // Éléments communs des PDF (en-tête société, styles, formats).
 // Police Helvetica intégrée aux lecteurs PDF : les espaces fines (« 1 234,56 € »
 // en français) n'y existent pas → remplacées par des espaces normales.
-import { Image, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatDate, formatDateHeure, formatEuros, formatNombre } from "@/lib/format";
+
+// Pas de césure automatique des mots (« péri-ode ») : on va à la ligne entre les mots.
+Font.registerHyphenationCallback((mot) => [mot]);
 
 export const t = (s: string | null | undefined) => (s ?? "").replace(/[   ]/g, " ").replace(/[→]/g, "->");
 export const euros = (c: number | null | undefined) => t(formatEuros(c));
@@ -17,7 +20,7 @@ export const s = StyleSheet.create({
   societe: { fontSize: 14, fontFamily: "Helvetica-Bold", color: COULEUR },
   petit: { fontSize: 8, color: "#4b5563" },
   titre: { fontSize: 16, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  sousTitre: { fontSize: 10, color: "#4b5563", marginBottom: 14 },
+  sousTitre: { fontSize: 10, color: "#4b5563", marginTop: 3, marginBottom: 14 },
   section: { marginBottom: 12 },
   h2: { fontSize: 11, fontFamily: "Helvetica-Bold", color: COULEUR, marginBottom: 5, paddingBottom: 2, borderBottomWidth: 0.5, borderBottomColor: "#cbd5e1" },
   ligne: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },

@@ -1,4 +1,4 @@
-import { HandCoins, Plus } from "lucide-react";
+import { Download, HandCoins, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BoutonPdf } from "@/components/documents/bouton-pdf";
@@ -27,11 +27,18 @@ export default async function PagePaiements({ searchParams }: { searchParams: Pr
         titre="Paiements"
         description="Tous les encaissements (loyers, frais, cautions retenues) et remboursements."
         actions={
-          <Button asChild>
-            <Link href="/location/paiements/nouveau">
-              <Plus /> Encaisser
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <a href={`/api/export/paiements?${new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string")).toString()}`}>
+                <Download /> Export CSV
+              </a>
+            </Button>
+            <Button asChild>
+              <Link href="/location/paiements/nouveau">
+                <Plus /> Encaisser
+              </Link>
+            </Button>
+          </>
         }
       />
       <div className="flex flex-col gap-4">

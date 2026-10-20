@@ -25,6 +25,14 @@
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.6 0.15 150);
   --warning: oklch(0.75 0.15 75);
+  /* Graphiques : palette catégorielle validée (ordre fixe, jamais recyclé) */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-autre: #a3a3a3;
   --border: oklch(0.91 0.008 255);
   --input: oklch(0.88 0.01 255);
   --ring: oklch(0.47 0.17 262);
@@ -53,6 +61,13 @@
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.7 0.15 150);
   --warning: oklch(0.8 0.14 80);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-autre: #6b6b6b;
   --border: oklch(0.3 0.025 265);
   --input: oklch(0.34 0.025 265);
   --ring: oklch(0.65 0.16 258);

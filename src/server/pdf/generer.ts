@@ -15,6 +15,8 @@ import { LIBELLES_MODE_CAUTION, LIBELLES_PIECE, LIBELLES_TYPE_LOCATION } from "@
 import { LIBELLES_NATURE_PAIEMENT } from "@/lib/validations/paiement";
 import { lignesPrixContrat } from "@/lib/calculs/lignes-contrat";
 import { totalEncaisse } from "@/server/echeances";
+import { donneesRapport, donneesReleve } from "@/server/requetes/rapports";
+import { PdfRapport, PdfReleve } from "./analyses";
 import { PdfCloture, PdfContrat, PdfEtatDesLieux, PdfFacture, PdfRecu, type ImagePdf } from "./documents";
 
 export type TypeDocumentPdf = "contrat" | "edl-depart" | "edl-retour" | "recu" | "facture" | "cloture";
@@ -290,4 +292,22 @@ async function cloture(contratId: string) {
     }),
     `releve-cloture-${c.numero}.pdf`,
   );
+}
+
+// ---------------------------------------------------------------------
+//  Relevé investisseur et bilan de période (Phase 7)
+// ---------------------------------------------------------------------
+
+export async function genererReleve(partenaireId: string, du: string, au: string) {
+  const releve = await donneesReleve(partenaireId, du, au);
+  if (!releve) return null;
+  const { base: b } = await base();
+  const nom = releve.partenaire.nom.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return rendre(createElement(PdfReleve, { ...b, releve, editeLe: new Date() }), `releve-${nom}-${du}-${au}.pdf`);
+}
+
+export async function genererRapport(du: string, au: string, partenaireId?: string) {
+  const rapport = await donneesRapport(du, au, partenaireId);
+  const { base: b } = await base();
+  return rendre(createElement(PdfRapport, { ...b, rapport, editeLe: new Date() }), `bilan-${du}-${au}.pdf`);
 }

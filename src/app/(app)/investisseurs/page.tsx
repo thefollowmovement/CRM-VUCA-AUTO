@@ -33,6 +33,7 @@ export default async function PageInvestisseurs({ searchParams }: { searchParams
     vehiculesEnCours: 0,
     beneficesRealisesCentimes: 0,
     beneficesPrevisionnelsCentimes: 0,
+    verseCentimes: 0,
     resteDuCentimes: 0,
   };
 
@@ -112,6 +113,7 @@ export default async function PageInvestisseurs({ searchParams }: { searchParams
                   <TableHead className="text-right">Capital engagé</TableHead>
                   <TableHead className="text-right">Véhicules en cours</TableHead>
                   <TableHead className="text-right">Bénéfices réalisés</TableHead>
+                  <TableHead className="text-right">Déjà versé</TableHead>
                   <TableHead className="text-right">Reste dû</TableHead>
                   <TableHead>Téléphone</TableHead>
                   <TableHead className="w-8" />
@@ -133,6 +135,7 @@ export default async function PageInvestisseurs({ searchParams }: { searchParams
                       <TableCell className={cn("text-right tabular-nums", r.beneficesRealisesCentimes < 0 && "text-destructive")}>
                         {formatEuros(r.beneficesRealisesCentimes)}
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">{p.type === "SOCIETE" ? "—" : formatEuros(r.verseCentimes)}</TableCell>
                       {/* VUCA AUTO garde l'argent des ventes : pas de « reste dû » envers elle-même */}
                       <TableCell className="text-right font-semibold tabular-nums">{p.type === "SOCIETE" ? "—" : formatEuros(r.resteDuCentimes)}</TableCell>
                       <TableCell>{p.telephone ?? "—"}</TableCell>

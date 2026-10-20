@@ -105,7 +105,7 @@ export function TableauVehicules({ lignes, filtres, params }: { lignes: LigneVeh
 
 export function CartesVehicules({ lignes }: { lignes: LigneVehicule[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {lignes.map((v) => (
         <Link key={v.id} href={`/vehicules/${v.id}`}>
           <Card className="overflow-hidden transition-colors hover:border-primary/50">
@@ -118,7 +118,7 @@ export function CartesVehicules({ lignes }: { lignes: LigneVehicule[] }) {
                 </div>
                 <BadgeStatut statut={v.statut} />
               </div>
-              <dl className="grid grid-cols-3 gap-2 text-sm">
+              <dl className="grid grid-cols-3 gap-2 text-sm [&>div]:min-w-0">
                 <div>
                   <dt className="text-xs text-muted-foreground">Coût de revient</dt>
                   <dd className="font-medium tabular-nums">{formatEuros(v.coutDeRevientCentimes)}</dd>

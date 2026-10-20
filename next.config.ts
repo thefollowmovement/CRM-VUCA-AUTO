@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["radix-ui"],
   },
   // pg et bcryptjs restent côté serveur Node.js.
-  serverExternalPackages: ["pg", "bcryptjs", "@react-pdf/renderer"],
+  serverExternalPackages: ["pg", "bcryptjs", "@react-pdf/renderer", "exceljs"],
 };
 
 export default nextConfig;

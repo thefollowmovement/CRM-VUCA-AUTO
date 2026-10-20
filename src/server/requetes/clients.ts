@@ -1,8 +1,9 @@
 // Lectures des clients.
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { aujourdhuiISO, dateCalendaireDepuisISO } from "@/lib/format";
 
-export type FiltreClients = "actifs" | "liste-noire" | "archives";
+export type FiltreClients = "actifs" | "liste-noire" | "permis-expire" | "archives";
 
 export function nomClient(c: { civilite?: string | null; nom: string; prenom?: string | null }): string {
   return [c.prenom, c.nom].filter(Boolean).join(" ");
@@ -13,6 +14,7 @@ export async function listerClients(q: string | undefined, filtre: FiltreClients
   if (filtre === "archives") et.push({ archiveLe: { not: null } });
   else et.push({ archiveLe: null });
   if (filtre === "liste-noire") et.push({ listeNoire: true });
+  if (filtre === "permis-expire") et.push({ dateValiditePermis: { lt: dateCalendaireDepuisISO(aujourdhuiISO())! } });
   if (q) {
     const mots = q.split(/\s+/).filter(Boolean).slice(0, 4);
     for (const mot of mots) {

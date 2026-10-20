@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Clients" };
 export default async function PageClients({ searchParams }: { searchParams: Promise<{ q?: string; filtre?: string }> }) {
   await exigerRolePage(ROLES_GESTION);
   const sp = await searchParams;
-  const filtre: FiltreClients = sp.filtre === "liste-noire" || sp.filtre === "archives" ? sp.filtre : "actifs";
+  const filtre: FiltreClients = sp.filtre === "liste-noire" || sp.filtre === "archives" || sp.filtre === "permis-expire" ? sp.filtre : "actifs";
   const q = sp.q?.trim().slice(0, 100) || undefined;
   const [clients, reglages] = await Promise.all([listerClients(q, filtre), lireReglages()]);
   const auj = new Date();
@@ -46,6 +46,7 @@ export default async function PageClients({ searchParams }: { searchParams: Prom
             [
               ["actifs", "Actifs"],
               ["liste-noire", "Liste noire"],
+              ["permis-expire", "Permis expiré"],
               ["archives", "Archivés"],
             ] as const
           ).map(([f, libelle]) => (
