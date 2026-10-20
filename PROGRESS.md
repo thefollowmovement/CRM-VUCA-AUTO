@@ -12,7 +12,7 @@
 | 5 | État des lieux mobile, comparaison retour, frais, caution | ✅ Validée le 19/10/2026 |
 | 6 | Paiements, échéancier, impayés, PV, sinistres, PDF | ✅ Validée le 20/10/2026 |
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ✅ Validée le 20/10/2026 |
-| 8 | Portail investisseur, PWA, sauvegardes, finitions, README | 🟡 Livrée — en attente de validation |
+| 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ✅ Validée le 20/10/2026 |
 
 ## Phase 1 — livré
 
