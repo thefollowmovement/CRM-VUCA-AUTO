@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Fournisseurs } from "@/components/layout/fournisseurs";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" suppressHydrationWarning>
       <body>
-        <Fournisseurs>{children}</Fournisseurs>
+        {/* Le CRM ajoute ses fournisseurs (thème, notifications, application installable) dans ses
+            propres groupes ; le site public (app/(site)) a son habillage à lui. */}
+        {children}
       </body>
     </html>
   );

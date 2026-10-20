@@ -1,5 +1,7 @@
 # Site web public VUCA AUTO — Phase 0 : proposition
 
+> **Mise à jour du 20/10/2026** : domaines retenus `vuca-auto.fr` (site) et `crm.vuca-auto.fr` (CRM). Routage livré avec le groupe `app/(site)` demandé : l'accueil est la page interne `/site-accueil`, servie sur `/` par le middleware (voir `CLAUDE.md`, section Site web public). Le reste de ce document (base de données, arborescence) reste à valider ; remplacer `app/site/` par `app/(site)/` partout.
+
 > Objet : afficher les véhicules à vendre sur un site public, avec contact direct par WhatsApp, piloté depuis le CRM.
 > Ce document propose le routage site / CRM, les nouveaux champs de la base et l'arborescence. **Rien n'est codé avant validation.**
 

@@ -20,13 +20,15 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 
 | Phase | Contenu | Statut |
 |---|---|---|
-| S0 | Routage site / CRM, champs Prisma, arborescence | 🟡 Proposée — en attente de validation |
+| S0 | Routage site / CRM, champs Prisma, arborescence | 🟡 Routage par domaine livré (vuca-auto.fr / crm.vuca-auto.fr) ; champs Prisma en attente de validation |
 | S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ⚪ À faire |
 | S2 | Système de design + page `/site-preview` | ⚪ À faire |
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ⚪ À faire |
 | S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
+
+**Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
 
 ## Phase 1 — livré
 

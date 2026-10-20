@@ -1,0 +1,35 @@
+/* Habillage du site public (provisoire : le système de design complet arrive en Phase S2).
+   Indépendant du thème du CRM ; mode sombre automatique selon l'appareil. */
+.site {
+  --site-fond: #ffffff;
+  --site-fond-alt: #f5f5f7;
+  --site-texte: #1d1d1f;
+  --site-texte-2: #6e6e73;
+  --site-separateur: #d2d2d7;
+  --site-accent: #0071e3;
+  min-height: 100dvh;
+  background: var(--site-fond);
+  color: var(--site-texte);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  .site {
+    --site-fond: #000000;
+    --site-fond-alt: #1c1c1e;
+    --site-texte: #f5f5f7;
+    --site-texte-2: #a1a1a6;
+    --site-separateur: #38383a;
+    --site-accent: #2997ff;
+  }
+}
+.site h1 {
+  letter-spacing: -0.02em;
+}
+.site a:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}

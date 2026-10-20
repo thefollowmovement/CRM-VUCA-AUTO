@@ -246,9 +246,25 @@ Mise à jour : `bash /opt/vuca-crm/app/scripts/installer-hestia.sh` · Journal :
 
 Les données sont conservées. La mise à jour installe aussi la sauvegarde automatique si elle n'existe pas encore.
 
-### Passer à un vrai nom de domaine
+### Domaines : site public et CRM
 
-Faites pointer le domaine (enregistrement A) vers l'IP du serveur, puis contactez Claude : il faudra ajuster `AUTH_URL` dans `/opt/vuca-crm/.env` et la configuration du proxy.
+La même application sert deux adresses :
+
+| Adresse | Contenu |
+|---|---|
+| `https://vuca-auto.fr` | site vitrine public (véhicules à vendre), sans connexion |
+| `https://crm.vuca-auto.fr` | le CRM, avec connexion (l'ancienne adresse `crm-vuca.72-61-164-158.sslip.io` reste utilisable) |
+
+1. Chez le fournisseur du domaine, deux enregistrements **A** vers l'IP du serveur (`72.61.164.158`) : `vuca-auto.fr` (nom « @ ») et `crm.vuca-auto.fr` (nom « crm »). Facultatif : `www`.
+2. Sur le serveur (terminal du navigateur Hostinger, en root), après la mise à jour de l'application :
+
+   ```bash
+   bash /opt/vuca-crm/app/scripts/configurer-domaines.sh
+   ```
+
+   Le script enregistre les domaines dans `/opt/vuca-crm/.env`, vérifie que Caddy les sert (il ne modifie au besoin que le fichier du CRM `/etc/caddy/vuca-crm.caddy`, avec sauvegarde et retour arrière), redémarre l'application et vérifie les deux adresses.
+
+Sur `vuca-auto.fr`, aucune page du CRM n'existe (pas d'écran de connexion, réponse « page introuvable ») et aucun cookie n'est posé.
 
 ## 8. Pour les développeurs
 
