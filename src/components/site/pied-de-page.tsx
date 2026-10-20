@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LIBELLES_RESEAUX, type Reseau } from "@/lib/site/reglages-defaut";
+import { BoutonCookies } from "./audience";
 import { LIENS_SITE, Logo, type LogoSite } from "./logo";
 import { Conteneur } from "./mise-en-page";
 
@@ -17,7 +18,7 @@ export type InfosPied = {
 const siretLisible = (s: string) => s.replace(/^(\d{3})(\d{3})(\d{3})(\d{5})$/, "$1 $2 $3 $4");
 
 /** Pied de page : identité légale (SIRET visible), liens, réseaux, pages légales. */
-export function PiedDePage({ infos, base = "" }: { infos: InfosPied; /** Préfixe des liens (aperçu du CRM) */ base?: string }) {
+export function PiedDePage({ infos, base = "", cookies = false }: { infos: InfosPied; /** Préfixe des liens (aperçu du CRM) */ base?: string; /** Lien « Cookies » (si Google Analytics est réglé) */ cookies?: boolean }) {
   const annee = new Date().getFullYear();
   const reseaux = Object.entries(infos.reseaux) as [Reseau, string][];
   return (
@@ -97,6 +98,11 @@ export function PiedDePage({ infos, base = "" }: { infos: InfosPied; /** Préfix
                 Confidentialité
               </Link>
             </li>
+            {cookies && (
+              <li>
+                <BoutonCookies />
+              </li>
+            )}
           </ul>
         </div>
       </Conteneur>

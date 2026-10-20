@@ -34,6 +34,13 @@ export type ReglagesPublics = {
   bandeau: string | null;
   reseaux: Partial<Record<Reseau, string>>;
   faq: QuestionFaq[];
+  // Référencement et mesure d'audience
+  seoTitre: string | null;
+  seoDescription: string | null;
+  faviconId: string | null;
+  imagePartageId: string | null;
+  plausibleDomaine: string | null;
+  googleAnalyticsId: string | null;
 };
 
 /** Avis client tel qu'affiché sur le site. */

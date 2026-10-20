@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Apparition } from "@/components/site/apparition";
 import { CarteAvis, Engagements, Etapes, Faq } from "@/components/site/blocs";
 import { Bouton } from "@/components/site/bouton";
@@ -6,11 +7,15 @@ import { EtatVideSite } from "@/components/site/etat-vide";
 import { Conteneur, EnTeteSection, Section } from "@/components/site/mise-en-page";
 import { PageMaintenance } from "@/components/site/page-maintenance";
 import { BlocContact, SectionConfiance } from "@/components/site/sections";
-import { sourcePhoto } from "@/lib/site/photos";
+import { urlSite } from "@/lib/domaines";
+import { jsonLdConcession, serialiserJsonLd } from "@/lib/site/donnees-structurees";
+import { sourcePhoto, urlPhoto } from "@/lib/site/photos";
 import { etatSite } from "@/server/site/etat";
 import { annoncesPubliees, avisPublics, nombreAnnoncesPubliees, nombreVehiculesVendus, reglagesVendus } from "@/server/site/public";
 
 // Accueil de vuca-auto.fr (servi sur « / » par le middleware).
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function AccueilSite() {
   const { r, chemins, maintenance, logo, whatsapp } = await etatSite();
@@ -21,8 +26,16 @@ export default async function AccueilSite() {
   // 6 à 9 cartes (une grille de 3 colonnes toujours complète sur ordinateur)
   const cartes = dernieres.length >= 9 ? dernieres : dernieres.slice(0, 6);
 
+  // Fiche entreprise pour Google (AutoDealer) : uniquement des informations publiques
+  const jsonLd = jsonLdConcession(r, {
+    url: urlSite("/"),
+    logo: r.logoClairId ? urlSite(urlPhoto({ id: r.logoClairId }, 400)) : null,
+    image: r.imagePartageId ? urlSite(urlPhoto({ id: r.imagePartageId }, 1280)) : urlSite("/partage/site"),
+  });
+
   return (
     <main>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serialiserJsonLd(jsonLd) }} />
       {/* Hero */}
       <Section className="pb-12 pt-14 md:pb-16 md:pt-24">
         <Conteneur className="flex flex-col items-center text-center">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accentLisibleSurBlanc, accentValide, contraste, hexVersRvb, texteSurCouleur } from "./couleurs";
+import { accentLisible, accentLisibleSurBlanc, accentValide, contraste, FOND_TEXTE_CLAIR, FOND_TEXTE_SOMBRE, hexVersRvb, texteSurCouleur, variablesAccent } from "./couleurs";
 
 describe("couleurs du site", () => {
   it("contrastes de référence", () => {
@@ -21,5 +21,17 @@ describe("couleurs du site", () => {
     expect(accentLisibleSurBlanc("#FFD60A")).toBe(false);
     expect(accentValide("bleu")).toBe("#0071E3");
     expect(hexVersRvb("#0071e3")).toEqual([0, 113, 227]);
+  });
+
+  it("accent ajusté pour rester lisible en texte (clair et sombre)", () => {
+    for (const a of ["#0071E3", "#FFD60A", "#34C759", "#AF52DE", "#000000", "#ffffff", "#ff3b30"]) {
+      expect(contraste(accentLisible(a, FOND_TEXTE_CLAIR), FOND_TEXTE_CLAIR)).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(accentLisible(a, FOND_TEXTE_SOMBRE), FOND_TEXTE_SOMBRE)).toBeGreaterThanOrEqual(4.5);
+    }
+    // Déjà lisible : inchangé
+    expect(accentLisible("#1d1d1f", FOND_TEXTE_CLAIR)).toBe("#1d1d1f");
+    const v = variablesAccent("#0071E3");
+    expect(v["--site-sur-accent-base"]).toBe("#ffffff");
+    expect(v["--site-accent-texte-clair"]).not.toBe("#0071e3"); // 3,8:1 sur le gris « Vendu » → assombri
   });
 });

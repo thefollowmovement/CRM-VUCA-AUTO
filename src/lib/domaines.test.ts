@@ -21,7 +21,7 @@ describe("domaine public vuca-auto.fr", () => {
     expect(deciderRoutage("VUCA-AUTO.FR:443", "/", "", config)).toEqual({ type: "site", chemin: ACCUEIL_SITE });
   });
   it("les pages du site sont servies telles quelles", () => {
-    for (const p of ["/voitures", "/voitures/peugeot-208-allure-2021-a1b2", "/a-propos", "/contact", "/mentions-legales", "/confidentialite", "/sitemap.xml", "/api/site/clic", "/photos/abc/800"]) {
+    for (const p of ["/voitures", "/voitures/peugeot-208-allure-2021-a1b2", "/a-propos", "/contact", "/mentions-legales", "/confidentialite", "/sitemap.xml", "/api/site/clic", "/photos/abc/800", "/partage/site", "/partage/voitures/peugeot-208-a1b2"]) {
       expect(site(p)).toEqual({ type: "site", chemin: p });
     }
   });

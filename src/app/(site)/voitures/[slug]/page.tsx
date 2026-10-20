@@ -12,7 +12,8 @@ import { Partager } from "@/components/site/partager";
 import { TexteRiche } from "@/components/site/texte-riche";
 import { GrilleTuiles, Tuile } from "@/components/site/tuile";
 import { BarreVehiculeMobile } from "@/components/site/whatsapp";
-import { urlAnnonce } from "@/lib/domaines";
+import { urlAnnonce, urlSite } from "@/lib/domaines";
+import { jsonLdVoiture, serialiserJsonLd } from "@/lib/site/donnees-structurees";
 import { CATEGORIES_EQUIPEMENTS, ORDRE_CATEGORIES } from "@/lib/site/equipements";
 import { kmSite, prixSite } from "@/lib/site/format";
 import { sourcePhoto, urlPhoto } from "@/lib/site/photos";
@@ -33,13 +34,19 @@ function titrePage(v: VehiculePublic) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // En maintenance, rien du véhicule ne doit apparaître (pas même dans le titre de l'onglet)
-  if ((await etatSite()).maintenance) return {};
+  const { maintenance, r, chemins } = await etatSite();
+  if (maintenance) return {};
   const v = await annonceParSlug((await params).slug);
   if (!v) return { title: "Véhicule introuvable" };
+  const titre = titrePage(v);
+  const description = [v.titre, v.annee, v.kilometrage !== null ? kmSite(v.kilometrage) : null, v.carburant, v.boite, v.disponibilite === "VENDU" ? "vendu" : prixSite(v.prixCentimes)].filter(Boolean).join(" · ");
+  const image = { url: `${chemins.base}/partage/voitures/${v.slug}`, width: 1200, height: 630, alt: v.titre };
   return {
-    title: titrePage(v),
-    description: [v.titre, v.annee, v.kilometrage !== null ? kmSite(v.kilometrage) : null, v.carburant, v.boite].filter(Boolean).join(" · "),
+    title: titre,
+    description,
     alternates: { canonical: `/voitures/${v.slug}` },
+    openGraph: { type: "website", locale: "fr_FR", siteName: r.nom, title: `${titre} | ${r.nom}`, description, url: `/voitures/${v.slug}`, images: [image] },
+    twitter: { card: "summary_large_image", title: `${titre} | ${r.nom}`, description, images: [image.url] },
   };
 }
 
@@ -70,8 +77,12 @@ export default async function FicheVoiture({ params }: Props) {
   ].filter((c) => c.items.length > 0);
   const garantie = v.confiance.find((c) => c.cle === "garantie");
 
+  // Voiture + offre pour Google (Car / Offer), construites depuis l'objet public uniquement
+  const jsonLd = jsonLdVoiture(v, { url: adresse, images: v.photos.slice(0, 10).map((p) => urlSite(urlPhoto(p, 1280))), vendeur: { nom: r.nom, url: urlSite("/") } });
+
   return (
     <main className={vendu ? undefined : "max-md:pb-24"}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serialiserJsonLd(jsonLd) }} />
       {vendu && (
         <div className="bg-site-vendu-fond text-site-texte" role="status">
           <Conteneur className="flex flex-col items-start gap-3 py-5 md:flex-row md:items-center md:justify-between">

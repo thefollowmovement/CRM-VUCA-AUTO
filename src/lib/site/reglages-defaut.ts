@@ -71,3 +71,11 @@ export function lireReseaux(brut: unknown): Record<Reseau, string> {
   const o = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
   return Object.fromEntries(RESEAUX.map((r) => [r, typeof o[r] === "string" ? (o[r] as string).slice(0, 300) : ""])) as Record<Reseau, string>;
 }
+
+/** Titre et description de l'accueil pour Google quand rien n'est saisi (site + aperçu dans le CRM). */
+export function seoParDefaut(nom: string): { titre: string; description: string } {
+  return {
+    titre: `${nom} — Voitures d'occasion`,
+    description: `${nom} : voitures d'occasion contrôlées, photos réelles et prix affichés. Contact direct sur WhatsApp.`,
+  };
+}

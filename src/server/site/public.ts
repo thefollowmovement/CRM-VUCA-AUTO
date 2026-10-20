@@ -43,6 +43,7 @@ export async function reglagesPublics(): Promise<ReglagesPublics> {
       horaires: true, delaiReponse: true, vendeurNom: true, vendeurPhotoId: true, siret: true, formeJuridique: true, engagements: true,
       moyensPaiement: true, livraison: true, zoneLivraison: true, reprise: true, lienAvisGoogle: true, anneeCreation: true,
       accueilTitre: true, accueilSousTitre: true, bandeau: true, reseaux: true, faq: true,
+      seoTitre: true, seoDescription: true, faviconId: true, imagePartageId: true, plausibleDomaine: true, googleAnalyticsId: true,
     },
   });
   const accent = accentValide(r?.couleurAccent);
@@ -80,6 +81,12 @@ export async function reglagesPublics(): Promise<ReglagesPublics> {
     bandeau: vide(r?.bandeau),
     reseaux: Object.fromEntries(Object.entries(reseaux).filter(([, url]) => url)),
     faq: lireFaq(r?.faq),
+    seoTitre: vide(r?.seoTitre),
+    seoDescription: vide(r?.seoDescription),
+    faviconId: r?.faviconId ?? null,
+    imagePartageId: r?.imagePartageId ?? null,
+    plausibleDomaine: vide(r?.plausibleDomaine),
+    googleAnalyticsId: vide(r?.googleAnalyticsId),
   };
 }
 

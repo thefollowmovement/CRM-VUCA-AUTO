@@ -40,3 +40,38 @@ export function accentValide(hex: string | null | undefined): string {
 export function accentLisibleSurBlanc(hex: string): boolean {
   return contraste(hex, "#ffffff") >= 4.5;
 }
+
+/** Mélange deux couleurs (t = part de la seconde, 0 à 1). */
+function melanger(a: string, b: string, t: number): string {
+  const [x, y] = [hexVersRvb(a)!, hexVersRvb(b)!];
+  return `#${x.map((c, i) => Math.round(c + (y[i]! - c) * t).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Accent assombri (fond clair) ou éclairci (fond sombre) juste assez pour que les liens
+ * et textes en couleur d'accent restent lisibles (AA : 4,5:1) sur ce fond.
+ */
+export function accentLisible(accent: string, fond: string, cible = 4.5): string {
+  const base = accentValide(accent).toLowerCase();
+  const vers = luminance(fond) > 0.18 ? "#000000" : "#ffffff";
+  for (let t = 0; t <= 1; t += 0.02) {
+    const c = melanger(base, vers, t);
+    if (contraste(c, fond) >= cible) return c;
+  }
+  return vers;
+}
+
+/** Fonds les plus défavorables sur lesquels l'accent sert de couleur de texte (gris « Vendu »). */
+export const FOND_TEXTE_CLAIR = "#e8e8ed";
+export const FOND_TEXTE_SOMBRE = "#2c2c2e";
+
+/** Variables CSS de l'accent posées sur `.site` (layouts du site et de l'aperçu des composants). */
+export function variablesAccent(accent: string): Record<string, string> {
+  const a = accentValide(accent);
+  return {
+    "--site-accent-base": a,
+    "--site-sur-accent-base": texteSurCouleur(a),
+    "--site-accent-texte-clair": accentLisible(a, FOND_TEXTE_CLAIR),
+    "--site-accent-texte-sombre": accentLisible(a, FOND_TEXTE_SOMBRE),
+  };
+}

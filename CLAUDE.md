@@ -194,6 +194,13 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 - Tests des compteurs : contexte Playwright avec un VRAI agent utilisateur (« HeadlessChrome » est filtré comme robot) et `X-Forwarded-For` différent par visiteur.
 - Seed : `demo-site.ts` et `demo.ts` s'importent mutuellement → aucune constante de module qui appelle `j()` (utiliser des fonctions).
 
+- **Phase S5 (référencement, accessibilité)** : JSON-LD pur `lib/site/donnees-structurees.ts` (`jsonLdConcession` AutoDealer sur l'accueil, `jsonLdVoiture` Car + Offer sur la fiche, `serialiserJsonLd` échappe `<`) construit UNIQUEMENT depuis `ReglagesPublics` / `toPublicVehicle`. Métadonnées : layout du site (`title.absolute` sinon le modèle du layout racine du CRM s'ajoute, canonique, Open Graph, noindex en maintenance/aperçu, icône `faviconId`), `seoParDefaut(nom)` (`lib/site/reglages-defaut.ts`) partagé avec le CRM. `htmlLimitedBots: /.*/` (next.config) : métadonnées toujours dans le `<head>` (sinon Next les diffuse en fin de page aux navigateurs).
+- Images de partage 1200×630 : `next/og` dans `app/(site)/partage/site` et `partage/voitures/[slug]` (`server/site/partage.ts`, composant `components/site/image-partage.tsx`, polices WOFF — pas WOFF2 — dans `server/site/polices/`) ; générique en maintenance, 404 si l'annonce n'est pas visible. `/partage` est dans `PREFIXES_SITE`.
+- Audience (`components/site/audience.tsx`) : Plausible sans cookie ; Google Analytics seulement après accord (bandeau « Mesure d'audience », Refuser = Accepter, `localStorage` `vuca-consentement-audience`, lien « Cookies » du pied de page). Jamais dans l'aperçu.
+- Accent : `variablesAccent(accent)` (`lib/site/couleurs.ts`) pose `--site-accent-base` (fond des boutons, `bg-site-accent-fond`) et `--site-accent-texte-clair/-sombre` (texte, `text-site-accent`) calculés par `accentLisible` pour 4,5:1 sur le gris le plus foncé. Ne jamais utiliser l'accent brut comme couleur de texte.
+- Objectifs vérifiés : Lighthouse mobile ≥ 90 (perf 92-98, accessibilité/bonnes pratiques/SEO 100) et axe-core WCAG 2.1 AA sans erreur (clair, sombre, téléphone). Ordre des titres : un `h2` (même `sr-only`) avant des cartes `h3`.
+- Test e2e du dépôt : `e2e/site.e2e.mjs` (`npm run test:e2e:site`, `playwright-core`, variables `E2E_SITE_URL`, `E2E_RESOLVE`, `E2E_WHATSAPP`, `CHROMIUM_PATH`) : accueil → liste → filtre → fiche → lien WhatsApp (numéro + message) + barre mobile. Le site doit être en ligne.
+
 ### Précisions validées en Phase 0 (prioritaires sur le cahier des charges)
 - Dépense avec `payeSurRecettes = true` : comptée dans les charges / le coût, mais **pas** dans l'investissement de son payeur (5.2).
 - `Sinistre.indemniteAssuranceCentimes` encaissée = revenu du véhicule.
@@ -207,6 +214,7 @@ Km sup         = max(0, km parcourus − km inclus × durée) × prix du km sup
 ```bash
 npm test                      # tests Vitest (src/**/*.test.ts)
 npm run typecheck             # TypeScript strict
+npm run test:e2e:site         # parcours du site public (site en ligne, voir e2e/site.e2e.mjs)
 npm run build                 # build de production
 npx prisma migrate dev --name <nom>   # nouvelle migration
 npm run db:seed -- --demo     # seed (idempotent) + démo

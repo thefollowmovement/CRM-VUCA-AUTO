@@ -62,7 +62,7 @@ export function FormulaireGeneral({ valeurs }: { valeurs: SaisieSiteGeneral }) {
           </span>
         </div>
         {couleurValide && !accentLisibleSurBlanc(couleur) && (
-          <p className="text-sm text-amber-700 dark:text-amber-400">Couleur trop claire : les liens seront difficiles à lire sur fond blanc. Choisissez une teinte plus foncée.</p>
+          <p className="text-sm text-amber-700 dark:text-amber-400">Couleur claire : les liens du site utiliseront automatiquement une version plus foncée pour rester lisibles. Une teinte plus soutenue rendra mieux.</p>
         )}
       </Champ>
       <BoutonEnregistrer enCours={isSubmitting} />

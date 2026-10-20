@@ -24,11 +24,22 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ✅ Validée le 20/10/2026 |
 | S2 | Système de design + page `/site-preview` | ✅ Validée le 20/10/2026 |
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ✅ Validée le 21/10/2026 |
-| S4 | WhatsApp, compteurs, statistiques | 🟡 Livrée le 21/10/2026, en attente de validation |
-| S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
+| S4 | WhatsApp, compteurs, statistiques | ✅ Validée le 21/10/2026 |
+| S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | 🟡 Livrée le 21/10/2026, en attente de validation |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S5 — livré
+
+- **Référencement** : titre et description de l'accueil réglables (Site web → Référencement, aperçu Google) ; chaque fiche a son titre « Peugeot 208 … 2020 – 64 350 km – 11 500 € | VUCA AUTO » et sa description ; adresses canoniques https://vuca-auto.fr/… ; plan du site et robots.txt (S3) ; rien n'est indexé en maintenance ni dans l'aperçu.
+- **Données structurées Google** : fiche entreprise `AutoDealer` sur l'accueil (nom, téléphone, adresse, horaires, logo) et `Car` + `Offer` sur chaque fiche (prix en €, kilométrage, année, carburant, boîte, photos ; « vendu » = SoldOut sans prix). Construites uniquement depuis les données publiques.
+- **Images de partage** (WhatsApp, Facebook…) 1200 × 630 : générées automatiquement pour le site (logo, nom, slogan) et pour chaque voiture (photo de couverture, titre, km, prix ou « Vendu », logo) ; image du site remplaçable dans le CRM. Nouvelle **icône d'onglet** réglable (Site web → Référencement).
+- **Mesure d'audience facultative** : Plausible (sans cookie) ou Google Analytics, chargé seulement après accord dans un bandeau (Refuser / Accepter au même niveau, lien « Cookies » pour changer d'avis). Politique de confidentialité générée en conséquence.
+- **Accessibilité** : couleur d'accent ajustée automatiquement pour rester lisible (texte 4,5:1, en clair comme en sombre ; message du CRM adapté), ordre des titres corrigé, cibles ≥ 44 px, textes alternatifs, clavier et focus visibles. axe-core (WCAG 2.1 AA) : aucune erreur sur 8 pages en clair, sombre et téléphone.
+- **Performance (Lighthouse mobile)** : accueil 96 · liste 92 · fiche 92 · contact 98 · à propos 98 en performance ; 100 en accessibilité, bonnes pratiques et SEO.
+- **Test de bout en bout dans le dépôt** : `npm run test:e2e:site` (accueil → liste → filtre → fiche → lien WhatsApp avec le bon numéro et le bon message, barre du bas sur téléphone, aucun cookie).
+- Tests : 182 tests unitaires (dont données structurées, accent lisible) ; parcours S5 (≈ 40 vérifications : maintenance, métadonnées, JSON-LD sans donnée interne, images de partage, icône, Plausible, accord Google Analytics, accessibilité) ; S1 à S4, domaines, phases 7 et 8 toujours verts.
 
 ## Phase S4 — livré
 

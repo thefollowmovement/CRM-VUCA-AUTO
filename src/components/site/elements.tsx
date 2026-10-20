@@ -33,7 +33,7 @@ const TONS: Record<TonBadge, string> = {
   reserve: "bg-site-reserve-fond text-site-reserve",
   vendu: "bg-site-vendu-fond text-site-vendu",
   neutre: "bg-site-carte/90 text-site-texte shadow-site",
-  accent: "bg-site-accent text-site-sur-accent",
+  accent: "bg-site-accent-fond text-site-sur-accent",
 };
 
 /** Petite pastille : Réservé (orange doux), Vendu (gris), Garantie, Première main… */

@@ -50,7 +50,7 @@ export function Etapes() {
       {ETAPES.map((e, i) => (
         <li key={e.titre} className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <span className="s-chiffres inline-flex size-10 items-center justify-center rounded-full bg-site-accent text-[17px] font-semibold text-site-sur-accent">{i + 1}</span>
+            <span className="s-chiffres inline-flex size-10 items-center justify-center rounded-full bg-site-accent-fond text-[17px] font-semibold text-site-sur-accent">{i + 1}</span>
             <e.icone className="size-6 text-site-2" strokeWidth={1.5} aria-hidden />
           </div>
           <h3 className="s-titre-4">{e.titre}</h3>

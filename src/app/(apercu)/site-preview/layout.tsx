@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { inter } from "@/components/site/police";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
+import { variablesAccent } from "@/lib/site/couleurs";
 import { cn } from "@/lib/utils";
 import { reglagesPublics } from "@/server/site/public";
 import "../../(site)/site.css";
@@ -15,7 +16,7 @@ export default async function LayoutApercu({ children }: { children: React.React
   await exigerRolePage(ROLES_GESTION);
   const r = await reglagesPublics();
   return (
-    <div className={cn("site", inter.variable)} style={{ "--site-accent-base": r.accent, "--site-sur-accent-base": r.surAccent } as React.CSSProperties}>
+    <div className={cn("site", inter.variable)} style={variablesAccent(r.accent) as React.CSSProperties}>
       {children}
     </div>
   );

@@ -9,6 +9,7 @@ const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
 /** Bloc « Contact » : WhatsApp d'abord, puis téléphone, email, adresse, horaires, carte. */
 export function BlocContact({ r, lienWhatsApp, titre = "Une question ?", niveau = 2 }: { r: ReglagesPublics; lienWhatsApp: string | null; titre?: string; niveau?: 1 | 2 }) {
   const Titre = niveau === 1 ? "h1" : "h2";
+  const SousTitre = niveau === 1 ? "h2" : "h3"; // ordre des titres respecté (accessibilité)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-10 rounded-carte bg-site-fond-alt p-6 md:grid-cols-2 md:p-10">
       <div className="flex flex-col gap-5">
@@ -59,7 +60,7 @@ export function BlocContact({ r, lienWhatsApp, titre = "Une question ?", niveau 
       </div>
       {r.horaires.some((h) => h.ouvert) && (
         <div>
-          <h3 className="s-titre-4 mb-4">Horaires</h3>
+          <SousTitre className="s-titre-4 mb-4">Horaires</SousTitre>
           <Horaires horaires={r.horaires} />
         </div>
       )}

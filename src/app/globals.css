@@ -118,7 +118,8 @@
   --color-site-texte: var(--site-texte);
   --color-site-2: var(--site-texte-2);
   --color-site-sep: var(--site-separateur);
-  --color-site-accent: var(--site-accent);
+  --color-site-accent: var(--site-accent-texte); /* texte, icônes, contours */
+  --color-site-accent-fond: var(--site-accent); /* fond des boutons */
   --color-site-sur-accent: var(--site-sur-accent);
   --color-whatsapp: var(--site-whatsapp);
   --color-sur-whatsapp: var(--site-sur-whatsapp);

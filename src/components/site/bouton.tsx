@@ -8,7 +8,7 @@ type Taille = "normal" | "grand" | "compact";
 
 const VARIANTES: Record<Variante, string> = {
   // Plein, couleur d'accent
-  principal: "bg-site-accent text-site-sur-accent hover:brightness-110 active:brightness-95",
+  principal: "bg-site-accent-fond text-site-sur-accent hover:brightness-110 active:brightness-95",
   // Texte + chevron « › » (style Apple)
   secondaire: "text-site-accent hover:underline underline-offset-4 !px-1",
   // Pilule à bord fin (ex. « Appeler »)
