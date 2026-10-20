@@ -1,35 +1,183 @@
-/* Habillage du site public (provisoire : le système de design complet arrive en Phase S2).
-   Indépendant du thème du CRM ; mode sombre automatique selon l'appareil. */
+/* =====================================================================
+   Système de design du site public (inspiré d'Apple).
+   Indépendant du thème du CRM : tout est défini sous .site.
+   Utilitaires Tailwind associés (globals.css) : bg-site-fond, bg-site-fond-alt,
+   bg-site-carte, text-site-texte, text-site-2, border-site-sep, text-site-accent,
+   bg-whatsapp, rounded-carte (18 px), rounded-tuile (14 px), shadow-site, ease-site.
+   ===================================================================== */
+
 .site {
+  /* Couleurs (clair) */
   --site-fond: #ffffff;
   --site-fond-alt: #f5f5f7;
+  --site-carte: #ffffff;
   --site-texte: #1d1d1f;
-  --site-texte-2: #6e6e73;
+  --site-texte-2: #6e6e73; /* 4,9:1 sur blanc, 4,6:1 sur #F5F5F7 */
   --site-separateur: #d2d2d7;
-  --site-accent: #0071e3;
+  /* Accent réglable dans le CRM (--site-accent-base posé par le layout) */
+  --site-accent: var(--site-accent-base, #0071e3);
+  --site-sur-accent: var(--site-sur-accent-base, #ffffff);
+  /* Vert WhatsApp réservé aux boutons WhatsApp ; texte foncé pour un contraste AA (7,8:1) */
+  --site-whatsapp: #25d366;
+  --site-whatsapp-survol: #1fbd5a;
+  --site-sur-whatsapp: #052e16;
+  /* Statuts */
+  --site-reserve: #9a4a00;
+  --site-reserve-fond: #fff1e0;
+  --site-vendu: #515154;
+  --site-vendu-fond: #e8e8ed;
+  --site-nav: rgba(255, 255, 255, 0.72);
+  --site-voile: rgba(0, 0, 0, 0.4);
+
   min-height: 100dvh;
   background: var(--site-fond);
   color: var(--site-texte);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--police-inter, "Inter"), "Segoe UI", Roboto, sans-serif;
   font-size: 17px;
   line-height: 1.5;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+/* Mode sombre : automatique selon l'appareil, ou forcé (aperçu) avec data-theme */
 @media (prefers-color-scheme: dark) {
-  .site {
+  .site:not([data-theme="light"]) {
     --site-fond: #000000;
-    --site-fond-alt: #1c1c1e;
+    --site-fond-alt: #0f0f10;
+    --site-carte: #1c1c1e;
     --site-texte: #f5f5f7;
     --site-texte-2: #a1a1a6;
     --site-separateur: #38383a;
-    --site-accent: #2997ff;
+    --site-accent: color-mix(in srgb, var(--site-accent-base, #0071e3) 72%, white);
+    --site-reserve: #ffb066;
+    --site-reserve-fond: #3a2410;
+    --site-vendu: #c7c7cc;
+    --site-vendu-fond: #2c2c2e;
+    --site-nav: rgba(22, 22, 23, 0.72);
+    --site-voile: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
   }
 }
-.site h1 {
-  letter-spacing: -0.02em;
+.site[data-theme="dark"] {
+  --site-fond: #000000;
+  --site-fond-alt: #0f0f10;
+  --site-carte: #1c1c1e;
+  --site-texte: #f5f5f7;
+  --site-texte-2: #a1a1a6;
+  --site-separateur: #38383a;
+  --site-accent: color-mix(in srgb, var(--site-accent-base, #0071e3) 72%, white);
+  --site-reserve: #ffb066;
+  --site-reserve-fond: #3a2410;
+  --site-vendu: #c7c7cc;
+  --site-vendu-fond: #2c2c2e;
+  --site-nav: rgba(22, 22, 23, 0.72);
+  --site-voile: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
 }
-.site a:focus-visible {
-  outline: 2px solid var(--site-accent);
-  outline-offset: 3px;
-  border-radius: 6px;
+
+/* Éléments visibles seulement en clair ou en sombre (ex. logo clair / logo foncé) */
+.site .s-sombre-seul { display: none; }
+.site[data-theme="dark"] .s-sombre-seul { display: revert; }
+.site[data-theme="dark"] .s-clair-seul { display: none; }
+@media (prefers-color-scheme: dark) {
+  .site:not([data-theme="light"]) .s-sombre-seul { display: revert; }
+  .site:not([data-theme="light"]) .s-clair-seul { display: none; }
+}
+
+/* Règles de base dans les couches Tailwind : les classes utilitaires des composants gardent la priorité. */
+@layer base {
+  .site :is(h1, h2, h3, h4) {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  .site a { color: inherit; text-decoration: none; }
+  .site :focus-visible {
+    outline: 2px solid var(--site-accent);
+    outline-offset: 3px;
+    border-radius: 10px;
+  }
+}
+
+@layer components {
+/* ---------------------------------------------------------------------
+   Typographie : 56 / 40 / 28 / 21 / 17 / 14 px (ordinateur), réduite sur mobile.
+   --------------------------------------------------------------------- */
+.site .s-titre-1 { font-size: 40px; line-height: 1.07; font-weight: 700; letter-spacing: -0.025em; }
+.site .s-titre-2 { font-size: 32px; line-height: 1.1; font-weight: 700; }
+.site .s-titre-3 { font-size: 24px; line-height: 1.15; font-weight: 600; }
+.site .s-titre-4 { font-size: 19px; line-height: 1.25; font-weight: 600; }
+.site .s-corps { font-size: 17px; line-height: 1.5; }
+.site .s-intro { font-size: 19px; line-height: 1.4; color: var(--site-texte-2); }
+.site .s-petit { font-size: 14px; line-height: 1.45; letter-spacing: -0.005em; }
+.site .s-surtitre { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--site-texte-2); }
+@media (min-width: 768px) {
+  .site .s-titre-1 { font-size: 56px; }
+  .site .s-titre-2 { font-size: 40px; }
+  .site .s-titre-3 { font-size: 28px; }
+  .site .s-titre-4 { font-size: 21px; }
+  .site .s-intro { font-size: 21px; }
+}
+/* Prix, kilométrages : chiffres alignés */
+.site .s-chiffres { font-variant-numeric: tabular-nums; }
+
+/* Liens */
+.site .s-lien { color: var(--site-accent); }
+.site .s-lien:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+}
+
+@layer components {
+/* ---------------------------------------------------------------------
+   Navigation translucide
+   --------------------------------------------------------------------- */
+.site .s-nav {
+  background: var(--site-nav);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .site .s-nav { background: var(--site-fond); }
+}
+
+/* ---------------------------------------------------------------------
+   Mouvement : court, doux, désactivé si l'appareil le demande
+   --------------------------------------------------------------------- */
+.site .s-transition { transition-duration: 250ms; transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1); }
+.site .s-apparition { opacity: 0; transform: translateY(24px); transition: opacity 600ms cubic-bezier(0.25, 0.1, 0.25, 1), transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+.site .s-apparition[data-visible="oui"] { opacity: 1; transform: none; }
+/* Agrandissement léger de la photo au survol d'une carte */
+.site .s-carte .s-carte-photo img { transition: transform 300ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+@media (hover: hover) {
+  .site .s-carte:hover .s-carte-photo img { transform: scale(1.04); }
+}
+/* Feuille du bas */
+.site-feuille[data-state="open"] { animation: s-monte 300ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+.site-feuille[data-state="closed"] { animation: s-descend 200ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+.site-voile[data-state="open"] { animation: s-fondu 300ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+@keyframes s-monte { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes s-descend { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes s-fondu { from { opacity: 0; } to { opacity: 1; } }
+@media (min-width: 768px) {
+  .site-feuille[data-state="open"] { animation: s-fondu 200ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+  .site-feuille[data-state="closed"] { animation: none; }
+}
+/* FAQ : chevron qui pivote */
+.site details[open] > summary .s-chevron { transform: rotate(90deg); }
+.site details > summary { list-style: none; }
+.site details > summary::-webkit-details-marker { display: none; }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site *, .site *::before, .site *::after, .site-feuille, .site-voile {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .site .s-apparition { opacity: 1; transform: none; }
 }

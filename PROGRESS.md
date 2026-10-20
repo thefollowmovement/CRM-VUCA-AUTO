@@ -21,14 +21,24 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | Phase | Contenu | Statut |
 |---|---|---|
 | S0 | Routage site / CRM, champs Prisma, arborescence | ✅ Validée (routage par domaine + choix : vendeur unique, immatriculation masquée, site en maintenance par défaut) |
-| S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | 🟡 Livrée le 20/10/2026, en attente de validation |
-| S2 | Système de design + page `/site-preview` | ⚪ À faire |
+| S1 | CRM : onglet « Annonce », onglet « Site web », `toPublicVehicle()` + tests | ✅ Validée le 20/10/2026 |
+| S2 | Système de design + page `/site-preview` | 🟡 Livrée le 20/10/2026, en attente de validation du style |
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ⚪ À faire |
 | S4 | WhatsApp, compteurs, statistiques | ⚪ À faire |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ⚪ À faire |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S2 — livré
+
+- **Jetons de design** (`app/(site)/site.css` + utilitaires Tailwind dans `globals.css`) : blanc / #F5F5F7, texte #1D1D1F / #6E6E73, séparateurs #D2D2D7, accent réglable (défaut #0071E3, texte blanc ou foncé choisi automatiquement), vert WhatsApp #25D366 réservé aux boutons WhatsApp (texte foncé pour un contraste AA), Réservé orange doux, Vendu gris ; rayons 18 / 14 px, boutons en pilule, ombre légère ; typographie 56/40/28/21/17/14 px, titres serrés, chiffres alignés ; mode sombre automatique (fond noir, cartes #1C1C1E) ; transitions 250 ms, apparition douce au défilement, tout coupé si « réduire les animations ».
+- **Police** : pile système Apple (SF Pro) puis Inter auto-hébergée (`components/site/polices/`, 48 Ko, licence OFL) : aucun appel externe.
+- **Composants** (`components/site/`) : Bouton (principal, secondaire « › », contour, WhatsApp, discret), navigation translucide + menu mobile, pied de page (SIRET), carte véhicule (photo 4:3, badges, prix), badges, prix, tuiles de caractéristiques, contrôle segmenté (clavier), puces de filtres, feuille du bas (filtres), apparition, engagements, 3 étapes, carte d'avis, FAQ, horaires, état vide, bouton WhatsApp flottant, barre collante mobile de la fiche.
+- **Lectures publiques** (`server/site/public.ts`) : `reglagesPublics`, `annoncesPubliees` (liste blanche + `toPublicVehicle`), `avisPublics`, `nombreAnnoncesPubliees`.
+- **Page `/site-preview`** (CRM, connexion exigée, bouton « Composants » de l'onglet Site web) : tous les composants avec les vraies annonces de démo, choix Automatique / Clair / Sombre ; les exemples (engagements, avis, FAQ) sont signalés comme tels et n'apparaissent jamais sur le site. Liens de navigation vers https://vuca-auto.fr.
+- CRM : avertissement si la couleur d'accent choisie est trop claire pour être lisible.
+- Tests : 161 tests unitaires (dont contrastes AA des couleurs) ; parcours navigateur S2 (≈ 40 vérifications : accès protégé, couleurs, police locale, sombre, clavier, mobile, zones tactiles ≥ 44 px, animations réduites, 404 sur vuca-auto.fr) ; S1, domaines et phase 8 toujours verts.
 
 ## Phase S1 — livré
 

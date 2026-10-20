@@ -7,6 +7,7 @@ import { useFormulaire } from "@/components/formulaires/use-formulaire";
 import { BoutonEnregistrer } from "@/components/reglages/bouton-enregistrer";
 import { Input } from "@/components/ui/input";
 import { Interrupteur } from "@/components/ui/interrupteur";
+import { accentLisibleSurBlanc, texteSurCouleur } from "@/lib/site/couleurs";
 import { schemaSiteGeneral, type SaisieSiteGeneral } from "@/lib/validations/site";
 import { enregistrerSiteGeneral } from "@/server/actions/site";
 
@@ -54,12 +55,15 @@ export function FormulaireGeneral({ valeurs }: { valeurs: SaisieSiteGeneral }) {
           />
           <Input id="couleurAccent" className="w-32 font-mono uppercase" {...register("couleurAccent")} />
           <span
-            className="inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold text-white"
-            style={{ backgroundColor: couleurValide ? couleur : "#0071E3" }}
+            className="inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold"
+            style={{ backgroundColor: couleurValide ? couleur : "#0071E3", color: texteSurCouleur(couleurValide ? couleur : "#0071E3") }}
           >
-            Écrire sur WhatsApp
+            Voir les voitures
           </span>
         </div>
+        {couleurValide && !accentLisibleSurBlanc(couleur) && (
+          <p className="text-sm text-amber-700 dark:text-amber-400">Couleur trop claire : les liens seront difficiles à lire sur fond blanc. Choisissez une teinte plus foncée.</p>
+        )}
       </Champ>
       <BoutonEnregistrer enCours={isSubmitting} />
     </form>

@@ -17,7 +17,7 @@
 | Les photos sont déjà réencodées sans métadonnées (EXIF/GPS) à l'envoi (`lib/images.ts`). | La route photo publique réencodera quand même (4:3, WebP/AVIF) : double sécurité. |
 | Le véhicule a `puissanceFiscale` (CV) mais pas de puissance en chevaux. | Nouveau champ « Puissance (ch) » sur l'annonce. |
 | Le CRM a déjà `Compteur` (numérotation), `revalidatePath` partout, `sharp`, Playwright. | Réutilisés : référence `VA-0042`, cache, images, tests. |
-| Serveur réel : Caddy tient les ports 80/443 et sert le CRM via un fichier qui lui est propre (`/etc/caddy/vuca-crm.caddy`). | Ajouter `vucaauto.fr` et `crm.vucaauto.fr` = modifier **uniquement ce fichier**, pas ceux de vos autres projets. |
+| Serveur réel : Caddy tient les ports 80/443 et sert le CRM via un fichier qui lui est propre (`/etc/caddy/vuca-crm.caddy`). | Ajouter `vuca-auto.fr` et `crm.vuca-auto.fr` = modifier **uniquement ce fichier**, pas ceux de vos autres projets. |
 
 ---
 
@@ -26,17 +26,17 @@
 **Une seule application, une seule base, deux adresses.** Le middleware regarde le nom de domaine de chaque requête :
 
 ```
-vucaauto.fr / www.vucaauto.fr   →  site public   (sans connexion)
-crm.vucaauto.fr                 →  CRM           (avec connexion, comme aujourd'hui)
+vuca-auto.fr / www.vuca-auto.fr   →  site public   (sans connexion)
+crm.vuca-auto.fr                 →  CRM           (avec connexion, comme aujourd'hui)
 ```
 
 **Comment** : les pages du site sont rangées dans un dossier interne `src/app/site/…`. Sur le domaine public, le middleware **réécrit** chaque adresse vers ce dossier, sans que le visiteur le voie :
 
 | Le visiteur tape | La page servie | Ce qu'il voit dans la barre d'adresse |
 |---|---|---|
-| `vucaauto.fr/` | `app/site/page.tsx` | `vucaauto.fr/` |
-| `vucaauto.fr/voitures/peugeot-208-allure-2021-a1b2` | `app/site/voitures/[slug]/page.tsx` | inchangée |
-| `vucaauto.fr/dashboard` (ou toute page du CRM) | page 404 du site | — le CRM est **invisible** sur le domaine public |
+| `vuca-auto.fr/` | `app/site/page.tsx` | `vuca-auto.fr/` |
+| `vuca-auto.fr/voitures/peugeot-208-allure-2021-a1b2` | `app/site/voitures/[slug]/page.tsx` | inchangée |
+| `vuca-auto.fr/dashboard` (ou toute page du CRM) | page 404 du site | — le CRM est **invisible** sur le domaine public |
 
 Sur le domaine du CRM, tout reste comme aujourd'hui. Les pages du site y sont aussi consultables, sans connexion, sous `/voitures…` (et l'accueil sous `/site`) : c'est l'aperçu avant la mise en ligne du domaine. **D'ici la Phase 6, le site sera donc visible à l'adresse actuelle du CRM** (`https://crm-vuca.72-61-164-158.sslip.io/site`).
 
@@ -44,7 +44,7 @@ Sur le domaine du CRM, tout reste comme aujourd'hui. Les pages du site y sont au
 
 **Pourquoi pas `/admin` pour le CRM ?** Il faudrait déplacer toutes les pages du CRM et changer tous ses liens : risqué pour un gain nul.
 
-**Réglage** : une variable `SITE_DOMAINES=vucaauto.fr,www.vucaauto.fr` dans le fichier `.env`. Tant qu'elle est vide, l'application se comporte comme aujourd'hui (+ l'aperçu du site).
+**Réglage** : une variable `SITE_DOMAIN=vuca-auto.fr (et CRM_DOMAIN=crm.vuca-auto.fr)` dans le fichier `.env`. Tant qu'elle est vide, l'application se comporte comme aujourd'hui (+ l'aperçu du site).
 
 **Habillage séparé** : le `layout` racine devient minimal (police système, `<html lang="fr">`) ; le thème du CRM (mode sombre manuel, notifications, service worker, `noindex`) passe dans les groupes du CRM ; le site a son propre `layout` (police, couleurs, navigation translucide, pied de page, indexable). Le CRM n'en voit aucune différence.
 
@@ -127,7 +127,7 @@ src/
 │   ├── (app)/site-web/                onglet principal « Site web » : général, contact, confiance,
 │   │                                  contenu, référencement, légal, statistiques
 │   ├── (app)/site-preview/            page de démonstration du style (Phase 2, protégée)
-│   ├── site/                          SITE PUBLIC (servi par réécriture sur vucaauto.fr)
+│   ├── site/                          SITE PUBLIC (servi par réécriture sur vuca-auto.fr)
 │   │   ├── layout.tsx                 police Inter auto-hébergée, styles, navigation, pied, WhatsApp flottant
 │   │   ├── page.tsx                   accueil
 │   │   ├── voitures/page.tsx          liste + filtres
@@ -165,7 +165,7 @@ src/
 
 ## 7. Questions (avec ma recommandation)
 
-1. **Domaine** : possédez-vous déjà `vucaauto.fr` (et chez qui : Hostinger, OVH… ?). *Utile seulement en Phase 6 ; d'ici là, aperçu sur l'adresse actuelle.*
+1. **Domaine** : possédez-vous déjà `vuca-auto.fr` (et chez qui : Hostinger, OVH… ?). *Utile seulement en Phase 6 ; d'ici là, aperçu sur l'adresse actuelle.*
 2. **Routage** : d'accord pour le dossier interne `site` + réécriture par domaine (section 2) ? *Recommandé.*
 3. **Vendeur affiché** sur les fiches (« Vous avez une question ? ») : une seule personne (nom + photo) réglée dans « Site web » ? *Recommandé ; on pourra faire un vendeur par annonce plus tard.*
 4. **Immatriculation** : un seul réglage global (masquée par défaut) ? *Recommandé.*

@@ -109,6 +109,31 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Jetons du SITE PUBLIC (valeurs définies dans app/(site)/site.css, uniquement sous .site) :
+   bg-site-fond, text-site-2, rounded-carte, shadow-site… */
+@theme inline {
+  --color-site-fond: var(--site-fond);
+  --color-site-fond-alt: var(--site-fond-alt);
+  --color-site-carte: var(--site-carte);
+  --color-site-texte: var(--site-texte);
+  --color-site-2: var(--site-texte-2);
+  --color-site-sep: var(--site-separateur);
+  --color-site-accent: var(--site-accent);
+  --color-site-sur-accent: var(--site-sur-accent);
+  --color-whatsapp: var(--site-whatsapp);
+  --color-sur-whatsapp: var(--site-sur-whatsapp);
+  --color-site-reserve: var(--site-reserve);
+  --color-site-reserve-fond: var(--site-reserve-fond);
+  --color-site-vendu: var(--site-vendu);
+  --color-site-vendu-fond: var(--site-vendu-fond);
+  --radius-carte: 18px;
+  --radius-tuile: 14px;
+  --shadow-site: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-site-fort: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --ease-site: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --font-site: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--police-inter), "Inter", "Segoe UI", Roboto, sans-serif;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

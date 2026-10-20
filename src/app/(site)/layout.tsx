@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { inter } from "@/components/site/police";
 import { lireConfigDomaines, urlSite } from "@/lib/domaines";
 import "./site.css";
 
@@ -23,5 +24,5 @@ export const viewport: Viewport = {
 };
 
 export default function LayoutSite({ children }: { children: React.ReactNode }) {
-  return <div className="site">{children}</div>;
+  return <div className={`site ${inter.variable}`}>{children}</div>;
 }
