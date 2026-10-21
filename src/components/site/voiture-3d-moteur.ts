@@ -17,7 +17,8 @@ const URL_MODELE = new URL("./modeles/voiture.glb", import.meta.url).href;
 
 // Repères du modèle (mètres, Y en haut, avant vers +Z) : bas des pneus et noms des essieux
 const SOL_MODELE = -0.632;
-const ROUES = ["roues_avant", "roues_arriere"];
+// Une roue par nœud, centré sur son axe (roues avant redressées : le modèle d'origine les braquait)
+const ROUES = ["roue_av_d", "roue_av_g", "roue_ar_d", "roue_ar_g"];
 const ECHELLE = 1.3;
 
 /**

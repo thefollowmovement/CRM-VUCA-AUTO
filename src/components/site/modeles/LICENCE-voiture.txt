@@ -8,7 +8,7 @@ Licence : Creative Commons Attribution - Partage dans les mêmes conditions 4.0 
 
 Modifications (VUCA AUTO, 21/10/2026) : blasons, lettrages, plaques et marquage des pneus retirés,
 couche de vernis séparée remplacée par un vernis du matériau, transmission des feux supprimée,
-roues regroupées par essieu (pour les faire tourner), textures en WebP, géométrie quantifiée et
+roues séparées une par une, roues avant redressées (braquées de 20° dans l'original) et centrées sur leur axe pour tourner rond, textures en WebP, géométrie quantifiée et
 compressée (EXT_meshopt_compression). Ce fichier adapté est diffusé sous la même licence CC BY-SA 4.0.
 
 La licence porte sur le fichier 3D uniquement ; elle ne donne aucun droit sur les marques ou dessins
