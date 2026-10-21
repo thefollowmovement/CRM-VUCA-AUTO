@@ -1,9 +1,10 @@
 import { cn } from "@/lib/utils";
+import { Voiture3D } from "./voiture-3d";
 
 /**
  * Scène animée de l'accueil (et de la page « bientôt en ligne ») : une voiture arrive puis roule
  * sur une route qui défile, dans un halo de showroom. 100 % CSS (aucun JavaScript), coupée si
- * l'appareil demande moins d'animations. Emplacement prévu pour un futur modèle 3D.
+ * l'appareil demande moins d'animations. Sur ordinateur, la voiture 3D (voiture-3d.tsx) prend le relais.
  */
 export function SceneRoute({
   pastille,
@@ -21,7 +22,7 @@ export function SceneRoute({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-carte border border-white/[0.08] bg-[radial-gradient(65%_70%_at_50%_30%,#23252b_0%,#121316_62%,#0c0c0e_100%)]",
+        "s-scene relative overflow-hidden rounded-carte border border-white/[0.08] bg-[radial-gradient(65%_70%_at_50%_30%,#23252b_0%,#121316_62%,#0c0c0e_100%)]",
         compacte ? "h-[230px] md:h-[320px]" : "h-[260px] md:h-[380px]",
         className,
       )}
@@ -32,7 +33,7 @@ export function SceneRoute({
       <div className="absolute inset-x-0 bottom-0 h-[30%] border-t border-white/[0.06] bg-[#121318]" aria-hidden />
       <div className="s-route absolute inset-x-0 bottom-[15%] h-[5px]" aria-hidden />
       {/* Voiture */}
-      <div className="absolute bottom-[25%] left-1/2 w-[84%] max-w-[600px] -translate-x-1/2" aria-hidden>
+      <div className="s-voiture-2d absolute bottom-[25%] left-1/2 w-[84%] max-w-[600px] -translate-x-1/2" aria-hidden>
         <div className="s-arrivee relative">
           <div className="absolute -left-[14%] top-[26%] flex flex-col gap-3 md:gap-4">
             <span className="s-vitesse block h-1 w-[90px] rounded bg-[color-mix(in_srgb,var(--site-accent)_65%,transparent)] md:w-[120px]" />
@@ -56,6 +57,8 @@ export function SceneRoute({
           </span>
         </div>
       </div>
+      {/* Voiture 3D (ordinateur uniquement, chargée après la page) : remplace la voiture dessinée */}
+      <Voiture3D />
       {pastille && (
         <div className="s-pastille absolute right-[5%] top-4 flex size-24 flex-col items-center justify-center rounded-full bg-site-accent-fond text-center text-site-sur-accent md:top-8 md:size-[156px]">
           <span className="s-condense text-[12px] md:text-[17px]">{pastille.haut}</span>

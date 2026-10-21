@@ -27,9 +27,16 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S4 | WhatsApp, compteurs, statistiques | ✅ Validée le 21/10/2026 |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ✅ Validée le 21/10/2026 |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ✅ Validée le 21/10/2026 (domaine branché : vuca-auto.fr 200, www 301, CRM 200) |
-| S7 | Refonte visuelle « Showroom + Route » (direction A + C), identité, animations | 🟡 Livrée le 21/10/2026, en attente de validation |
+| S7 | Refonte visuelle « Showroom + Route » (direction A + C), identité, animations | ✅ Validée le 21/10/2026 |
+| S8 | Voiture 3D stylisée sur l'accueil (ordinateur) | 🟡 Livrée le 21/10/2026, en attente de validation |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S8 — livré (voiture 3D)
+
+- **Voiture 3D maison** sur l'accueil et la page « bientôt en ligne » : SUV coupé gris métallisé, modélisé dans le code (aucun modèle téléchargé, aucune marque ni ressemblance avec un modèle existant), toit et vitres noirs, phares LED, feu arrière, liseré jaune, reflets de studio, roues qui tournent. Elle arrive en roulant, se balance légèrement et suit la souris.
+- **Ordinateur uniquement** (grand écran + souris, animations acceptées, pas d'« économie de données ») ; chargée après la page, en fondu. Sur téléphone, ou si la 3D est impossible, la voiture dessinée reste affichée. Pause automatique quand la scène n'est plus visible ou l'onglet caché.
+- Performance mobile inchangée (Lighthouse accueil 93, liste 91 ; 100 en accessibilité, bonnes pratiques, SEO). Tests : 190 tests unitaires, accessibilité (S5) et parcours S3 verts.
 
 ## Phase S7 — livré (refonte visuelle)
 

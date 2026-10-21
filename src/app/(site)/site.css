@@ -180,6 +180,12 @@
 .site .s-flotte { animation: s-flotte 5s ease-in-out infinite; }
 @keyframes s-flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
+/* Voiture 3D (ordinateur) : apparaît en fondu, la voiture dessinée s'efface */
+.site .s-voiture-3d { opacity: 0; transition: opacity 900ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.site .s-scene[data-voiture3d="pret"] .s-voiture-3d { opacity: 1; }
+.site .s-voiture-2d { transition: opacity 500ms; }
+.site .s-scene[data-voiture3d="pret"] .s-voiture-2d { opacity: 0; }
+
 /* Bandeau qui défile en continu (engagements) */
 .site .s-defile { animation: s-defile 30s linear infinite; }
 @keyframes s-defile { from { transform: translateX(0); } to { transform: translateX(-50%); } }
