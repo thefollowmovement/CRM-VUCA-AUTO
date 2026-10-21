@@ -26,9 +26,11 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ✅ Validée le 21/10/2026 |
 | S4 | WhatsApp, compteurs, statistiques | ✅ Validée le 21/10/2026 |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ✅ Validée le 21/10/2026 |
-| S6 | Déploiement, domaine, README, GUIDE_SITE.md | 🟡 Livrée le 21/10/2026, en attente de validation |
+| S6 | Déploiement, domaine, README, GUIDE_SITE.md | ✅ Validée le 21/10/2026 (domaine branché : vuca-auto.fr 200, www 301, CRM 200) |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+**Projet 2 terminé.** Le site est en maintenance (« Notre site arrive bientôt ») jusqu'à son ouverture par l'utilisateur : marche à suivre dans [`GUIDE_SITE.md`](GUIDE_SITE.md), partie 1 (sauvegarde, retrait de la démonstration, informations, publication, « Site en ligne »).
 
 ## Phase S6 — livré
 
@@ -36,6 +38,7 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 - **Mise en ligne protégée** : « Site en ligne » refusé tant que la démo est présente. Carte **« Avant la mise en ligne »** (Site web → Général) : démo retirée, numéro WhatsApp, coordonnées, mentions légales, première voiture publiée, logo — avec un lien vers chaque réglage ; devient « Le site est en ligne ».
 - **Domaine** : DNS déjà correct chez Hostinger (A `@`, `www`, `crm` → 72.61.164.158). README complété (tableau DNS, script `configurer-domaines.sh`, commande de vérification, ouverture au public).
 - **[GUIDE_SITE.md](GUIDE_SITE.md)** : mettre le site en ligne (sauvegarde, démo, informations, Google Search Console), publier une voiture en 1 minute, réservée / vendue, changer le numéro WhatsApp, ajouter un avis, photos, aperçu, statistiques, référencement, maintenance, dépannage.
+- Serveur (21/10/2026) : `configurer-domaines.sh` lancé (SITE_DOMAIN / CRM_DOMAIN ajoutés, AUTH_URL désactivée) ; vérification : vuca-auto.fr 200, www 301, crm 200.
 - Correction : l'icône d'onglet n'apparaît plus en double (elle reste dans Site web → Général).
 - Tests : 186 tests unitaires (dont reconnaissance stricte de la démo, cohérence avec le seed, recalage des compteurs) ; parcours S6 (≈ 40 vérifications : vraies données mélangées à la démo, aperçu, confirmation, contenu exact de la base et du disque après retrait, seed qui ne recharge rien, pages du CRM, mise en ligne, téléphone) ; S1 à S5, domaines, phases 7 et 8 toujours verts.
 
