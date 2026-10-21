@@ -25,10 +25,19 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S2 | Système de design + page `/site-preview` | ✅ Validée le 20/10/2026 |
 | S3 | Pages publiques : accueil, liste + filtres, fiche, galerie | ✅ Validée le 21/10/2026 |
 | S4 | WhatsApp, compteurs, statistiques | ✅ Validée le 21/10/2026 |
-| S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | 🟡 Livrée le 21/10/2026, en attente de validation |
-| S6 | Déploiement, domaine, README, GUIDE_SITE.md | ⚪ À faire |
+| S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ✅ Validée le 21/10/2026 |
+| S6 | Déploiement, domaine, README, GUIDE_SITE.md | 🟡 Livrée le 21/10/2026, en attente de validation |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
+
+## Phase S6 — livré
+
+- **Retrait sûr de la démonstration** (Réglages → Démonstration, administrateur) : aperçu exact de ce qui sera supprimé (17 véhicules d'exemple et tout ce qui leur est rattaché, clients et investisseurs fictifs, visites fictives, numéro WhatsApp / horaires / moyens de paiement d'exemple), confirmation en tapant « RETIRER », une seule transaction. Les fiches d'exemple réutilisées par de vraies données sont conservées (encadré « Conservés ») ; vos véhicules, clients, investisseurs et réglages modifiés ne sont jamais touchés. Numérotation recalée, photos supprimées du disque, action tracée dans le journal ; la démo n'est plus jamais rechargée par les mises à jour.
+- **Mise en ligne protégée** : « Site en ligne » refusé tant que la démo est présente. Carte **« Avant la mise en ligne »** (Site web → Général) : démo retirée, numéro WhatsApp, coordonnées, mentions légales, première voiture publiée, logo — avec un lien vers chaque réglage ; devient « Le site est en ligne ».
+- **Domaine** : DNS déjà correct chez Hostinger (A `@`, `www`, `crm` → 72.61.164.158). README complété (tableau DNS, script `configurer-domaines.sh`, commande de vérification, ouverture au public).
+- **[GUIDE_SITE.md](GUIDE_SITE.md)** : mettre le site en ligne (sauvegarde, démo, informations, Google Search Console), publier une voiture en 1 minute, réservée / vendue, changer le numéro WhatsApp, ajouter un avis, photos, aperçu, statistiques, référencement, maintenance, dépannage.
+- Correction : l'icône d'onglet n'apparaît plus en double (elle reste dans Site web → Général).
+- Tests : 186 tests unitaires (dont reconnaissance stricte de la démo, cohérence avec le seed, recalage des compteurs) ; parcours S6 (≈ 40 vérifications : vraies données mélangées à la démo, aperçu, confirmation, contenu exact de la base et du disque après retrait, seed qui ne recharge rien, pages du CRM, mise en ligne, téléphone) ; S1 à S5, domaines, phases 7 et 8 toujours verts.
 
 ## Phase S5 — livré
 

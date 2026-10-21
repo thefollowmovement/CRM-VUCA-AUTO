@@ -23,6 +23,7 @@ import {
   type SaisieSiteLegal,
   type SaisieSiteReferencement,
 } from "@/lib/validations/site";
+import { analyserDemo } from "@/server/demo";
 import { CHAMPS_IMAGES_SITE, lireReglagesSite, type ChampImageSite } from "@/server/site/reglages";
 import { revaliderSite } from "@/server/site/revalidation";
 
@@ -45,6 +46,13 @@ async function enregistrerSection<S extends z.ZodTypeAny>(schema: S, saisie: unk
 }
 
 export async function enregistrerSiteGeneral(saisie: SaisieSiteGeneral) {
+  // Mise en ligne refusée tant que la démo est là : rien d'inventé ne doit apparaître publiquement
+  if (saisie?.enLigne === true && !(await lireReglagesSite()).enLigne) {
+    const demo = await analyserDemo();
+    if (demo.vehicules.length + demo.clients.length + demo.investisseurs.length + demo.reglagesSite.length > 0) {
+      return { ok: false as const, message: "Retirez d'abord la démonstration (Réglages → Démonstration) : le site ne doit montrer que vos vraies voitures." };
+    }
+  }
   return enregistrerSection(schemaSiteGeneral, saisie, "general");
 }
 export async function enregistrerSiteContact(saisie: SaisieSiteContact) {

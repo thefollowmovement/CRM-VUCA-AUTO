@@ -94,8 +94,9 @@ async function main() {
   //    Chaque bloc de démo n'est chargé qu'une seule fois (voir demo.ts).
   void nouvelleInstallation;
   if (process.argv.includes("--demo") || process.env.SEED_DEMO === "true") {
+    const retiree = await db.compteur.findUnique({ where: { cle: "demo:retiree" } });
     await chargerDemo(db);
-    console.log("Données de démonstration à jour.");
+    console.log(retiree ? "Données de démonstration retirées : rien n'est rechargé." : "Données de démonstration à jour.");
   }
 
   // 7. Échéancier des locations créées avant la Phase 6 (une seule fois par contrat)

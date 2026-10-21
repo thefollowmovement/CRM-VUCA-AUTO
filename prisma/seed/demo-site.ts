@@ -17,7 +17,7 @@ import { jourParisISO } from "../../src/lib/dates";
 import { chargerVehiculesDemo, eur, j, type Demo } from "./demo";
 
 /** Véhicules supplémentaires « En vente » pour remplir le site de démo. */
-function vehiculesSite(): Demo[] {
+export function vehiculesSite(): Demo[] {
   const vente = (marque: string, modele: string, version: string, immat: string, annee: number, o: Partial<Demo["donnees"]>, couleur: string, achat: number, ilYa: number): Demo => ({
     donnees: {
       marque, modele, version, immatriculation: immat, annee, typeExploitation: "ACHAT_REVENTE", statut: "EN_VENTE",

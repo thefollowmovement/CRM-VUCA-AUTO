@@ -253,18 +253,40 @@ La même application sert deux adresses :
 | Adresse | Contenu |
 |---|---|
 | `https://vuca-auto.fr` | site vitrine public (véhicules à vendre), sans connexion |
+| `https://www.vuca-auto.fr` | redirige vers `https://vuca-auto.fr` |
 | `https://crm.vuca-auto.fr` | le CRM, avec connexion (l'ancienne adresse `crm-vuca.72-61-164-158.sslip.io` reste utilisable) |
 
-1. Chez le fournisseur du domaine, deux enregistrements **A** vers l'IP du serveur (`72.61.164.158`) : `vuca-auto.fr` (nom « @ ») et `crm.vuca-auto.fr` (nom « crm »). Facultatif : `www`.
-2. Sur le serveur (terminal du navigateur Hostinger, en root), après la mise à jour de l'application :
+**1. DNS** (chez Hostinger : Domaines → vuca-auto.fr → DNS / Nameservers). Trois enregistrements **A** vers l'IP du serveur — déjà en place :
 
-   ```bash
-   bash /opt/vuca-crm/app/scripts/configurer-domaines.sh
-   ```
+| Type | Nom | Valeur | TTL |
+|---|---|---|---|
+| A | `@` | `72.61.164.158` | 14400 |
+| A | `www` | `72.61.164.158` | 14400 |
+| A | `crm` | `72.61.164.158` | 14400 |
 
-   Le script enregistre les domaines dans `/opt/vuca-crm/.env`, vérifie que Caddy les sert (il ne modifie au besoin que le fichier du CRM `/etc/caddy/vuca-crm.caddy`, avec sauvegarde et retour arrière), redémarre l'application et vérifie les deux adresses.
+Ne pas ajouter d'enregistrement **AAAA** (IPv6) tant que le serveur n'est pas configuré pour : les visiteurs en IPv6 tomberaient sur une erreur. Un changement de DNS peut mettre jusqu'à quelques heures à se propager.
+
+**2. Serveur** (terminal du navigateur Hostinger, en root), après la mise à jour de l'application :
+
+```bash
+bash /opt/vuca-crm/app/scripts/configurer-domaines.sh
+```
+
+Le script enregistre les domaines dans `/opt/vuca-crm/.env`, vérifie que Caddy les sert (il ne modifie au besoin que le fichier du CRM `/etc/caddy/vuca-crm.caddy`, avec sauvegarde et retour arrière), redémarre l'application et vérifie les adresses. Caddy obtient et renouvelle tout seul les certificats HTTPS. Le script peut être relancé sans risque (par exemple après l'ajout de `www` dans le DNS).
+
+**3. Vérifier** que tout répond :
+
+```bash
+for u in https://vuca-auto.fr https://www.vuca-auto.fr https://crm.vuca-auto.fr/connexion; do echo "$u → $(curl -s -o /dev/null -w '%{http_code}' $u)"; done
+```
+
+Attendu : `200`, `308` (redirection de www), `200`.
 
 Sur `vuca-auto.fr`, aucune page du CRM n'existe (pas d'écran de connexion, réponse « page introuvable ») et aucun cookie n'est posé.
+
+### Ouvrir le site au public
+
+Le site est **en maintenance** tant que vous ne l'ouvrez pas (« Notre site arrive bientôt »). La marche à suivre complète — sauvegarde, **retrait de la démonstration** (Réglages → Démonstration), vos informations, publication des voitures, mise en ligne, Google Search Console — est dans le **[guide du site](GUIDE_SITE.md)**. Dans le CRM, **Site web → Général** affiche la liste « Avant la mise en ligne ».
 
 ## 8. Pour les développeurs
 
@@ -283,6 +305,7 @@ npm run dev              # http://localhost:3000
 | `npm test` | tests unitaires (Vitest) |
 | `npm run typecheck` | vérification TypeScript |
 | `npm run build` | construction de production |
+| `npm run test:e2e:site` | parcours du site public dans un navigateur (site en ligne ; variables dans `e2e/site.e2e.mjs`) |
 | `npx prisma migrate dev --name <nom>` | nouvelle migration après modification du schéma |
 
 Structure du code, conventions et règles de calcul : [`CLAUDE.md`](CLAUDE.md).

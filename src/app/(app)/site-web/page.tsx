@@ -2,14 +2,20 @@ import type { Metadata } from "next";
 import { FormulaireGeneral } from "@/components/site-web/formulaire-general";
 import { ImageSite } from "@/components/site-web/image-site";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MiseEnLigne } from "@/components/site-web/mise-en-ligne";
+import { lireConfigDomaines, urlSite } from "@/lib/domaines";
+import { utilisateurCourant } from "@/lib/permissions";
+import { etapesMiseEnLigne } from "@/server/site/mise-en-ligne";
 import { lireReglagesSite } from "@/server/site/reglages";
 
 export const metadata: Metadata = { title: "Site web — Général" };
 
 export default async function PageSiteGeneral() {
-  const r = await lireReglagesSite();
+  const [r, { etapes, enLigne }, u] = await Promise.all([lireReglagesSite(), etapesMiseEnLigne(), utilisateurCourant()]);
+  const domaine = lireConfigDomaines(process.env).site;
   return (
     <div className="flex flex-col gap-6">
+      <MiseEnLigne etapes={etapes} enLigne={enLigne} adresse={domaine ? urlSite("/", domaine) : null} admin={u?.role === "ADMIN"} />
       <Card>
         <CardHeader>
           <CardTitle>Général</CardTitle>

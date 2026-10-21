@@ -13,6 +13,7 @@ import { lignesPrixContrat } from "../../src/lib/calculs/lignes-contrat";
 import { calculerPrixLocation } from "../../src/lib/calculs/location";
 import { dateDepuisParis, partiesParis } from "../../src/lib/dates";
 import { prochainNumeroAnnuel, recalculerImputation, synchroniserEcheances } from "../../src/server/echeances";
+import { REPERE_DEMO_RETIREE } from "../../src/lib/demo";
 import { chargerSiteDemo } from "./demo-site";
 
 export const INVESTISSEURS_DEMO = [
@@ -30,6 +31,8 @@ async function uneFois(db: PrismaClient, cle: string, bloc: () => Promise<void>)
 }
 
 export async function chargerDemo(db: PrismaClient) {
+  // Démo retirée depuis le CRM (Réglages → Démonstration) : plus jamais rechargée
+  if (await db.compteur.findUnique({ where: { cle: REPERE_DEMO_RETIREE } })) return;
   await uneFois(db, "demo:investisseurs", async () => {
     for (const inv of INVESTISSEURS_DEMO) {
       const existe = await db.partenaire.findFirst({ where: { nom: inv.nom } });
@@ -65,7 +68,7 @@ export type Demo = {
   estimation?: number;
 };
 
-const VEHICULES: Demo[] = [
+export const VEHICULES: Demo[] = [
   {
     // Exemple de référence du cahier des charges (dépenses et vente : Phase 3)
     donnees: {
@@ -376,7 +379,7 @@ async function chargerDepensesDemo(db: PrismaClient) {
 
 const an = (annees: number) => j(-Math.round(annees * 365.25));
 
-const CLIENTS_DEMO: Omit<Prisma.ClientUncheckedCreateInput, "id">[] = [
+export const CLIENTS_DEMO: Omit<Prisma.ClientUncheckedCreateInput, "id">[] = [
   {
     civilite: "M", nom: "Moreau", prenom: "Lucas", dateNaissance: an(38), lieuNaissance: "Lyon", adresse: "12 rue Victor Hugo", codePostal: "69002", ville: "Lyon",
     telephone: "06 11 22 33 44", email: "lucas.moreau@exemple.fr", numeroPermis: "120569300123", dateObtentionPermis: an(19), categoriePermis: "B", dateValiditePermis: j(3000),

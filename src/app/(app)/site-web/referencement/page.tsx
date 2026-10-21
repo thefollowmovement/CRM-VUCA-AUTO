@@ -37,15 +37,6 @@ export default async function PageSiteReferencement() {
           <ImageSite champ="imagePartageId" fichierId={r.imagePartageId} libelle="Image de partage" forme="large" />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Icône d&apos;onglet</CardTitle>
-          <CardDescription>Petite image affichée dans l&apos;onglet du navigateur et sur l&apos;écran d&apos;accueil des téléphones. Image carrée, idéalement un PNG de 512 × 512 px.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ImageSite champ="faviconId" fichierId={r.faviconId} libelle="Icône d'onglet" />
-        </CardContent>
-      </Card>
     </div>
   );
 }
