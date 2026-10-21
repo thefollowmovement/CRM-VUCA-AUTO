@@ -26,7 +26,7 @@ export function MiseEnLigne({ etapes, enLigne, adresse, admin }: { etapes: Etape
       <CardContent>
         <ol className="flex flex-col divide-y">
           {etapes.map((e) => {
-            const accessible = e.cle !== "demo" || admin;
+            const accessible = !!e.lien && (e.cle !== "demo" || admin);
             const contenu = (
               <>
                 {e.fait ? <CircleCheck className="size-5 shrink-0 text-emerald-600" aria-label="Fait" /> : <Circle className="size-5 shrink-0 text-muted-foreground" aria-label="À faire" />}
@@ -46,7 +46,7 @@ export function MiseEnLigne({ etapes, enLigne, adresse, admin }: { etapes: Etape
             return (
               <li key={e.cle}>
                 {accessible ? (
-                  <Link href={e.lien} className="-mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-2 hover:bg-accent">
+                  <Link href={e.lien!} className="-mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-2 hover:bg-accent">
                     {contenu}
                   </Link>
                 ) : (

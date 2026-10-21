@@ -280,7 +280,7 @@ Le script enregistre les domaines dans `/opt/vuca-crm/.env`, vérifie que Caddy 
 for u in https://vuca-auto.fr https://www.vuca-auto.fr https://crm.vuca-auto.fr/connexion; do echo "$u → $(curl -s -o /dev/null -w '%{http_code}' $u)"; done
 ```
 
-Attendu : `200`, `308` (redirection de www), `200`.
+Attendu : `200`, `301` (redirection de www vers vuca-auto.fr), `200`. Si vuca-auto.fr répond `307`, le domaine du site n'est pas encore enregistré : lancez `configurer-domaines.sh` (ci-dessus).
 
 Sur `vuca-auto.fr`, aucune page du CRM n'existe (pas d'écran de connexion, réponse « page introuvable ») et aucun cookie n'est posé.
 

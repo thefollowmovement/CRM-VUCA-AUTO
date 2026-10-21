@@ -30,6 +30,16 @@ Le site ne montre **jamais** d'informations internes : ni prix d'achat, ni dépe
 
 Ouvrez **Site web → Général** : la carte **« Avant la mise en ligne »** liste ce qui reste à faire, dans l'ordre. Chaque ligne est un lien vers le bon réglage. Une coche verte = fait.
 
+### Étape 0 — Brancher le domaine (une seule fois)
+
+Si la carte affiche « Domaine du site branché » sans coche verte, dans le terminal du navigateur Hostinger (en root) :
+
+```bash
+bash /opt/vuca-crm/app/scripts/configurer-domaines.sh
+```
+
+Le script enregistre `vuca-auto.fr` et `crm.vuca-auto.fr` dans les réglages du serveur, redémarre l'application et vérifie les adresses ; il doit finir par « Terminé ».
+
 ### Étape 1 — Faire une sauvegarde (2 minutes, recommandé)
 
 Une sauvegarde est faite automatiquement chaque nuit. Pour en faire une **juste avant** de retirer la démonstration :
@@ -207,4 +217,4 @@ Vérifier que les trois adresses répondent :
 for u in https://vuca-auto.fr https://www.vuca-auto.fr https://crm.vuca-auto.fr/connexion; do echo "$u → $(curl -s -o /dev/null -w '%{http_code}' $u)"; done
 ```
 
-Réponses attendues : `200` pour vuca-auto.fr, `308` pour www (redirection vers vuca-auto.fr), `200` pour le CRM. Si www ne répond pas, relancez : `bash /opt/vuca-crm/app/scripts/configurer-domaines.sh`.
+Réponses attendues : `200` pour vuca-auto.fr, `301` pour www (redirection vers vuca-auto.fr), `200` pour le CRM. Si vuca-auto.fr répond `307` (renvoi vers la connexion du CRM) ou si www ne répond pas, lancez : `bash /opt/vuca-crm/app/scripts/configurer-domaines.sh`.

@@ -7,7 +7,7 @@ import { STATUTS_PUBLIABLES } from "./annonces";
 import { analyserDemo } from "@/server/demo";
 import { lireReglagesSite } from "./reglages";
 
-export type EtapeMiseEnLigne = { cle: string; libelle: string; detail: string; fait: boolean; lien: string; facultatif?: boolean };
+export type EtapeMiseEnLigne = { cle: string; libelle: string; detail: string; fait: boolean; lien: string | null; facultatif?: boolean };
 
 export async function etapesMiseEnLigne(): Promise<{ enLigne: boolean; etapes: EtapeMiseEnLigne[] }> {
   const [r, demo] = await Promise.all([lireReglagesSite(), analyserDemo()]);
@@ -28,7 +28,15 @@ export async function etapesMiseEnLigne(): Promise<{ enLigne: boolean; etapes: E
   });
   const whatsappReel = !!r.whatsapp && r.whatsapp !== REGLAGES_SITE_DEMO.whatsapp;
 
+  const domaine = lireConfigDomaines(process.env).site;
   const etapes: EtapeMiseEnLigne[] = [
+    {
+      cle: "domaine",
+      libelle: "Domaine du site branché",
+      detail: domaine ? `Adresse publique : https://${domaine}` : "Le serveur ne connaît pas encore l'adresse du site : lancez le script des domaines (guide du site, partie 1).",
+      fait: !!domaine,
+      lien: null,
+    },
     {
       cle: "demo",
       libelle: "Retirer la démonstration",
