@@ -34,9 +34,11 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 
 ## Phase S8 — livré (voiture 3D)
 
-- **Voiture 3D maison** sur l'accueil et la page « bientôt en ligne » : SUV coupé gris métallisé, modélisé dans le code (aucun modèle téléchargé, aucune marque ni ressemblance avec un modèle existant), toit et vitres noirs, phares LED, feu arrière, liseré jaune, reflets de studio, roues qui tournent. Elle arrive en roulant, se balance légèrement et suit la souris.
-- **Ordinateur uniquement** (grand écran + souris, animations acceptées, pas d'« économie de données ») ; chargée après la page, en fondu. Sur téléphone, ou si la 3D est impossible, la voiture dessinée reste affichée. Pause automatique quand la scène n'est plus visible ou l'onglet caché.
-- Performance mobile inchangée (Lighthouse accueil 93, liste 91 ; 100 en accessibilité, bonnes pratiques, SEO). Tests : 190 tests unitaires, accessibilité (S5) et parcours S3 verts.
+- **Votre modèle 3D** (fourni le 21/10/2026) remplace la voiture dessinée sur ordinateur, à l'accueil et sur la page « bientôt en ligne » : carrosserie argent vernie, reflets de studio, étriers jaunes, roues qui tournent. Elle arrive en roulant, se balance légèrement et suit la souris.
+- Fichier préparé : 20 Mo → 2,3 Mo (compression sans perte visible), blasons, lettrages, plaques d'immatriculation et marquage des pneus retirés.
+- **Licence CC BY-SA 4.0** (auteur Karol Miklas) : usage commercial autorisé à condition de créditer l'auteur → petit crédit « Modèle 3D : Karol Miklas, adapté · CC BY-SA 4.0 » en bas de la scène quand la 3D est affichée ; le fichier modifié reste sous la même licence (`src/components/site/modeles/LICENCE-voiture.txt`).
+- **Ordinateur uniquement** (grand écran + souris, animations acceptées, pas d'« économie de données »), chargée après la page, en fondu ; sur téléphone ou si la 3D est impossible, la voiture dessinée reste. Pause automatique hors écran / onglet caché.
+- Performance mobile inchangée (Lighthouse accueil 93–95 ; 100 en accessibilité, bonnes pratiques, SEO ; aucun fichier 3D téléchargé sur téléphone). Accessibilité sur ordinateur avec la 3D affichée : aucune erreur. Tests : 190 tests unitaires, S3 et S5 verts.
 
 ## Phase S7 — livré (refonte visuelle)
 

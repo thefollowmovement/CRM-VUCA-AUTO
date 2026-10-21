@@ -59,6 +59,17 @@ export function SceneRoute({
       </div>
       {/* Voiture 3D (ordinateur uniquement, chargée après la page) : remplace la voiture dessinée */}
       <Voiture3D />
+      {/* Crédit du modèle 3D (licence CC BY-SA 4.0), affiché seulement quand la 3D est visible */}
+      <p className="s-credit-3d absolute bottom-2 right-3 text-[11px] text-site-2">
+        Modèle 3D :{" "}
+        <a href="https://sketchfab.com/3d-models/free-porsche-911-carrera-4s-d01b254483794de3819786d93e0e1ebf" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+          Karol Miklas
+        </a>
+        , adapté ·{" "}
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.fr" target="_blank" rel="noopener noreferrer license" className="underline-offset-2 hover:underline">
+          CC BY-SA 4.0
+        </a>
+      </p>
       {pastille && (
         <div className="s-pastille absolute right-[5%] top-4 flex size-24 flex-col items-center justify-center rounded-full bg-site-accent-fond text-center text-site-sur-accent md:top-8 md:size-[156px]">
           <span className="s-condense text-[12px] md:text-[17px]">{pastille.haut}</span>

@@ -1,0 +1,15 @@
+voiture.glb — modèle 3D de la scène d'accueil du site
+
+Œuvre d'origine : « (FREE) Porsche 911 Carrera 4S » par Karol Miklas
+  https://sketchfab.com/karolmiklas
+  https://sketchfab.com/3d-models/free-porsche-911-carrera-4s-d01b254483794de3819786d93e0e1ebf
+Licence : Creative Commons Attribution - Partage dans les mêmes conditions 4.0 International (CC BY-SA 4.0)
+  https://creativecommons.org/licenses/by-sa/4.0/deed.fr
+
+Modifications (VUCA AUTO, 21/10/2026) : blasons, lettrages, plaques et marquage des pneus retirés,
+couche de vernis séparée remplacée par un vernis du matériau, transmission des feux supprimée,
+roues regroupées par essieu (pour les faire tourner), textures en WebP, géométrie quantifiée et
+compressée (EXT_meshopt_compression). Ce fichier adapté est diffusé sous la même licence CC BY-SA 4.0.
+
+La licence porte sur le fichier 3D uniquement ; elle ne donne aucun droit sur les marques ou dessins
+d'un constructeur. Crédit affiché sur le site à côté de la voiture (scene-route.tsx).

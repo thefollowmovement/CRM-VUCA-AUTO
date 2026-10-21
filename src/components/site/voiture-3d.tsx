@@ -25,10 +25,12 @@ export function Voiture3D() {
         const { demarrerVoiture3d } = await import("./voiture-3d-moteur");
         if (annule) return;
         const accent = getComputedStyle(scene).getPropertyValue("--site-accent").trim() || "#ffd60a";
-        arreter = demarrerVoiture3d(canvas, scene, { accent }).arreter;
+        const voiture = await demarrerVoiture3d(canvas, scene, { accent });
+        if (annule) return voiture.arreter();
+        arreter = voiture.arreter;
         scene.dataset.voiture3d = "pret";
       } catch {
-        // WebGL indisponible : la voiture dessinée reste affichée
+        // WebGL indisponible ou modèle non chargé : la voiture dessinée reste affichée
       }
     };
     // Après le chargement de la page, quand le navigateur est disponible

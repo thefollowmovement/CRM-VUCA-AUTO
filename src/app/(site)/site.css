@@ -185,6 +185,8 @@
 .site .s-scene[data-voiture3d="pret"] .s-voiture-3d { opacity: 1; }
 .site .s-voiture-2d { transition: opacity 500ms; }
 .site .s-scene[data-voiture3d="pret"] .s-voiture-2d { opacity: 0; }
+.site .s-credit-3d { display: none; }
+.site .s-scene[data-voiture3d="pret"] .s-credit-3d { display: block; }
 
 /* Bandeau qui défile en continu (engagements) */
 .site .s-defile { animation: s-defile 30s linear infinite; }
