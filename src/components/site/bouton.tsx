@@ -7,20 +7,20 @@ type Variante = "principal" | "secondaire" | "contour" | "whatsapp" | "discret";
 type Taille = "normal" | "grand" | "compact";
 
 const VARIANTES: Record<Variante, string> = {
-  // Plein, couleur d'accent
-  principal: "bg-site-accent-fond text-site-sur-accent hover:brightness-110 active:brightness-95",
-  // Texte + chevron « › » (style Apple)
-  secondaire: "text-site-accent hover:underline underline-offset-4 !px-1",
-  // Pilule à bord fin (ex. « Appeler »)
-  contour: "border border-site-sep text-site-texte hover:bg-site-fond-alt",
+  // Plein, couleur d'accent (jaune), lettres condensées en majuscules
+  principal: "bg-site-accent-fond text-site-sur-accent font-titres font-black uppercase [font-stretch:85%] tracking-[0.01em] hover:brightness-105",
+  // Texte en couleur d'accent + chevron « › »
+  secondaire: "text-site-accent hover:underline underline-offset-4 !px-1 font-semibold",
+  // Bord fin (ex. « Appeler »)
+  contour: "border border-white/20 text-site-texte hover:border-white/45 hover:bg-white/5 font-semibold",
   // Vert réservé à WhatsApp
-  whatsapp: "bg-whatsapp text-sur-whatsapp hover:bg-[var(--site-whatsapp-survol)]",
-  discret: "bg-site-fond-alt text-site-texte hover:bg-site-sep/60",
+  whatsapp: "bg-whatsapp text-sur-whatsapp font-bold hover:bg-[var(--site-whatsapp-survol)]",
+  discret: "bg-site-carte-2 text-site-texte hover:bg-white/10 font-semibold",
 };
 const TAILLES: Record<Taille, string> = {
   compact: "min-h-11 px-4 text-[14px] gap-1.5 [&_svg]:size-4",
-  normal: "min-h-11 px-5 text-[17px] gap-2 [&_svg]:size-5",
-  grand: "min-h-13 px-7 text-[17px] gap-2 [&_svg]:size-5",
+  normal: "min-h-12 px-5 text-[16px] gap-2 [&_svg]:size-5",
+  grand: "min-h-14 px-7 text-[18px] gap-2.5 [&_svg]:size-5",
 };
 
 type Commun = { variante?: Variante; taille?: Taille; className?: string; children: React.ReactNode; pleineLargeur?: boolean };
@@ -28,13 +28,13 @@ type PropsLien = Commun & { href: string; externe?: boolean } & Omit<React.Compo
 type PropsBouton = Commun & { href?: undefined } & Omit<React.ComponentProps<"button">, "className" | "children">;
 
 /**
- * Bouton du site : pilule (rayon 9999 px), zone tactile ≥ 44 px.
+ * Bouton du site : coins arrondis (14 px), zone tactile ≥ 44 px.
  * Avec `href` : lien (interne via next/link, externe dans un nouvel onglet). Sinon : <button>.
  */
 export function Bouton(props: PropsLien | PropsBouton) {
   const { variante = "principal", taille = "normal", className, children, pleineLargeur } = props;
   const classes = cn(
-    "s-transition inline-flex select-none items-center justify-center rounded-full font-medium tracking-[-0.01em] transition-[background-color,filter,color,box-shadow] whitespace-nowrap disabled:pointer-events-none disabled:opacity-40",
+    "s-transition s-bouton inline-flex select-none items-center justify-center rounded-[14px] transition-[background-color,border-color,filter,color,box-shadow,transform] whitespace-nowrap disabled:pointer-events-none disabled:opacity-40",
     TAILLES[taille],
     VARIANTES[variante],
     pleineLargeur && "w-full",

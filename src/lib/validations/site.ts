@@ -74,7 +74,7 @@ export const schemaSiteGeneral = z.object({
   enLigne: z.boolean(),
   nomAffiche: texte("Le nom affiché", 60),
   slogan: texteOptionnel(120),
-  couleurAccent: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide (format #0071E3)."),
+  couleurAccent: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide (format #FFD60A)."),
 });
 export type SaisieSiteGeneral = z.input<typeof schemaSiteGeneral>;
 

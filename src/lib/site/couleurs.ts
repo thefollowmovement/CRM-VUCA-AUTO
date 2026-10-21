@@ -31,7 +31,7 @@ export function texteSurCouleur(fond: string): "#ffffff" | "#1d1d1f" {
 }
 
 /** Accent utilisable : valeur valide, sinon le bleu par défaut. */
-export const ACCENT_DEFAUT = "#0071E3";
+export const ACCENT_DEFAUT = "#FFD60A";
 export function accentValide(hex: string | null | undefined): string {
   return hex && hexVersRvb(hex) ? hex : ACCENT_DEFAUT;
 }

@@ -24,8 +24,8 @@ export function NavigationSite({ logo, lienWhatsApp, accueil = "/", base = "" }:
   const actif = (href: string) => chemin === href || chemin.startsWith(`${href}/`);
 
   return (
-    <header className="s-nav sticky top-0 z-40 border-b border-site-sep/60">
-      <nav aria-label="Navigation principale" className="mx-auto flex h-13 w-full max-w-[1200px] items-center gap-6 px-4 md:h-14 md:px-6">
+    <header className="s-nav sticky top-0 z-40 border-b border-white/[0.08]">
+      <nav aria-label="Navigation principale" className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-6 px-4 md:h-[72px] md:px-6">
         <Link href={accueil} className="flex min-h-11 items-center" aria-label={`${logo.nom} — accueil`}>
           <Logo logo={logo} />
         </Link>
@@ -35,7 +35,7 @@ export function NavigationSite({ logo, lienWhatsApp, accueil = "/", base = "" }:
               <Link
                 href={`${base}${l.href}`}
                 aria-current={actif(l.href) ? "page" : undefined}
-                className={cn("s-transition inline-flex min-h-11 items-center rounded-full px-3 text-[14px] transition-colors", actif(l.href) ? "text-site-texte font-medium" : "text-site-2 hover:text-site-texte")}
+                className={cn("s-transition inline-flex min-h-11 items-center rounded-full px-3.5 text-[15px] font-medium transition-colors", actif(l.href) ? "text-site-accent" : "text-[#c7c7cc] hover:text-site-texte")}
               >
                 {l.libelle}
               </Link>
@@ -50,7 +50,7 @@ export function NavigationSite({ logo, lienWhatsApp, accueil = "/", base = "" }:
           )}
           <button
             type="button"
-            className="s-transition inline-flex size-11 items-center justify-center rounded-full text-site-texte transition-colors hover:bg-site-fond-alt md:hidden"
+            className="s-transition inline-flex size-11 items-center justify-center rounded-[12px] border border-white/20 text-site-texte transition-colors hover:bg-white/5 md:hidden"
             aria-label={ouvert ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={ouvert}
             aria-controls="menu-site"
@@ -61,11 +61,11 @@ export function NavigationSite({ logo, lienWhatsApp, accueil = "/", base = "" }:
         </div>
       </nav>
       {ouvert && (
-        <div id="menu-site" className="border-t border-site-sep/60 md:hidden">
+        <div id="menu-site" className="border-t border-white/[0.08] md:hidden">
           <ul className="mx-auto flex max-w-[1200px] flex-col px-4 py-3">
             {LIENS_SITE.map((l) => (
               <li key={l.href}>
-                <Link href={`${base}${l.href}`} aria-current={actif(l.href) ? "page" : undefined} className="flex min-h-12 items-center text-[21px] font-semibold tracking-[-0.02em]">
+                <Link href={`${base}${l.href}`} aria-current={actif(l.href) ? "page" : undefined} className={cn("s-condense flex min-h-14 items-center text-[34px]", actif(l.href) && "text-site-accent")}>
                   {l.libelle}
                 </Link>
               </li>

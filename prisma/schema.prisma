@@ -1193,7 +1193,7 @@ model ReglagesSite {
   enLigne       Boolean @default(false) // false = page « Bientôt de retour »
   nomAffiche    String  @default("VUCA AUTO")
   slogan        String?
-  couleurAccent String  @default("#0071E3")
+  couleurAccent String  @default("#FFD60A")
   logoClairId   String? // IMAGE_SITE
   logoFonceId   String?
   faviconId     String?

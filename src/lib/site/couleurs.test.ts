@@ -19,7 +19,7 @@ describe("couleurs du site", () => {
     expect(texteSurCouleur("#FFD60A")).toBe("#1d1d1f");
     expect(accentLisibleSurBlanc("#0071E3")).toBe(true);
     expect(accentLisibleSurBlanc("#FFD60A")).toBe(false);
-    expect(accentValide("bleu")).toBe("#0071E3");
+    expect(accentValide("bleu")).toBe("#FFD60A");
     expect(hexVersRvb("#0071e3")).toEqual([0, 113, 227]);
   });
 

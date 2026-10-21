@@ -19,19 +19,19 @@ export default async function PageContact() {
             <dl className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
               {r.moyensPaiement.length > 0 && (
                 <div>
-                  <dt className="s-titre-4">Paiement</dt>
+                  <dt className="s-titre-4 s-condense">Paiement</dt>
                   <dd className="mt-2 text-site-2">{r.moyensPaiement.join(", ")}</dd>
                 </div>
               )}
               {r.livraison && (
                 <div>
-                  <dt className="s-titre-4">Livraison</dt>
+                  <dt className="s-titre-4 s-condense">Livraison</dt>
                   <dd className="mt-2 text-site-2">Possible{r.zoneLivraison ? ` : ${r.zoneLivraison}` : ""}.</dd>
                 </div>
               )}
               {r.reprise && (
                 <div>
-                  <dt className="s-titre-4">Reprise</dt>
+                  <dt className="s-titre-4 s-condense">Reprise</dt>
                   <dd className="mt-2 text-site-2">Nous pouvons reprendre votre véhicule actuel.</dd>
                 </div>
               )}
@@ -42,7 +42,7 @@ export default async function PageContact() {
       {r.faq.length > 0 && (
         <Section fond="gris">
           <Conteneur etroit>
-            <EnTeteSection titre="Questions fréquentes" centre />
+            <EnTeteSection titre="Questions" accent="fréquentes" centre />
             <Faq questions={r.faq} />
           </Conteneur>
         </Section>

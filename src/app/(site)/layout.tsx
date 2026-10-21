@@ -5,7 +5,7 @@ import { Bandeau } from "@/components/site/mise-en-page";
 import { MesureSite } from "@/components/site/mesure";
 import { NavigationSite } from "@/components/site/navigation-site";
 import { PiedDePage } from "@/components/site/pied-de-page";
-import { inter } from "@/components/site/police";
+import { policesSite } from "@/components/site/police";
 import { WhatsappFlottantSite } from "@/components/site/whatsapp-flottant-site";
 import { lireConfigDomaines, urlSite } from "@/lib/domaines";
 import { variablesAccent } from "@/lib/site/couleurs";
@@ -25,7 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const defaut = seoParDefaut(r.nom);
   const titre = r.seoTitre ?? defaut.titre;
   const description = r.seoDescription ?? defaut.description;
-  const icone = r.faviconId ? urlPhoto({ id: r.faviconId }, 400, chemins.photos) : null;
+  // Icône choisie dans le CRM, sinon l'icône de la marque générée aux couleurs du site
+  const icone = r.faviconId ? urlPhoto({ id: r.faviconId }, 400, chemins.photos) : `${chemins.base}/partage/icone`;
   const imagePartage = r.imagePartageId ? urlPhoto({ id: r.imagePartageId }, 1280, chemins.photos) : `${chemins.base}/partage/site`;
   return {
     metadataBase: domaine ? new URL(urlSite("/", domaine)) : undefined,
@@ -35,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // En maintenance (ou dans l'aperçu du CRM), rien n'est indexé
     robots: maintenance || apercu ? { index: false, follow: false } : { index: true, follow: true },
     applicationName: r.nom,
-    icons: icone ? { icon: icone, apple: icone } : undefined,
+    icons: { icon: icone, apple: icone },
     openGraph: { type: "website", locale: "fr_FR", siteName: r.nom, title: titre, description, images: [{ url: imagePartage, alt: r.nom }] },
     twitter: { card: "summary_large_image", title: titre, description, images: [imagePartage] },
     formatDetection: { telephone: false },
@@ -43,10 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-  ],
+  themeColor: "#0a0a0b",
 };
 
 export default async function LayoutSite({ children }: { children: React.ReactNode }) {
@@ -55,13 +53,13 @@ export default async function LayoutSite({ children }: { children: React.ReactNo
   if (maintenance) {
     // Habillage minimal : chaque page affiche « Notre site arrive bientôt » (la 404 reste une 404)
     return (
-      <div className={`site ${inter.variable}`} style={style}>
+      <div className={`site ${policesSite}`} style={style}>
         {children}
       </div>
     );
   }
   return (
-    <div className={`site flex flex-col ${inter.variable}`} style={style}>
+    <div className={`site flex flex-col ${policesSite}`} style={style}>
       <a href="#contenu" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-site-carte focus:px-4 focus:py-2 focus:shadow-site">
         Aller au contenu
       </a>

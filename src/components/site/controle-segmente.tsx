@@ -15,7 +15,7 @@ export function ControleSegmente<T extends string>({ options, valeur, onChange, 
     refs.current[(i + options.length) % options.length]?.focus();
   };
   return (
-    <div role="radiogroup" aria-label={libelle} className={cn("inline-flex max-w-full overflow-x-auto rounded-full bg-site-fond-alt p-1", className)}>
+    <div role="radiogroup" aria-label={libelle} className={cn("inline-flex max-w-full overflow-x-auto rounded-full border border-white/[0.08] bg-site-carte p-1", className)}>
       {options.map((o, i) => {
         const actif = o.valeur === valeur;
         return (
@@ -40,7 +40,7 @@ export function ControleSegmente<T extends string>({ options, valeur, onChange, 
             }}
             className={cn(
               "s-transition min-h-11 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-medium transition-[background-color,color,box-shadow]",
-              actif ? "bg-site-carte text-site-texte shadow-site" : "text-site-2 hover:text-site-texte",
+              actif ? "bg-site-accent-fond text-site-sur-accent font-semibold" : "text-site-2 hover:text-site-texte",
             )}
           >
             {o.libelle}

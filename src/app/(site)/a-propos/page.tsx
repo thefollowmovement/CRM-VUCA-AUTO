@@ -22,7 +22,7 @@ export default async function PageAPropos() {
     <main>
       <Section className="pt-12 md:pt-20">
         <Conteneur etroit>
-          <EnTeteSection niveau={1} titre={`À propos de ${r.nom}`} intro={r.slogan ?? undefined} />
+          <EnTeteSection niveau={1} titre="À propos de" accent={r.nom} intro={r.slogan ?? undefined} />
           {photo && (
             // Photo « à propos » choisie dans le CRM (non recadrée)
             <img src={photo} alt={`${r.nom}`} className="mb-10 w-full rounded-carte object-cover" loading="eager" />
@@ -33,9 +33,9 @@ export default async function PageAPropos() {
             <p className="s-intro">Achat et vente de voitures d&apos;occasion. Pour toute question, écrivez-nous : nous vous répondons directement.</p>
           )}
           <div className="mt-10 flex flex-wrap gap-3">
-            <Bouton href={chemins.voitures()}>Voir nos voitures</Bouton>
+            <Bouton href={chemins.voitures()} taille="grand">Voir nos voitures</Bouton>
             {whatsapp && (
-              <Bouton href={whatsapp} externe variante="whatsapp">
+              <Bouton href={whatsapp} externe variante="whatsapp" taille="grand">
                 Écrire sur WhatsApp
               </Bouton>
             )}
@@ -45,7 +45,7 @@ export default async function PageAPropos() {
       <SectionConfiance r={r} nombreVendus={vendus.afficherNombreVendus && nombreVendus >= vendus.seuilNombreVendus ? nombreVendus : null} />
       <Section>
         <Conteneur>
-          <EnTeteSection titre="Comment ça se passe" centre />
+          <EnTeteSection titre="3 étapes," accent="zéro prise de tête" />
           <Etapes />
         </Conteneur>
       </Section>

@@ -70,7 +70,7 @@ C'est définitif ; la démonstration ne revient plus, même après une mise à j
 |---|---|
 | **Site web → Contact & WhatsApp** | votre numéro WhatsApp, téléphone, email, adresse, horaires, délai de réponse |
 | **Site web → Légal** | forme juridique, SIRET, adresse du siège (obligatoires pour un site professionnel) ; les textes des mentions légales et de la politique de confidentialité sont générés à partir de ces informations |
-| **Site web → Général** | nom affiché, slogan, couleur, logos, icône d'onglet |
+| **Site web → Général** | nom affiché, slogan, couleur (jaune par défaut), logos, icône d'onglet — sans logo envoyé, le site affiche automatiquement le logo VUCA AUTO (carré jaune au « V » de route) |
 | **Site web → Confiance** | vos engagements (cochez uniquement ce que vous faites vraiment), prénom et photo de l'interlocuteur, moyens de paiement, livraison, reprise |
 | **Site web → Contenu** | texte d'accueil, page « À propos », questions fréquentes |
 

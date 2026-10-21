@@ -127,12 +127,14 @@
   --color-site-reserve-fond: var(--site-reserve-fond);
   --color-site-vendu: var(--site-vendu);
   --color-site-vendu-fond: var(--site-vendu-fond);
-  --radius-carte: 18px;
-  --radius-tuile: 14px;
-  --shadow-site: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --shadow-site-fort: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --radius-carte: 24px;
+  --radius-tuile: 16px;
+  --shadow-site: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --shadow-site-fort: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  --color-site-carte-2: var(--site-carte-2);
   --ease-site: cubic-bezier(0.25, 0.1, 0.25, 1);
-  --font-site: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--police-inter), "Inter", "Segoe UI", Roboto, sans-serif;
+  --font-site: var(--police-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-titres: var(--police-titres), "Archivo", var(--police-inter), sans-serif;
 }
 
 @layer base {

@@ -22,15 +22,15 @@ export function PiedDePage({ infos, base = "", cookies = false }: { infos: Infos
   const annee = new Date().getFullYear();
   const reseaux = Object.entries(infos.reseaux) as [Reseau, string][];
   return (
-    <footer className="bg-site-fond-alt text-site-2">
+    <footer className="border-t border-white/[0.08] bg-site-fond text-site-2">
       <Conteneur className="py-12">
-        <div className="grid grid-cols-1 gap-10 border-b border-site-sep pb-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-10 border-b border-white/[0.08] pb-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-2">
             <Logo logo={infos.logo} className="text-site-texte" />
             {infos.slogan && <p className="s-petit">{infos.slogan}</p>}
           </div>
           <nav aria-label="Pages du site" className="s-petit">
-            <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.04em] text-site-texte">Le site</h2>
+            <h2 className="mb-3 !text-[12px] !font-semibold !tracking-[0.08em] text-site-texte [font-family:var(--police-inter),sans-serif] [font-stretch:100%]">Le site</h2>
             <ul className="flex flex-col">
               <li>
                 <Link href={`${base}/`} className="inline-flex min-h-11 items-center hover:text-site-texte">
@@ -47,7 +47,7 @@ export function PiedDePage({ infos, base = "", cookies = false }: { infos: Infos
             </ul>
           </nav>
           <div className="s-petit">
-            <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.04em] text-site-texte">Nous contacter</h2>
+            <h2 className="mb-3 !text-[12px] !font-semibold !tracking-[0.08em] text-site-texte [font-family:var(--police-inter),sans-serif] [font-stretch:100%]">Nous contacter</h2>
             <ul className="flex flex-col">
               {infos.telephone && (
                 <li>
@@ -68,7 +68,7 @@ export function PiedDePage({ infos, base = "", cookies = false }: { infos: Infos
           </div>
           {reseaux.length > 0 && (
             <div className="s-petit">
-              <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.04em] text-site-texte">Suivez-nous</h2>
+              <h2 className="mb-3 !text-[12px] !font-semibold !tracking-[0.08em] text-site-texte [font-family:var(--police-inter),sans-serif] [font-stretch:100%]">Suivez-nous</h2>
               <ul className="flex flex-col">
                 {reseaux.map(([r, url]) => (
                   <li key={r}>

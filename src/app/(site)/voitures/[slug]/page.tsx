@@ -125,7 +125,7 @@ export default async function FicheVoiture({ params }: Props) {
                   <h2 id="confiance" className="s-titre-3 mb-5">Ce qui a été vérifié</h2>
                   <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {v.confiance.map((c) => (
-                      <li key={c.cle} className="flex gap-3 rounded-tuile bg-site-fond-alt p-4">
+                      <li key={c.cle} className="flex gap-3 rounded-tuile border border-white/[0.08] bg-site-carte p-4">
                         <CircleCheck className="mt-0.5 size-5 shrink-0 text-site-accent" strokeWidth={1.75} aria-hidden />
                         <div className="min-w-0">
                           <p className="font-semibold">{c.libelle}</p>
@@ -147,19 +147,19 @@ export default async function FicheVoiture({ params }: Props) {
               {equipements.length > 0 && (
                 <section aria-labelledby="equipements">
                   <h2 id="equipements" className="s-titre-3 mb-5">Équipements</h2>
-                  <div className="divide-y divide-site-sep border-y border-site-sep">
+                  <div className="divide-y divide-white/[0.08] border-y border-white/[0.08]">
                     {equipements.map((c, i) => (
                       <details key={c.libelle} open={i === 0}>
                         <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-4 py-3 text-[17px] font-semibold">
                           <span>
                             {c.libelle} <span className="font-normal text-site-2">({c.items.length})</span>
                           </span>
-                          <ChevronRight className="s-chevron s-transition size-5 shrink-0 text-site-2 transition-transform" strokeWidth={1.75} aria-hidden />
+                          <ChevronRight className="s-chevron s-transition size-5 shrink-0 text-site-accent transition-transform" strokeWidth={2} aria-hidden />
                         </summary>
                         <ul className="grid grid-cols-1 gap-x-6 gap-y-2 pb-5 sm:grid-cols-2">
                           {c.items.map((item) => (
                             <li key={item} className="flex items-center gap-2">
-                              <CircleCheck className="size-4 shrink-0 text-site-2" strokeWidth={1.5} aria-hidden /> {item}
+                              <CircleCheck className="size-4 shrink-0 text-site-accent" strokeWidth={1.75} aria-hidden /> {item}
                             </li>
                           ))}
                         </ul>
@@ -172,8 +172,8 @@ export default async function FicheVoiture({ params }: Props) {
               {v.travauxRealises && (
                 <section aria-labelledby="travaux">
                   <h2 id="travaux" className="s-titre-3 mb-5">Travaux réalisés</h2>
-                  <p className="flex gap-3 whitespace-pre-line rounded-tuile bg-site-fond-alt p-4">
-                    <Wrench className="mt-0.5 size-5 shrink-0 text-site-2" strokeWidth={1.5} aria-hidden /> {v.travauxRealises}
+                  <p className="flex gap-3 whitespace-pre-line rounded-tuile border border-white/[0.08] bg-site-carte p-4">
+                    <Wrench className="mt-0.5 size-5 shrink-0 text-site-accent" strokeWidth={1.5} aria-hidden /> {v.travauxRealises}
                   </p>
                 </section>
               )}
@@ -185,10 +185,10 @@ export default async function FicheVoiture({ params }: Props) {
 
             {/* Colonne de droite (ordinateur) : prix, contact, collante */}
             <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:h-fit">
-              <div className="flex flex-col gap-3 rounded-carte bg-site-carte p-6 shadow-site">
-                {!vendu && <Prix centimes={v.prixCentimes} negociable={v.prixNegociable} className="hidden lg:flex" />}
+              <div className="flex flex-col gap-3 rounded-carte border border-white/[0.08] bg-site-carte p-6">
+                {!vendu && <Prix centimes={v.prixCentimes} negociable={v.prixNegociable} etiquette className="mb-2 hidden lg:flex [&>span:first-child]:-rotate-2 [&>span:first-child]:text-[34px]" />}
                 {whatsappVehicule && (
-                  <Bouton href={whatsappVehicule} externe variante="whatsapp" taille="grand" pleineLargeur>
+                  <Bouton href={whatsappVehicule} externe variante="whatsapp" taille="grand" pleineLargeur className={vendu ? undefined : "s-onde"}>
                     Écrire sur WhatsApp
                   </Bouton>
                 )}
@@ -201,7 +201,7 @@ export default async function FicheVoiture({ params }: Props) {
                 {garantie && !vendu && <p className="s-petit text-center text-site-2">{garantie.libelle}{garantie.detail ? ` — ${garantie.detail}` : ""}</p>}
               </div>
               {!vendu && (
-                <div className="flex items-center gap-4 rounded-carte bg-site-fond-alt p-6">
+                <div className="flex items-center gap-4 rounded-carte border border-white/[0.08] bg-site-carte p-6">
                   {photoVendeur && (
                     <img src={photoVendeur} alt={r.vendeurNom ?? "Votre interlocuteur"} className="size-14 shrink-0 rounded-full object-cover" />
                   )}
@@ -223,7 +223,8 @@ export default async function FicheVoiture({ params }: Props) {
         <Section fond="gris">
           <Conteneur>
             <EnTeteSection
-              titre={vendu ? "Ces voitures pourraient vous plaire" : "Véhicules similaires"}
+              titre={vendu ? "Ces voitures pourraient" : "Véhicules"}
+              accent={vendu ? "vous plaire" : "similaires"}
               action={
                 <Bouton href={chemins.voitures()} variante="secondaire">
                   Voir toutes les voitures
@@ -257,12 +258,12 @@ function TitreFiche({ v }: { v: VehiculePublic }) {
             {v.disponibilite === "VENDU" && <Badge ton="vendu">Vendu</Badge>}
           </div>
         )}
-        <h1 className="s-titre-1">
-          {v.marque} {v.modele}
+        <h1 className="s-titre-1 s-monte">
+          {v.marque} <span className="text-site-accent">{v.modele}</span>
         </h1>
-        {(v.version || v.annee) && <p className="s-intro mt-2">{[v.version, v.annee].filter(Boolean).join(" · ")}</p>}
+        {(v.version || v.annee) && <p className="s-intro s-monte mt-3 [animation-delay:120ms]">{[v.version, v.annee].filter(Boolean).join(" · ")}</p>}
       </div>
-      {v.disponibilite !== "VENDU" && <Prix centimes={v.prixCentimes} negociable={v.prixNegociable} taille="grand" className="shrink-0" />}
+      {v.disponibilite !== "VENDU" && <Prix centimes={v.prixCentimes} negociable={v.prixNegociable} taille="grand" etiquette className="s-monte shrink-0 lg:hidden [animation-delay:200ms] [&>span:first-child]:-rotate-2" />}
     </div>
   );
 }

@@ -33,7 +33,8 @@ export default async function PageVoitures({ searchParams }: { searchParams: Pro
         <Conteneur>
           <EnTeteSection
             niveau={1}
-            titre="Nos voitures"
+            titre="Nos"
+            accent="voitures"
             intro={`${toutes.length} voiture${toutes.length > 1 ? "s" : ""} disponible${toutes.length > 1 ? "s" : ""}, photos réelles et prix affichés.`}
           />
           {toutes.length > 0 && <FiltresVoitures filtres={filtres} options={optionsFiltres(toutes)} nombreResultats={resultats.length} chemin={chemins.voitures()} />}
@@ -76,7 +77,7 @@ export default async function PageVoitures({ searchParams }: { searchParams: Pro
       {vendusRecemment.length > 0 && (
         <Section>
           <Conteneur>
-            <EnTeteSection titre="Récemment vendues" intro="Elles ont déjà trouvé preneur." />
+            <EnTeteSection titre="Récemment" accent="vendues" intro="Elles ont déjà trouvé preneur." />
             <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {vendusRecemment.map((v) => (
                 <li key={v.slug}>

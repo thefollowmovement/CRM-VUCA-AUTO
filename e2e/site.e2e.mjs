@@ -36,7 +36,7 @@ try {
   // 1. Accueil
   const reponse = await page.goto(`${SITE}/`);
   const texteAccueil = normaliser(await page.locator("body").innerText());
-  if (texteAccueil.includes("arrive bientôt")) throw new Error("Le site est en maintenance : mettez-le en ligne (CRM → Site web → Général) avant le test.");
+  if (texteAccueil.toLowerCase().includes("arrive bientôt")) throw new Error("Le site est en maintenance : mettez-le en ligne (CRM → Site web → Général) avant le test.");
   ok(reponse?.status() === 200 && (await page.locator("h1").count()) === 1, "Accueil : page affichée avec un titre principal");
 
   // 2. Liste des voitures
@@ -52,7 +52,7 @@ try {
   await page.waitForURL(new RegExp(`marque=${encodeURIComponent(marque)}`));
   await page.waitForLoadState("networkidle");
   const titres = await page.locator(".s-carte h3").allInnerTexts();
-  ok(titres.length > 0 && titres.every((t) => t.startsWith(marque)), `Filtre « ${marque} » : ${titres.length} voiture(s), toutes de cette marque`);
+  ok(titres.length > 0 && titres.every((t) => t.toLowerCase().startsWith(marque.toLowerCase())), `Filtre « ${marque} » : ${titres.length} voiture(s), toutes de cette marque`);
   ok(await page.getByRole("button", { name: `Retirer le filtre ${marque}` }).isVisible(), "Filtre : puce « Retirer le filtre » affichée");
 
   // 4. Fiche du premier résultat
@@ -62,7 +62,7 @@ try {
   await page.waitForURL(`${SITE}${lienFiche}`);
   await page.waitForLoadState("networkidle");
   const h1 = normaliser(await page.locator("h1").innerText());
-  ok(h1.startsWith(marque), `Fiche : « ${h1} »`);
+  ok(h1.toLowerCase().startsWith(marque.toLowerCase()), `Fiche : « ${h1} »`); // titres affichés en majuscules (CSS)
   const titreOnglet = normaliser(await page.title());
   ok(/ – .* km – .* \| /.test(titreOnglet), `Fiche : titre d'onglet « modèle année – km – prix | nom » (${titreOnglet})`);
 
@@ -71,7 +71,7 @@ try {
   const message = normaliser(decodeURIComponent(lienWa?.split("?text=")[1] ?? ""));
   ok(lienWa?.startsWith(`https://wa.me/${NUMERO}?text=`), `WhatsApp : numéro ${NUMERO}`);
   ok(message.includes(marque) && message.includes(lienFiche), `WhatsApp : message pré-rempli (${message})`);
-  const prix = normaliser((await page.locator("aside .s-chiffres").first().innerText()).split("\n")[0]);
+  const prix = normaliser(await page.locator("aside .s-etiquette-prix").first().innerText());
   if (/€/.test(prix)) ok(chiffres(message).includes(chiffres(prix)), `WhatsApp : le message cite le prix (${prix})`);
 
   // 6. Aucun cookie déposé par le site

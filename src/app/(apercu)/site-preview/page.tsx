@@ -1,7 +1,7 @@
 import { ArrowLeft, CalendarDays, Car, Fuel, Gauge, Leaf, MapPin, Palette, Phone, Settings2, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { Apparition } from "@/components/site/apparition";
-import { ChoixTheme, DemoFiltres } from "@/components/site/apercu/demo-interactive";
+import { DemoFiltres } from "@/components/site/apercu/demo-interactive";
 import { CarteAvis, Engagements, Etapes, Faq, Horaires } from "@/components/site/blocs";
 import { Bouton } from "@/components/site/bouton";
 import { CarteVehicule } from "@/components/site/carte-vehicule";
@@ -25,12 +25,12 @@ const photoCrm = (id: string | undefined): SourcePhoto | null => (id ? { src: `/
 const imageCrm = (id: string | null) => (id ? `/api/fichiers/${id}` : null);
 
 const PALETTE = [
-  { nom: "Fond", variable: "--site-fond", valeur: "#FFFFFF" },
-  { nom: "Fond alterné", variable: "--site-fond-alt", valeur: "#F5F5F7" },
-  { nom: "Texte", variable: "--site-texte", valeur: "#1D1D1F" },
-  { nom: "Texte secondaire", variable: "--site-texte-2", valeur: "#6E6E73" },
-  { nom: "Séparateurs", variable: "--site-separateur", valeur: "#D2D2D7" },
-  { nom: "Accent (réglable)", variable: "--site-accent", valeur: "Site web → Général" },
+  { nom: "Fond (nuit)", variable: "--site-fond", valeur: "#0A0A0B" },
+  { nom: "Cartes", variable: "--site-carte", valeur: "#141416" },
+  { nom: "Texte", variable: "--site-texte", valeur: "#F5F5F7" },
+  { nom: "Texte secondaire", variable: "--site-texte-2", valeur: "#A1A1A6" },
+  { nom: "Séparateurs", variable: "--site-separateur", valeur: "#2A2A2E" },
+  { nom: "Accent (réglable, jaune par défaut)", variable: "--site-accent", valeur: "Site web → Général" },
   { nom: "WhatsApp", variable: "--site-whatsapp", valeur: "#25D366" },
 ];
 
@@ -58,9 +58,6 @@ export default async function PageApercuSite() {
             <ArrowLeft className="size-4" aria-hidden /> Retour au CRM
           </Link>
           <p className="text-[14px] text-white/70">Aperçu du style du site — visible uniquement dans le CRM</p>
-          <div className="text-site-texte">
-            <ChoixTheme />
-          </div>
         </Conteneur>
       </div>
 
@@ -124,7 +121,7 @@ export default async function PageApercuSite() {
         {/* Typographie, couleurs, boutons, badges */}
         <Section>
           <Conteneur>
-            <EnTeteSection surtitre="Système de design" titre="Typographie et couleurs" intro="Police du système Apple (SF Pro), Inter auto-hébergée sur les autres appareils." />
+            <EnTeteSection surtitre="Système de design" titre="Typographie et couleurs" intro="Titres en Archivo condensé très gras (majuscules), texte courant en Inter. Les deux polices sont hébergées sur le site." />
             <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-2">
               <div className="flex flex-col gap-4">
                 <p className="s-titre-1">Titre 56</p>

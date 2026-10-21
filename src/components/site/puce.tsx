@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 /** Puce d'un filtre actif, avec bouton pour le retirer. */
 export function PuceFiltre({ libelle, onRetirer }: { libelle: string; onRetirer: () => void }) {
   return (
-    <span className="inline-flex h-11 items-center rounded-full bg-site-fond-alt pl-4 text-[14px] font-medium">
+    <span className="inline-flex h-11 items-center rounded-full border border-white/20 bg-site-carte pl-4 text-[14px] font-medium">
       {libelle}
       <button
         type="button"

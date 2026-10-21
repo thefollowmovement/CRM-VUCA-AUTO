@@ -1,34 +1,11 @@
 "use client";
 
 import { SlidersHorizontal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Bouton } from "../bouton";
 import { ControleSegmente } from "../controle-segmente";
 import { FeuilleBas } from "../feuille-bas";
 import { PuceFiltre } from "../puce";
-
-/** Choix du mode d'affichage pour l'aperçu : automatique (appareil), clair ou sombre. */
-export function ChoixTheme() {
-  const [theme, setTheme] = useState<"auto" | "light" | "dark">("auto");
-  useEffect(() => {
-    const site = document.querySelector<HTMLElement>(".site");
-    if (!site) return;
-    if (theme === "auto") delete site.dataset.theme;
-    else site.dataset.theme = theme;
-  }, [theme]);
-  return (
-    <ControleSegmente
-      libelle="Mode d'affichage"
-      valeur={theme}
-      onChange={setTheme}
-      options={[
-        { valeur: "auto", libelle: "Automatique" },
-        { valeur: "light", libelle: "Clair" },
-        { valeur: "dark", libelle: "Sombre" },
-      ]}
-    />
-  );
-}
 
 const TRIS = [
   { valeur: "recentes", libelle: "Plus récentes" },

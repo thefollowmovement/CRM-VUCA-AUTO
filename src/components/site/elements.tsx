@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /** Photo au format 4:3 (même cadrage partout), chargement différé sauf si prioritaire. */
 export function PhotoSite({ photo, alt, sizes, prioritaire, className, arrondi = "rounded-carte" }: { photo: SourcePhoto | null; alt: string; sizes?: string; prioritaire?: boolean; className?: string; arrondi?: string }) {
   return (
-    <div className={cn("s-carte-photo relative aspect-[4/3] overflow-hidden bg-site-fond-alt", arrondi, className)}>
+    <div className={cn("s-carte-photo relative aspect-[4/3] overflow-hidden bg-site-carte-2", arrondi, className)}>
       {photo ? (
         <img
           src={photo.src}
@@ -32,20 +32,25 @@ export type TonBadge = "reserve" | "vendu" | "neutre" | "accent";
 const TONS: Record<TonBadge, string> = {
   reserve: "bg-site-reserve-fond text-site-reserve",
   vendu: "bg-site-vendu-fond text-site-vendu",
-  neutre: "bg-site-carte/90 text-site-texte shadow-site",
+  neutre: "bg-black/70 text-white backdrop-blur-md",
   accent: "bg-site-accent-fond text-site-sur-accent",
 };
 
 /** Petite pastille : Réservé (orange doux), Vendu (gris), Garantie, Première main… */
 export function Badge({ ton = "neutre", children, className }: { ton?: TonBadge; children: React.ReactNode; className?: string }) {
-  return <span className={cn("inline-flex h-7 items-center gap-1 rounded-full px-3 text-[13px] font-semibold tracking-[-0.005em] [&_svg]:size-3.5", TONS[ton], className)}>{children}</span>;
+  return <span className={cn("inline-flex h-7 items-center gap-1 rounded-[9px] px-2.5 text-[13px] font-semibold [&_svg]:size-3.5", TONS[ton], className)}>{children}</span>;
 }
 
-/** Prix en chiffres alignés, avec « négociable » si coché. */
-export function Prix({ centimes, negociable, taille = "normal", className }: { centimes: number | null; negociable?: boolean; taille?: "normal" | "grand"; className?: string }) {
+/** Prix en chiffres alignés (lettres condensées), avec « négociable » si coché. `etiquette` = étiquette jaune. */
+export function Prix({ centimes, negociable, taille = "normal", etiquette, className }: { centimes: number | null; negociable?: boolean; taille?: "normal" | "grand"; etiquette?: boolean; className?: string }) {
+  const montant = etiquette ? (
+    <span className={cn("s-etiquette-prix", taille === "grand" ? "text-[34px] md:text-[42px]" : "text-[24px]")}>{prixSite(centimes)}</span>
+  ) : (
+    <span className={cn("s-condense s-chiffres", taille === "grand" ? "text-[40px] md:text-[52px]" : "text-[26px]")}>{prixSite(centimes)}</span>
+  );
   return (
-    <p className={cn("s-chiffres flex flex-wrap items-baseline gap-x-2", className)}>
-      <span className={cn("font-semibold tracking-[-0.02em]", taille === "grand" ? "text-[32px] md:text-[40px]" : "text-[21px]")}>{prixSite(centimes)}</span>
+    <p className={cn("s-chiffres flex flex-wrap items-center gap-x-2.5 gap-y-1", className)}>
+      {montant}
       {negociable && centimes !== null && <span className="s-petit text-site-2">négociable</span>}
     </p>
   );

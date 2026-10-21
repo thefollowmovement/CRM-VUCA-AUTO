@@ -26,11 +26,11 @@ export function WhatsappFlottant({ lien, masquerMobile, className }: { lien: str
 /** Barre collante en bas de la fiche véhicule (mobile) : prix + WhatsApp + appel. */
 export function BarreVehiculeMobile({ prixCentimes, negociable, lienWhatsApp, telephone, apercu, className }: { prixCentimes: number | null; negociable: boolean; lienWhatsApp: string | null; telephone: string | null; /** Démonstration : affichée sur place, sur tous les écrans */ apercu?: boolean; className?: string }) {
   return (
-    <div className={cn("s-nav border-t border-site-sep/60", apercu ? "rounded-carte border shadow-site" : "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] md:hidden", className)}>
+    <div className={cn("s-nav border-t border-white/[0.1]", apercu ? "rounded-carte border shadow-site" : "fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] md:hidden", className)}>
       <div className="flex items-center gap-3 px-4 py-3">
-        <Prix centimes={prixCentimes} negociable={negociable} className="min-w-0 flex-1 [&>span:first-child]:text-[19px]" />
+        <Prix centimes={prixCentimes} negociable={negociable} etiquette className="min-w-0 flex-1 [&>span:first-child]:text-[22px]" />
         {telephone && (
-          <a href={`tel:${telephone.replace(/[^\d+]/g, "")}`} aria-label="Appeler" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-site-sep text-site-texte">
+          <a href={`tel:${telephone.replace(/[^\d+]/g, "")}`} aria-label="Appeler" className="inline-flex size-12 shrink-0 items-center justify-center rounded-[14px] border border-white/20 text-site-texte">
             <Phone className="size-5" strokeWidth={1.5} aria-hidden />
           </a>
         )}

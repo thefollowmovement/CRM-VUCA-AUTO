@@ -11,16 +11,23 @@ const enDataUri = (p: { contenu: Buffer; type: string } | null) => (p ? `data:${
 /** Polices Inter (WOFF : le générateur d'images ne lit pas le WOFF2). */
 export async function policesPartage() {
   const dossier = path.join(process.cwd(), "src/server/site/polices");
-  const [normal, gras] = await Promise.all([readFile(path.join(dossier, "inter-latin-400-normal.woff")), readFile(path.join(dossier, "inter-latin-700-normal.woff"))]);
+  const [normal, gras, titres] = await Promise.all([
+    readFile(path.join(dossier, "inter-latin-400-normal.woff")),
+    readFile(path.join(dossier, "inter-latin-700-normal.woff")),
+    readFile(path.join(dossier, "archivo-narrow-latin-700-normal.woff")),
+  ]);
   return [
     { name: "Inter", data: normal, weight: 400 as const, style: "normal" as const },
     { name: "Inter", data: gras, weight: 700 as const, style: "normal" as const },
+    { name: "Archivo Narrow", data: titres, weight: 700 as const, style: "normal" as const },
   ];
 }
 
 export type DonneesPartage = {
   nom: string;
   accent: string;
+  /** Couleur du texte posé sur l'accent (noir sur jaune). */
+  surAccent?: string;
   logo: string | null;
   titre: string;
   sousTitre: string | null;
@@ -46,7 +53,7 @@ export async function partageSite(): Promise<DonneesPartage> {
   // Même titre que l'accueil ; le sous-titre ne répète jamais le titre
   const titre = enLigne ? (r.accueilTitre ?? r.slogan ?? "Des voitures d'occasion choisies avec soin.") : "Notre site arrive bientôt.";
   const sousTitre = [r.slogan, "Voitures d'occasion · contact direct sur WhatsApp"].find((t) => t && t !== titre) ?? null;
-  return { nom: r.nom, accent: r.accent, logo, titre, sousTitre, prix: null, photo: null, badge: null, whatsapp: !!r.whatsapp, prive };
+  return { nom: r.nom, accent: r.accent, surAccent: r.surAccent, logo, titre, sousTitre, prix: null, photo: null, badge: null, whatsapp: !!r.whatsapp, prive };
 }
 
 /** Image de partage d'une annonce : photo de couverture, titre, kilométrage, prix. Rien du véhicule en maintenance. */
@@ -59,6 +66,7 @@ export async function partageVoiture(slug: string): Promise<DonneesPartage | nul
   return {
     nom: r.nom,
     accent: r.accent,
+    surAccent: r.surAccent,
     logo,
     titre: `${v.marque} ${v.modele}`,
     sousTitre: [v.version, v.annee, v.kilometrage !== null ? kmSite(v.kilometrage) : null].filter(Boolean).join(" · ") || null,

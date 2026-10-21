@@ -11,7 +11,7 @@ export function BlocContact({ r, lienWhatsApp, titre = "Une question ?", niveau 
   const Titre = niveau === 1 ? "h1" : "h2";
   const SousTitre = niveau === 1 ? "h2" : "h3"; // ordre des titres respecté (accessibilité)
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-10 rounded-carte bg-site-fond-alt p-6 md:grid-cols-2 md:p-10">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-10 rounded-carte border border-white/[0.08] bg-site-carte p-6 md:grid-cols-2 md:p-12">
       <div className="flex flex-col gap-5">
         <Titre className={niveau === 1 ? "s-titre-1" : "s-titre-2"}>{titre}</Titre>
         <p className="s-intro">{lienWhatsApp ? "Le plus simple : écrivez-nous sur WhatsApp." : "Contactez-nous, nous vous répondons rapidement."}</p>
@@ -22,12 +22,12 @@ export function BlocContact({ r, lienWhatsApp, titre = "Une question ?", niveau 
         )}
         <div className="flex flex-wrap gap-3">
           {lienWhatsApp && (
-            <Bouton href={lienWhatsApp} externe variante="whatsapp">
+            <Bouton href={lienWhatsApp} externe variante="whatsapp" taille="grand" className="s-onde">
               Écrire sur WhatsApp
             </Bouton>
           )}
           {r.telephone && (
-            <Bouton href={tel(r.telephone)} variante="contour">
+            <Bouton href={tel(r.telephone)} variante="contour" taille="grand">
               <Phone strokeWidth={1.5} aria-hidden /> <span className="s-chiffres">{r.telephone}</span>
             </Bouton>
           )}
@@ -79,13 +79,13 @@ export function SectionConfiance({ r, nombreVendus, fond = "gris" }: { r: Reglag
   return (
     <Section fond={fond}>
       <Conteneur>
-        <EnTeteSection titre="Pourquoi nous faire confiance" />
+        <EnTeteSection titre="Pourquoi nous" accent="faire confiance" />
         {chiffres.length > 0 && (
           <dl className="mb-10 grid grid-cols-2 gap-6 md:flex md:gap-16">
             {chiffres.map((c) => (
               <div key={c.libelle}>
                 <dt className="sr-only">{c.libelle}</dt>
-                <dd className="s-chiffres text-[40px] font-bold leading-none tracking-[-0.03em] md:text-[56px]">{c.valeur}</dd>
+                <dd className="s-condense s-chiffres text-[48px] text-site-accent md:text-[72px]">{c.valeur}</dd>
                 <dd className="mt-2 text-site-2">{c.libelle}</dd>
               </div>
             ))}

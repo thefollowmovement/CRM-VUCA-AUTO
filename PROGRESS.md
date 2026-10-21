@@ -27,10 +27,20 @@ Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depui
 | S4 | WhatsApp, compteurs, statistiques | ✅ Validée le 21/10/2026 |
 | S5 | SEO, images de partage, pages légales, performance, accessibilité, e2e | ✅ Validée le 21/10/2026 |
 | S6 | Déploiement, domaine, README, GUIDE_SITE.md | ✅ Validée le 21/10/2026 (domaine branché : vuca-auto.fr 200, www 301, CRM 200) |
+| S7 | Refonte visuelle « Showroom + Route » (direction A + C), identité, animations | 🟡 Livrée le 21/10/2026, en attente de validation |
 
 **Routage par domaine (20/10/2026)** — `vuca-auto.fr` = site public seul (groupe `app/(site)`, accueil provisoire « Notre site arrive bientôt »), `crm.vuca-auto.fr` + alias sslip.io = CRM. Sur le site : aucune page du CRM (404), aucune API hors `/api/site` (404 JSON), jamais l'écran de connexion, aucun cookie ; `www` redirigé. Sur le CRM : pages du site redirigées vers vuca-auto.fr, `/site-preview` (aperçu, connexion exigée). `robots.txt`, `sitemap.xml`, manifeste selon le domaine. `AUTH_URL` retirée (une connexion par domaine). Tests : 16 tests unitaires du routage + parcours HTTP/Chromium (≈ 60 vérifications : chaque domaine, connexion sur crm et sur l'alias, cookie limité à son domaine) ; non-régression CRM. Déploiement : `scripts/configurer-domaines.sh`.
 
-**Projet 2 terminé.** Le site est en maintenance (« Notre site arrive bientôt ») jusqu'à son ouverture par l'utilisateur : marche à suivre dans [`GUIDE_SITE.md`](GUIDE_SITE.md), partie 1 (sauvegarde, retrait de la démonstration, informations, publication, « Site en ligne »).
+## Phase S7 — livré (refonte visuelle)
+
+- **Identité VUCA AUTO** (pas de logo existant) : icône jaune avec un « V » en forme de route et traits de vitesse, nom en lettres condensées (« AUTO » en jaune), couleurs nuit / jaune / blanc, vert réservé à WhatsApp ; utilisée automatiquement tant qu'aucun logo n'est envoyé (aussi pour l'icône d'onglet et les images de partage). Maquettes validées : direction A (showroom sombre) + C (route, jaune, énergique).
+- **Tout le site public refait** : accueil (titre géant « Petits prix. Grandes occasions. » modifiable, voiture animée qui roule, pastille « Dès … € » calculée sur les annonces, bandeau jaune défilant avec uniquement des faits, boutons de budget « Moins de X € », cartes à étiquette de prix jaune, étapes, grand bloc « Une question ? Un message. »), liste, fiche, contact, à propos, pages légales, 404, page « bientôt en ligne » animée, images de partage.
+- **Animations** légères en CSS (aucun script ajouté), coupées automatiquement pour les visiteurs qui réduisent les animations.
+- Couleur d'accent toujours réglable (Site web → Général), jaune par défaut ; l'ancien bleu jamais modifié passe au jaune (migration).
+- Performance : animations réécrites pour la carte graphique (route, roues, onde : aucun « repeint » continu), police des titres réduite à 24 Ko (graisse 900, largeurs 70–86 %). Lighthouse mobile : accueil 91–95, liste 91, fiche 91, contact 98 ; 100 en accessibilité, bonnes pratiques et SEO.
+- Tests : 190 tests unitaires (dont règles de l'accueil) ; accessibilité WCAG 2.1 AA sans erreur (axe, 8 pages, ordinateur et téléphone) ; parcours S1 à S6 (S2 et S3 adaptés au nouveau style : titres en majuscules, fond nuit, étiquette de prix), domaines, phases 7–8 et test du dépôt verts.
+
+**Projet 2 terminé (S0–S6).** Le site est en maintenance (« Notre site arrive bientôt ») jusqu'à son ouverture par l'utilisateur : marche à suivre dans [`GUIDE_SITE.md`](GUIDE_SITE.md), partie 1 (sauvegarde, retrait de la démonstration, informations, publication, « Site en ligne »).
 
 ## Phase S6 — livré
 
