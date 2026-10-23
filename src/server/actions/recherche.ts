@@ -114,7 +114,7 @@ export async function rechercheGlobale(requete: string): Promise<GroupeResultats
         where: { numeroAvis: { contains: compact, mode: "insensitive" } },
         take: 6,
         orderBy: { infractionLe: "desc" },
-        select: { id: true, numeroAvis: true, montantCentimes: true, infractionLe: true, vehicule: { select: { immatriculation: true } } },
+        select: { id: true, numeroAvis: true, immatriculationLue: true, montantCentimes: true, infractionLe: true, vehicule: { select: { immatriculation: true } } },
       }),
     ]);
     if (factures.length || recus.length) {
@@ -139,7 +139,7 @@ export async function rechercheGlobale(requete: string): Promise<GroupeResultats
         titre: "PV",
         resultats: amendes.map((a) => ({
           libelle: `PV n° ${a.numeroAvis}`,
-          detail: [formatDate(a.infractionLe), a.vehicule.immatriculation, formatEuros(a.montantCentimes)].filter(Boolean).join(" · "),
+          detail: [formatDate(a.infractionLe), a.vehicule?.immatriculation ?? a.immatriculationLue, formatEuros(a.montantCentimes)].filter(Boolean).join(" · "),
           href: `/location/amendes/${a.id}`,
         })),
       });

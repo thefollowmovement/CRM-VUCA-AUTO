@@ -14,6 +14,27 @@
 | 7 | Dashboard, alertes, rapports, exports, relevés investisseurs, versements | ✅ Validée le 20/10/2026 |
 | 8 | Portail investisseur, PWA, sauvegardes, finitions, README | ✅ Validée le 20/10/2026 |
 
+## Module Amendes (projet 3) — OCR des PV + désignation ANTAI
+
+Prompt utilisateur du 23/10/2026 + extension Chrome fournie (`vuca-antai-extension`, contrat JSON de l'API à respecter). Plan validé (« go ») : étendre la table `Amende` existante (pas de 2e table), statuts ajoutés sans renommer, identifiants texte dans l'API (compatibles avec l'extension), scans via le stockage existant, lecture en tâche de fond dans le serveur (pas de cron).
+
+| Étape | Contenu | Statut |
+|---|---|---|
+| A1 | Données, fiche client ANTAI, Réglages › Amendes, import + découpage, lecture Claude, contrôles, rapprochement, écran « À valider » | 🟡 Livrée le 23/10/2026, en attente de validation |
+| A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | À faire |
+| A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | À faire |
+
+### Étape A1 — livré
+
+- **Import** (Location › PV › Importer) : glisser-déposer de PDF / JPG / PNG / HEIC (20 Mo par fichier, limite du relais HTTPS), PDF découpé page par page (pdf-lib), chaque page = un PV « à lire » ; suivi du dépôt « x / n lus » qui se rafraîchit seul ; doublons (même numéro d'avis) écartés avec lien vers l'original ; pages sans avis écartées.
+- **Lecture par Claude** (`claude-haiku-5-5` par défaut, réglable) : outil `enregistrer_avis` imposé, prompt et schéma du cahier des charges, 3 tentatives (attente exponentielle) sur 429 / 5xx / 529, tokens journalisés par avis ; échec → « Lecture impossible : … » (saisie à la main, bouton « Relancer la lecture »). Écart assumé : **pas de « température 0 »** — l'API la refuse désormais (erreur 400) ; la sortie est cadrée par l'outil.
+- **Contrôles** (numéro 10/12/18 chiffres, plaque SIV, dates cohérentes, titulaire = raison sociale, confiance « moyenne / basse » → « À relire ») et **rapprochement** avec la location (retour effectif sinon prévu, location en cours jusqu'à maintenant, plusieurs / aucune location, ±2 h de la remise ou du retour, heure absente + changement de locataire, conducteur additionnel, fiche client incomplète) : fonctions pures, 25 tests.
+- **À valider** : scan (miniature + plein écran), champs modifiables (une correction de plaque / date / heure relance le rapprochement), locataire proposé + choix d'un autre contrat du véhicule ou « Aucun / payé par la société », badges orange (à relire) / rouges (blocage), lignes sans alerte pré-cochées, « Valider la sélection » → « à désigner » (ou « payé par la société ») ; refus ligne par ligne avec lien « compléter la fiche client ».
+- **Fiche client** : complément d'adresse, pays de naissance, date et pays de délivrance du permis (pré-remplie avec la date d'obtention quand elle est vide).
+- **Réglages › Amendes** (admin) : raison sociale exacte, adresse du siège, email ANTAI, frais de gestion, modèle ; « Clé configurée : oui / non » (la clé reste dans `.env`). Script `scripts/configurer-cle-anthropic.sh` (saisie masquée, vérification, sauvegarde du `.env`).
+- Anciens PV « reçus » → « à valider », raisons calculées au démarrage. Alerte du dashboard : vers « À valider » (ou « À désigner »).
+- Tests : 223 tests unitaires (dont rapprochement, contrôles, lecture avec Claude simulé — réponses JSON d'exemple —, découpage PDF) + test d'intégration de l'import sur une base de test (`TEST_DATABASE_URL`) ; parcours navigateur complet avec un faux service Claude (≈ 30 vérifications : import de 4 pages, doublon, page sans avis, miniatures, refus pour fiche incomplète, correction, choix du contrat, validation, téléphone, console) ; non-régression phases 4, 6, 7, 8 et site public.
+
 ## Site web public (projet 2)
 
 Objectif : site public des véhicules à vendre, contact WhatsApp, piloté depuis le CRM (onglet « Site web »). Proposition détaillée : [`docs/SITE_PHASE0.md`](docs/SITE_PHASE0.md).

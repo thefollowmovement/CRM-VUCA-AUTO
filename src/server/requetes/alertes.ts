@@ -74,7 +74,7 @@ export async function alertesDashboard(): Promise<Alerte[]> {
       where: { archiveLe: null, anonymiseLe: null, dateValiditePermis: { lt: new Date(`${aujISO}T00:00:00Z`) } },
       select: { nom: true, prenom: true },
     }),
-    db.amende.findMany({ where: { statut: "RECUE" }, select: { montantCentimes: true, vehicule: { select: { immatriculation: true } } } }),
+    db.amende.findMany({ where: { statut: { in: ["RECUE", "A_VALIDER", "A_DESIGNER"] } }, select: { statut: true, montantCentimes: true, immatriculationLue: true, vehicule: { select: { immatriculation: true } } } }),
   ]);
   // Retours du jour et du lendemain (jour de Paris)
   const jourDemain = jourParisISO(new Date(maintenant.getTime() + 86_400_000));
@@ -105,7 +105,7 @@ export async function alertesDashboard(): Promise<Alerte[]> {
     },
     { cle: "financement", titre: "Participations ≠ prix d'achat", nombre: vehicules.financement.length, niveau: "attention", href: "/vehicules?alerte=financement", exemples: vehicules.financement.map(nomV) },
     { cle: "permis", titre: "Permis client expiré", nombre: clientsPermis.length, niveau: "attention", href: "/clients?filtre=permis-expire", exemples: clientsPermis.map((c) => [c.prenom, c.nom].filter(Boolean).join(" ")) },
-    { cle: "pv", titre: "PV non traités", nombre: pv.length, niveau: "danger", href: "/location/amendes?statut=RECUE", exemples: pv.map((a) => `${a.vehicule.immatriculation ?? "?"} · ${formatEuros(a.montantCentimes)}`) },
+    { cle: "pv", titre: "PV non traités", nombre: pv.length, niveau: "danger", href: pv.some((a) => a.statut !== "A_DESIGNER") ? "/location/amendes/a-valider" : "/location/amendes?statut=A_DESIGNER", exemples: pv.map((a) => `${a.vehicule?.immatriculation ?? a.immatriculationLue ?? "?"} · ${formatEuros(a.montantCentimes)}`) },
   ];
   return alertes.filter((a) => a.nombre > 0).map((a) => ({ ...a, exemples: a.exemples.slice(0, 3) }));
 }

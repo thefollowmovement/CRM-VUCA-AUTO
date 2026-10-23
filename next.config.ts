@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Les fichiers envoyés (photos, scans) peuvent dépasser la limite par défaut de 1 Mo.
   experimental: {
-    serverActions: { bodySizeLimit: "15mb" },
+    serverActions: { bodySizeLimit: "21mb" }, // dépôt des avis scannés : 20 Mo par fichier (limite du relais HTTPS)
     // N'embarque que les composants Radix réellement utilisés.
     optimizePackageImports: ["radix-ui"],
   },

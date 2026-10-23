@@ -678,7 +678,7 @@ async function chargerPaiementsDemo(db: PrismaClient) {
     await db.amende.create({
       data: {
         vehiculeId: moreau.vehiculeId, infractionLe: jh(-60, 9), lieu: "Villeurbanne, avenue Henri Barbusse", montantCentimes: eur(35), numeroAvis: "9876543210",
-        dateReception: j(-4), dateLimite: j(41), statut: "RECUE", contratId: moreau.id, clientId: moreau.clientId, note: "Stationnement gênant (démo)",
+        dateReception: j(-4), dateLimite: j(41), statut: "A_DESIGNER", contratId: moreau.id, clientId: moreau.clientId, note: "Stationnement gênant (démo)",
       },
     });
   }

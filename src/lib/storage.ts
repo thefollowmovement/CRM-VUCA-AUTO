@@ -9,7 +9,8 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { CategorieFichier } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { creerMiniature, detecterType, optimiserPhoto } from "@/lib/images";
+import { creerMiniature, detecterType, optimiserPhoto, TAILLE_MINIATURE } from "@/lib/images";
+import { apercuPdf } from "@/lib/pdf-apercu";
 import { ErreurMetier } from "@/lib/permissions";
 
 export interface Stockage {
@@ -147,15 +148,30 @@ export async function enregistrerFichier(params: {
   });
 }
 
-/** Lit la miniature d'une image (créée et mise en cache au premier appel). */
+/** Lit la miniature d'une image ou de la 1re page d'un PDF (créée et mise en cache au premier appel). */
 export async function lireMiniature(cleStockage: string): Promise<Buffer> {
   const cleMini = `miniatures/${cleStockage.replace(/\.[a-z]+$/i, "")}.jpg`;
   try {
     return await stockage.lire(cleMini);
   } catch {
-    const mini = await creerMiniature(await stockage.lire(cleStockage));
+    const original = await stockage.lire(cleStockage);
+    const mini = cleStockage.endsWith(".pdf") ? await apercuPdf(original, TAILLE_MINIATURE) : await creerMiniature(original);
+    if (!mini) throw new Error("Aperçu indisponible");
     await stockage.enregistrer(cleMini, mini);
     return mini;
+  }
+}
+
+/** Grand aperçu JPEG (1600 px) de la 1re page d'un PDF, pour le plein écran (mis en cache). */
+export async function lireApercuPdf(cleStockage: string): Promise<Buffer> {
+  const cle = `apercus/${cleStockage.replace(/\.[a-z]+$/i, "")}.jpg`;
+  try {
+    return await stockage.lire(cle);
+  } catch {
+    const apercu = await apercuPdf(await stockage.lire(cleStockage), 1600);
+    if (!apercu) throw new Error("Aperçu indisponible");
+    await stockage.enregistrer(cle, apercu);
+    return apercu;
   }
 }
 
@@ -169,4 +185,5 @@ export async function supprimerFichier(id: string) {
 export async function supprimerFichierStocke(cleStockage: string) {
   await stockage.supprimer(cleStockage);
   await stockage.supprimer(`miniatures/${cleStockage.replace(/\.[a-z]+$/i, "")}.jpg`);
+  await stockage.supprimer(`apercus/${cleStockage.replace(/\.[a-z]+$/i, "")}.jpg`);
 }

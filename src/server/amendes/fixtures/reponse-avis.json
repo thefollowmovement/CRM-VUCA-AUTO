@@ -1,0 +1,31 @@
+{
+  "id": "msg_fixture_avis",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_1",
+      "name": "enregistrer_avis",
+      "input": {
+        "est_un_avis": true,
+        "type_avis": "contravention",
+        "numero_avis": "1234567890",
+        "date_avis": "2026-10-02",
+        "date_infraction": "2026-09-21",
+        "heure_infraction": "14:32",
+        "immatriculation": "ab-123-cd",
+        "lieu": "A86 Nanterre, sens Paris → Créteil",
+        "nature": "Excès de vitesse < 20 km/h (limitation 90 km/h)",
+        "montant_forfaitaire": 68,
+        "nom_titulaire": "VUCA AUTO",
+        "confiance": { "numero_avis": "haute", "date_avis": "haute", "date_infraction": "haute", "heure_infraction": "moyenne", "immatriculation": "haute" },
+        "remarques": null
+      }
+    }
+  ],
+  "usage": { "input_tokens": 1650, "output_tokens": 212 }
+}

@@ -67,7 +67,8 @@ export function FormulaireClient({ clientId, valeurs }: { clientId?: string; val
           {champ("nom", "Nom", { autoComplete: "off", autoFocus: creation }, true)}
           {champ("prenom", "Prénom", { autoComplete: "off" })}
           {champ("dateNaissance", "Date de naissance", { type: "date" })}
-          <div className="sm:col-span-2">{champ("lieuNaissance", "Lieu de naissance")}</div>
+          {champ("lieuNaissance", "Lieu de naissance (ville)")}
+          {champ("paysNaissance", "Pays de naissance")}
         </CardContent>
       </Card>
 
@@ -78,7 +79,8 @@ export function FormulaireClient({ clientId, valeurs }: { clientId?: string; val
         <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
           {champ("telephone", "Téléphone", { type: "tel", inputMode: "tel" })}
           {champ("email", "Email", { type: "email", inputMode: "email" })}
-          <div className="sm:col-span-2">{champ("adresse", "Adresse")}</div>
+          <div className="sm:col-span-2">{champ("adresse", "Adresse", { autoComplete: "address-line1" })}</div>
+          <div className="sm:col-span-2">{champ("adresseComplement", "Complément d'adresse (bâtiment, étage…)", { autoComplete: "address-line2" })}</div>
           <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4 sm:col-span-2 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)]">
             {champ("codePostal", "Code postal", { inputMode: "numeric" })}
             {champ("ville", "Ville")}
@@ -96,6 +98,8 @@ export function FormulaireClient({ clientId, valeurs }: { clientId?: string; val
           {champ("numeroPermis", "Numéro de permis", { autoComplete: "off" })}
           {champ("categoriePermis", "Catégorie")}
           {champ("dateObtentionPermis", "Date d'obtention", { type: "date" })}
+          {champ("dateDelivrancePermis", "Date de délivrance du titre (case 4a)", { type: "date" })}
+          {champ("paysDelivrancePermis", "Pays de délivrance")}
           {champ("dateValiditePermis", "Valide jusqu'au", { type: "date" })}
         </CardContent>
       </Card>

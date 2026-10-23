@@ -11,7 +11,7 @@ import { dateVersSaisieParis } from "@/lib/dates";
 import { centimesVersSaisie, dateCalendaireVersISO, formatDate, formatDateHeure, formatEuros } from "@/lib/format";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { nomVehicule } from "@/lib/vehicule";
-import { LIBELLES_STATUT_AMENDE } from "@/lib/validations/paiement";
+import { LIBELLES_STATUT_AMENDE, STATUTS_AMENDE_MANUELS, VARIANTE_STATUT_AMENDE, type SaisieAmende } from "@/lib/validations/paiement";
 import { obtenirAmende, vehiculesPourIncidents } from "@/server/requetes/amendes-sinistres";
 
 export const metadata: Metadata = { title: "PV" };
@@ -28,10 +28,10 @@ export default async function PageAmende({ params }: { params: Promise<{ id: str
         <ArrowLeft className="size-4" /> PV
       </Link>
       <EnTetePage
-        titre={`PV du ${formatDateHeure(a.infractionLe)} · ${formatEuros(a.montantCentimes)}`}
+        titre={a.infractionLe ? `PV du ${formatDateHeure(a.infractionLe)}${a.montantCentimes != null ? ` · ${formatEuros(a.montantCentimes)}` : ""}` : `Avis ${a.numeroAvis ? `n° ${a.numeroAvis}` : "importé"}`}
         description={
           <>
-            {nomVehicule(a.vehicule)} {a.vehicule.immatriculation && `· ${a.vehicule.immatriculation}`} · <Badge>{LIBELLES_STATUT_AMENDE[a.statut]}</Badge>
+            {a.vehicule ? <>{nomVehicule(a.vehicule)} {a.vehicule.immatriculation && `· ${a.vehicule.immatriculation}`}</> : (a.immatriculationLue ?? "Véhicule à identifier")} · <Badge variant={VARIANTE_STATUT_AMENDE[a.statut]}>{LIBELLES_STATUT_AMENDE[a.statut]}</Badge>
           </>
         }
         actions={<ActionsAmende id={a.id} statut={a.statut} refacturable={!!a.contratId && a.frais.length === 0} estAdmin={u.role === "ADMIN"} />}
@@ -84,14 +84,14 @@ export default async function PageAmende({ params }: { params: Promise<{ id: str
         id={a.id}
         vehicules={vehicules}
         valeurs={{
-          vehiculeId: a.vehiculeId,
+          vehiculeId: a.vehiculeId ?? "",
           infractionLe: dateVersSaisieParis(a.infractionLe),
           lieu: a.lieu ?? "",
           montant: centimesVersSaisie(a.montantCentimes),
           numeroAvis: a.numeroAvis ?? "",
           dateReception: dateCalendaireVersISO(a.dateReception),
           dateLimite: dateCalendaireVersISO(a.dateLimite),
-          statut: a.statut,
+          statut: (STATUTS_AMENDE_MANUELS as readonly string[]).includes(a.statut) || a.statut === "REFACTUREE" ? (a.statut as SaisieAmende["statut"]) : "A_VALIDER",
           note: a.note ?? "",
         }}
       />

@@ -116,8 +116,8 @@ export async function anonymiserClient(id: string) {
       await tx.client.update({
         where: { id },
         data: {
-          civilite: null, nom: "Client anonymisé", prenom: null, dateNaissance: null, lieuNaissance: null, adresse: null, codePostal: null,
-          ville: null, pays: null, telephone: null, email: null, numeroPermis: null, dateObtentionPermis: null, categoriePermis: null,
+          civilite: null, nom: "Client anonymisé", prenom: null, dateNaissance: null, lieuNaissance: null, paysNaissance: null, adresse: null, adresseComplement: null, codePostal: null,
+          ville: null, pays: null, telephone: null, email: null, numeroPermis: null, dateObtentionPermis: null, dateDelivrancePermis: null, paysDelivrancePermis: null, categoriePermis: null,
           dateValiditePermis: null, typePieceIdentite: null, numeroPieceIdentite: null, dateValiditePieceIdentite: null, entreprise: null,
           siretEntreprise: null, motifListeNoire: c.listeNoire ? "Anonymisé" : null, notes: null,
           anonymiseLe: new Date(), archiveLe: c.archiveLe ?? new Date(),

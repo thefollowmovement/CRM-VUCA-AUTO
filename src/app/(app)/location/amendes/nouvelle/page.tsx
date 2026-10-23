@@ -27,7 +27,7 @@ export default async function PageNouvelleAmende({ searchParams }: { searchParam
           numeroAvis: "",
           dateReception: aujourdhuiISO(),
           dateLimite: "",
-          statut: "RECUE",
+          statut: "A_VALIDER",
           note: "",
         }}
       />

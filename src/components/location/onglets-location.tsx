@@ -18,11 +18,11 @@ const ONGLETS = [
 export function OngletsLocation() {
   const chemin = usePathname();
   // Masqué dans l'assistant et la fiche d'un contrat
-  if (/^\/location\/(contrats|amendes|sinistres|paiements)\/.+/.test(chemin)) return null;
+  if (/^\/location\/(contrats|sinistres|paiements)\/.+/.test(chemin) || /^\/location\/amendes\/(?!importer$|a-valider$|lots\/)[^/]+/.test(chemin)) return null;
   return (
     <nav className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b px-4 md:mx-0 md:px-0">
       {ONGLETS.map(({ href, libelle, icone: Icone }) => {
-        const actif = chemin === href;
+        const actif = chemin === href || (href === "/location/amendes" && chemin.startsWith("/location/amendes/"));
         return (
           <Link
             key={href}

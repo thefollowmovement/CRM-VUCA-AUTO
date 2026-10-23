@@ -1,7 +1,7 @@
 // Sert un fichier UNIQUEMENT à un utilisateur connecté et autorisé.
 import { db } from "@/lib/db";
 import { utilisateurCourant } from "@/lib/permissions";
-import { lireMiniature, stockage } from "@/lib/storage";
+import { lireApercuPdf, lireMiniature, stockage } from "@/lib/storage";
 
 export async function GET(requete: Request, { params }: { params: Promise<{ id: string }> }) {
   const utilisateur = await utilisateurCourant();
@@ -35,14 +35,18 @@ export async function GET(requete: Request, { params }: { params: Promise<{ id: 
     if (!estLogo && !estSonVehicule) return new Response("Accès refusé", { status: 403 });
   }
 
-  // ?taille=mini : miniature JPEG (listes, galeries) — uniquement pour les images.
-  const miniature = new URL(requete.url).searchParams.get("taille") === "mini" && fichier.typeMime.startsWith("image/");
+  // ?taille=mini : miniature JPEG (listes, galeries) — images et PDF (1re page).
+  // ?taille=page : grand aperçu JPEG d'un PDF (plein écran des avis scannés).
+  const taille = new URL(requete.url).searchParams.get("taille");
+  const estPdf = fichier.typeMime === "application/pdf";
+  const miniature = taille === "mini" && (fichier.typeMime.startsWith("image/") || estPdf);
+  const apercuPage = taille === "page" && estPdf;
 
   try {
-    const contenu = miniature ? await lireMiniature(fichier.cleStockage) : await stockage.lire(fichier.cleStockage);
+    const contenu = miniature ? await lireMiniature(fichier.cleStockage) : apercuPage ? await lireApercuPdf(fichier.cleStockage) : await stockage.lire(fichier.cleStockage);
     return new Response(new Uint8Array(contenu), {
       headers: {
-        "Content-Type": miniature ? "image/jpeg" : fichier.typeMime,
+        "Content-Type": miniature || apercuPage ? "image/jpeg" : fichier.typeMime,
         "Content-Length": String(contenu.length),
         "Content-Disposition": `inline; filename="${encodeURIComponent(fichier.nomOriginal)}"`,
         "Cache-Control": "private, max-age=3600",

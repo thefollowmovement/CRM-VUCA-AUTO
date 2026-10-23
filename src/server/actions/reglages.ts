@@ -20,6 +20,7 @@ import {
   type SaisieOptionLocation,
   type SaisieSociete,
 } from "@/lib/validations/reglages";
+import { schemaReglagesAmendes, type SaisieReglagesAmendes } from "@/lib/validations/amendes";
 import type { z } from "zod";
 
 // ---------------------------------------------------------------------
@@ -48,6 +49,10 @@ export async function enregistrerSociete(saisie: SaisieSociete) {
 
 export async function enregistrerDocuments(saisie: SaisieDocuments) {
   return enregistrerReglages(schemaDocuments, saisie, "Textes des documents enregistrés.");
+}
+
+export async function enregistrerReglagesAmendes(saisie: SaisieReglagesAmendes) {
+  return enregistrerReglages(schemaReglagesAmendes, saisie, "Paramètres des amendes enregistrés.");
 }
 
 export async function enregistrerAlertes(saisie: SaisieAlertes) {

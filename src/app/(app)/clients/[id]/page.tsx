@@ -84,8 +84,8 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
                 elements={[
                   { libelle: "Téléphone", valeur: c.telephone && <a href={`tel:${c.telephone.replace(/\s/g, "")}`} className="text-primary">{c.telephone}</a> },
                   { libelle: "Email", valeur: c.email && <a href={`mailto:${c.email}`} className="text-primary">{c.email}</a> },
-                  { libelle: "Adresse", valeur: [c.adresse, [c.codePostal, c.ville].filter(Boolean).join(" "), c.pays !== "France" ? c.pays : null].filter(Boolean).join(", ") || null },
-                  { libelle: "Naissance", valeur: c.dateNaissance && `${formatDate(c.dateNaissance)}${c.lieuNaissance ? ` à ${c.lieuNaissance}` : ""} (${anneesPleines(c.dateNaissance, auj)} ans)` },
+                  { libelle: "Adresse", valeur: [c.adresse, c.adresseComplement, [c.codePostal, c.ville].filter(Boolean).join(" "), c.pays !== "France" ? c.pays : null].filter(Boolean).join(", ") || null },
+                  { libelle: "Naissance", valeur: c.dateNaissance && `${formatDate(c.dateNaissance)}${c.lieuNaissance ? ` à ${c.lieuNaissance}` : ""}${c.paysNaissance && c.paysNaissance !== "France" ? ` (${c.paysNaissance})` : ""} (${anneesPleines(c.dateNaissance, auj)} ans)` },
                   { libelle: "SIRET", valeur: c.siretEntreprise },
                 ]}
               />
@@ -96,6 +96,7 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
                     { libelle: "N° de permis", valeur: c.numeroPermis },
                     { libelle: "Catégorie", valeur: c.categoriePermis },
                     { libelle: "Obtenu le", valeur: c.dateObtentionPermis && `${formatDate(c.dateObtentionPermis)} (${anneesPleines(c.dateObtentionPermis, auj)} ans)` },
+                    { libelle: "Délivré le", valeur: c.dateDelivrancePermis ? `${formatDate(c.dateDelivrancePermis)}${c.paysDelivrancePermis && c.paysDelivrancePermis !== "France" ? ` (${c.paysDelivrancePermis})` : ""}` : null },
                     { libelle: "Valide jusqu'au", valeur: c.dateValiditePermis && formatDate(c.dateValiditePermis) },
                     { libelle: "Pièce d'identité", valeur: c.typePieceIdentite && `${LIBELLES_PIECE[c.typePieceIdentite]}${c.numeroPieceIdentite ? ` n° ${c.numeroPieceIdentite}` : ""}` },
                     { libelle: "Pièce valide jusqu'au", valeur: c.dateValiditePieceIdentite && formatDate(c.dateValiditePieceIdentite) },

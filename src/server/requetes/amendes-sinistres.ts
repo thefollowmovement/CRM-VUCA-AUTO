@@ -34,7 +34,7 @@ export async function listerAmendes(statut?: string) {
       _count: { select: { fichiers: true, frais: true } },
     },
   });
-  return amendes.map((a) => ({ ...a, nomVehicule: nomVehicule(a.vehicule) }));
+  return amendes.map((a) => ({ ...a, nomVehicule: a.vehicule ? nomVehicule(a.vehicule) : null }));
 }
 
 export async function obtenirAmende(id: string) {

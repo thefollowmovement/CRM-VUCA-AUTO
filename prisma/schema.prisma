@@ -218,11 +218,26 @@ enum NaturePaiement {
   REMBOURSEMENT // argent rendu au client (montant positif, soustrait des revenus)
 }
 
+// Circuit des PV : A_LIRE (scan déposé) → A_VALIDER (lu par Claude, rapproché) → A_DESIGNER
+// (validé) → CONDUCTEUR_DESIGNE (désigné à l'ANTAI). PAYEE = payé par la société.
+// RECUE = ancien statut (avant le module d'import), plus proposé.
 enum StatutAmende {
   RECUE
   CONDUCTEUR_DESIGNE
   PAYEE
   REFACTUREE
+  A_LIRE
+  A_VALIDER
+  A_DESIGNER
+  CONTESTE
+  IGNORE
+}
+
+enum TypeAvis {
+  CONTRAVENTION
+  AMENDE_FORFAITAIRE_DELICTUELLE
+  AMENDE_MAJOREE
+  AUTRE
 }
 
 enum StatutSinistre {
@@ -308,6 +323,8 @@ model Utilisateur {
   historiquesStatut HistoriqueStatutVehicule[]
   fichiersEnvoyes   Fichier[]
   etatsDesLieux     EtatDesLieux[]
+  amendesCreees     Amende[]                   @relation("AmendesCreees")
+  lotsAmendes       LotImportAmendes[]
 }
 
 /// Trace chaque création / modification / suppression (montants en priorité).
@@ -569,23 +586,27 @@ model Depense {
 // =====================================================================
 
 model Client {
-  id            String    @id @default(cuid())
-  civilite      Civilite?
-  nom           String
-  prenom        String?
-  dateNaissance DateTime? @db.Date
-  lieuNaissance String?
-  adresse       String?
-  codePostal    String?
-  ville         String?
-  pays          String?   @default("France")
-  telephone     String?
-  email         String?
+  id                String    @id @default(cuid())
+  civilite          Civilite?
+  nom               String
+  prenom            String?
+  dateNaissance     DateTime? @db.Date
+  lieuNaissance     String?
+  paysNaissance     String? // désignation ANTAI
+  adresse           String?
+  adresseComplement String? // bâtiment, étage… (désignation ANTAI)
+  codePostal        String?
+  ville             String?
+  pays              String?   @default("France")
+  telephone         String?
+  email             String?
 
-  numeroPermis        String?
-  dateObtentionPermis DateTime? @db.Date
-  categoriePermis     String?   @default("B")
-  dateValiditePermis  DateTime? @db.Date
+  numeroPermis         String?
+  dateObtentionPermis  DateTime? @db.Date
+  dateDelivrancePermis DateTime? @db.Date // date de délivrance du titre (case 4a) — demandée par l'ANTAI
+  paysDelivrancePermis String?   @default("France")
+  categoriePermis      String?   @default("B")
+  dateValiditePermis   DateTime? @db.Date
 
   typePieceIdentite         TypePieceIdentite?
   numeroPieceIdentite       String?
@@ -900,29 +921,77 @@ model Paiement {
 /// date/heure de l'infraction (modifiable).
 model Amende {
   id                 String           @id @default(cuid())
-  vehiculeId         String
-  vehicule           Vehicule         @relation(fields: [vehiculeId], references: [id])
-  infractionLe       DateTime
+  // Véhicule, date et montant restent vides tant que l'avis importé n'est pas lu.
+  vehiculeId         String?
+  vehicule           Vehicule?        @relation(fields: [vehiculeId], references: [id], onDelete: Restrict)
+  infractionLe       DateTime?
+  heureInconnue      Boolean          @default(false) // avis sans heure : infractionLe = midi (Paris) ce jour-là
   lieu               String?
-  montantCentimes    Int
-  numeroAvis         String?
+  nature             String? // ex. « Excès de vitesse < 20 km/h »
+  montantCentimes    Int?
+  numeroAvis         String? // 10 chiffres (avis), 12 ou 18 (amende majorée)
+  typeAvis           TypeAvis?
+  dateAvis           DateTime?        @db.Date // imprimée sur l'avis : départ des 45 jours
   dateReception      DateTime?        @db.Date
-  dateLimite         DateTime?        @db.Date
-  statut             StatutAmende     @default(RECUE)
+  dateLimite         DateTime?        @db.Date // date limite de désignation = date de l'avis + 45 jours
+  immatriculationLue String? // telle que lue sur l'avis, normalisée AA-123-AA
+  statut             StatutAmende     @default(A_VALIDER)
   contratId          String?
   contrat            ContratLocation? @relation(fields: [contratId], references: [id], onDelete: SetNull)
   clientId           String?
   client             Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   identificationAuto Boolean          @default(true)
   note               String?
-  creeLe             DateTime         @default(now())
-  modifieLe          DateTime         @updatedAt
+
+  // --- Import et lecture automatique (Claude) ---
+  lotImportId         String?
+  lotImport           LotImportAmendes? @relation(fields: [lotImportId], references: [id], onDelete: SetNull)
+  fichierPage         Int? // page dans le fichier déposé
+  raisonsVerification Json? // [{ code, texte, niveau: "attention" | "blocage" }]
+  champsVerifies      String[]          @default([]) // champs corrigés / confirmés à la main
+  ocrBrut             Json? // réponse complète de l'extraction (dépannage)
+  ocrConfiance        Json? // { numero_avis: "haute" | "moyenne" | "basse", … }
+  ocrModele           String?
+  ocrTokensEntree     Int?
+  ocrTokensSortie     Int?
+  ocrTentatives       Int               @default(0)
+  ocrEnCoursLe        DateTime? // lecture en cours (file d'attente)
+  luLe                DateTime?
+  doublonDeId         String?
+  doublonDe           Amende?           @relation("DoublonAmende", fields: [doublonDeId], references: [id], onDelete: SetNull)
+  doublons            Amende[]          @relation("DoublonAmende")
+
+  // --- Désignation ---
+  dateDesignation      DateTime?
+  fraisGestionCentimes Int?
+
+  creeParId String?
+  creePar   Utilisateur? @relation("AmendesCreees", fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe    DateTime     @default(now())
+  modifieLe DateTime     @updatedAt
 
   fichiers Fichier[]
   frais    FraisSupplementaire[]
 
   @@index([vehiculeId, infractionLe])
   @@index([statut])
+  @@index([dateLimite])
+  @@index([clientId])
+  @@index([contratId])
+  @@index([numeroAvis])
+  @@index([lotImportId])
+}
+
+/// Un dépôt de scans (un ou plusieurs fichiers) dans Amendes › Importer.
+model LotImportAmendes {
+  id         String       @id @default(cuid())
+  nbFichiers Int          @default(0)
+  nbPages    Int          @default(0)
+  creeParId  String?
+  creePar    Utilisateur? @relation(fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe     DateTime     @default(now())
+
+  amendes Amende[]
 }
 
 model Sinistre {
@@ -1111,6 +1180,16 @@ model Reglages {
   fraisNettoyageCentimes        Int @default(5000) // véhicule rendu sale
   prixHuitiemeCarburantCentimes Int @default(1500) // par 1/8 de réservoir manquant
   prixPourcentBatterieCentimes  Int @default(50) // par % de batterie manquant
+
+  // --- Amendes (désignation ANTAI) : vide = reprend les champs « Société » ---
+  amendesRaisonSociale        String? // exactement comme sur les avis
+  amendesAdresse              String?
+  amendesAdresseComplement    String?
+  amendesCodePostal           String?
+  amendesVille                String?
+  amendesEmail                String? // reçoit les confirmations de l'ANTAI
+  amendesFraisGestionCentimes Int     @default(0) // par PV désigné, 0 = désactivé
+  amendesModele               String  @default("claude-haiku-5-5")
 
   modifieLe DateTime @updatedAt
 }

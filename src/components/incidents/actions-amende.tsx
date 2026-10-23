@@ -30,7 +30,7 @@ export function ActionsAmende({ id, statut, refacturable, estAdmin }: { id: stri
           </Button>
         </Confirmation>
       )}
-      {statut === "RECUE" && (
+      {(statut === "A_DESIGNER" || statut === "A_VALIDER" || statut === "RECUE") && (
         <Button
           variant="outline"
           onClick={async () => {
@@ -40,14 +40,14 @@ export function ActionsAmende({ id, statut, refacturable, estAdmin }: { id: stri
           Conducteur désigné
         </Button>
       )}
-      {(statut === "RECUE" || statut === "CONDUCTEUR_DESIGNE") && (
+      {["RECUE", "A_VALIDER", "A_DESIGNER", "CONDUCTEUR_DESIGNE", "CONTESTE"].includes(statut) && (
         <Button
           variant="outline"
           onClick={async () => {
             if (traiterResultat(await changerStatutAmende(id, "PAYEE"))) router.refresh();
           }}
         >
-          Payée par VUCA AUTO
+          Payé par VUCA AUTO
         </Button>
       )}
       <input

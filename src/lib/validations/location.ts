@@ -75,7 +75,9 @@ export const schemaClient = z
     prenom: texteOptionnel(80),
     dateNaissance: dateOptionnelle("La date de naissance"),
     lieuNaissance: texteOptionnel(120),
+    paysNaissance: texteOptionnel(60),
     adresse: texteOptionnel(300),
+    adresseComplement: texteOptionnel(200),
     codePostal: texteOptionnel(10),
     ville: texteOptionnel(80),
     pays: texteOptionnel(60),
@@ -83,6 +85,8 @@ export const schemaClient = z
     email: emailOptionnel,
     numeroPermis: texteOptionnel(40),
     dateObtentionPermis: dateOptionnelle("La date d'obtention"),
+    dateDelivrancePermis: dateOptionnelle("La date de délivrance"),
+    paysDelivrancePermis: texteOptionnel(60),
     categoriePermis: texteOptionnel(20),
     dateValiditePermis: dateOptionnelle("La date de validité"),
     typePieceIdentite: choixOptionnel(TYPES_PIECE),
@@ -100,6 +104,9 @@ export const schemaClient = z
     }
     if (c.dateNaissance && c.dateNaissance > new Date()) {
       ctx.addIssue({ code: "custom", path: ["dateNaissance"], message: "La date de naissance est dans le futur." });
+    }
+    if (c.dateDelivrancePermis && c.dateDelivrancePermis > new Date()) {
+      ctx.addIssue({ code: "custom", path: ["dateDelivrancePermis"], message: "La date de délivrance est dans le futur." });
     }
     if (c.dateObtentionPermis && c.dateObtentionPermis > new Date()) {
       ctx.addIssue({ code: "custom", path: ["dateObtentionPermis"], message: "La date d'obtention est dans le futur." });

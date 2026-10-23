@@ -8,7 +8,8 @@ import { journaliser } from "@/lib/journal";
 import { avecDroits, ErreurMetier, ROLES_ADMIN, ROLES_GESTION } from "@/lib/permissions";
 import { enregistrerFichier, supprimerFichierStocke, TYPES_DOCUMENTS } from "@/lib/storage";
 import { erreurValidation } from "@/lib/validations/erreurs";
-import { schemaAmende, STATUTS_AMENDE, type SaisieAmende } from "@/lib/validations/paiement";
+import { schemaAmende, STATUTS_AMENDE_MANUELS, type SaisieAmende } from "@/lib/validations/paiement";
+import { evaluerAmende } from "@/server/amendes/traitement";
 import { contratAuMoment } from "@/server/requetes/amendes-sinistres";
 
 function rafraichir(id?: string, contratId?: string | null, clientId?: string | null) {
@@ -44,10 +45,12 @@ export async function enregistrerAmende(id: string | null, saisie: SaisieAmende)
       contratId: c?.id ?? null, clientId: c?.clientId ?? null, identificationAuto: true,
     };
     // Déjà refacturé : on ne change plus le véhicule, la date ni le montant
-    if (avant && avant._count.frais > 0 && (avant.vehiculeId !== d.vehiculeId || avant.infractionLe.getTime() !== d.infractionLe.getTime() || avant.montantCentimes !== d.montant)) {
+    if (avant && avant._count.frais > 0 && (avant.vehiculeId !== d.vehiculeId || avant.infractionLe?.getTime() !== d.infractionLe.getTime() || avant.montantCentimes !== d.montant)) {
       throw new ErreurMetier("Ce PV a déjà été refacturé : retirez d'abord le frais sur le contrat pour modifier le véhicule, la date ou le montant.");
     }
-    const a = id ? await db.amende.update({ where: { id }, data: donnees }) : await db.amende.create({ data: donnees });
+    const a = id ? await db.amende.update({ where: { id }, data: donnees }) : await db.amende.create({ data: { ...donnees, creeParId: u.id } });
+    // Alertes de l'écran « À valider » (plaque, numéro, fiche client…) calculées tout de suite.
+    await evaluerAmende(db, a.id);
     await journaliser({ utilisateurId: u.id, action: id ? "MODIFICATION" : "CREATION", entite: "Amende", entiteId: a.id, avant, apres: a });
     rafraichir(a.id, a.contratId, a.clientId);
     return {
@@ -60,10 +63,10 @@ export async function enregistrerAmende(id: string | null, saisie: SaisieAmende)
 
 export async function changerStatutAmende(id: string, statut: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
-    if (!(STATUTS_AMENDE as readonly string[]).includes(statut) || statut === "REFACTUREE") throw new ErreurMetier("Statut invalide.");
+    if (!(STATUTS_AMENDE_MANUELS as readonly string[]).includes(statut)) throw new ErreurMetier("Statut invalide.");
     const a = await db.amende.findUnique({ where: { id } });
     if (!a) throw new ErreurMetier("PV introuvable.");
-    await db.amende.update({ where: { id }, data: { statut: statut as "RECUE" } });
+    await db.amende.update({ where: { id }, data: { statut: statut as (typeof STATUTS_AMENDE_MANUELS)[number], ...(statut === "CONDUCTEUR_DESIGNE" && !a.dateDesignation ? { dateDesignation: new Date() } : {}) } });
     await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Amende", entiteId: id, avant: { statut: a.statut }, apres: { statut } });
     rafraichir(id, a.contratId, a.clientId);
     return { ok: true, message: "Statut mis à jour." };
@@ -76,12 +79,14 @@ export async function refacturerAmende(id: string) {
     const a = await db.amende.findUnique({ where: { id }, include: { _count: { select: { frais: true } } } });
     if (!a) throw new ErreurMetier("PV introuvable.");
     if (!a.contratId) throw new ErreurMetier("Aucune location identifiée à la date du PV : impossible de le refacturer.");
+    if (a.montantCentimes == null) throw new ErreurMetier("Montant du PV inconnu : renseignez-le avant de le refacturer.");
+    const montant = a.montantCentimes;
     if (a._count.frais > 0) throw new ErreurMetier("Ce PV est déjà refacturé.");
     await db.$transaction(async (tx) => {
       await tx.fraisSupplementaire.create({
         data: {
           contratId: a.contratId!, type: "AMENDE_REFACTUREE", libelle: `Amende du ${formatDateHeure(a.infractionLe)}${a.numeroAvis ? ` (avis n° ${a.numeroAvis})` : ""}`,
-          quantite: 1, prixUnitaireCentimes: a.montantCentimes, montantCentimes: a.montantCentimes, amendeId: a.id,
+          quantite: 1, prixUnitaireCentimes: montant, montantCentimes: montant, amendeId: a.id,
         },
       });
       await tx.amende.update({ where: { id }, data: { statut: "REFACTUREE" } });

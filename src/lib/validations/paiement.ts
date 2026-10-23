@@ -28,13 +28,34 @@ export type SaisieProlongation = z.input<typeof schemaProlongation>;
 // ---------------------------------------------------------------------
 //  PV / amendes
 // ---------------------------------------------------------------------
-export const STATUTS_AMENDE = ["RECUE", "CONDUCTEUR_DESIGNE", "PAYEE", "REFACTUREE"] as const;
-export const LIBELLES_STATUT_AMENDE: Record<(typeof STATUTS_AMENDE)[number], string> = {
-  RECUE: "Reçue",
+/** Statuts proposés (filtres, saisie manuelle), dans l'ordre du circuit. RECUE = ancien statut, plus proposé. */
+export const STATUTS_AMENDE = ["A_LIRE", "A_VALIDER", "A_DESIGNER", "CONDUCTEUR_DESIGNE", "CONTESTE", "PAYEE", "REFACTUREE", "IGNORE"] as const;
+export type StatutAmendeTous = (typeof STATUTS_AMENDE)[number] | "RECUE";
+export const LIBELLES_STATUT_AMENDE: Record<StatutAmendeTous, string> = {
+  A_LIRE: "À lire",
+  A_VALIDER: "À valider",
+  A_DESIGNER: "À désigner",
   CONDUCTEUR_DESIGNE: "Conducteur désigné",
-  PAYEE: "Payée",
-  REFACTUREE: "Refacturée",
+  CONTESTE: "Contesté",
+  PAYEE: "Payé par la société",
+  REFACTUREE: "Refacturé",
+  IGNORE: "Ignoré",
+  RECUE: "Reçu",
 };
+/** Couleur du badge de statut. */
+export const VARIANTE_STATUT_AMENDE: Record<StatutAmendeTous, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  A_LIRE: "outline",
+  A_VALIDER: "warning",
+  A_DESIGNER: "warning",
+  CONDUCTEUR_DESIGNE: "default",
+  CONTESTE: "secondary",
+  PAYEE: "secondary",
+  REFACTUREE: "success",
+  IGNORE: "outline",
+  RECUE: "warning",
+};
+/** Statuts choisis à la main (saisie, changement de statut) : pas « à lire » (réservé à l'import) ni « refacturé » (action dédiée). */
+export const STATUTS_AMENDE_MANUELS = ["A_VALIDER", "A_DESIGNER", "CONDUCTEUR_DESIGNE", "CONTESTE", "PAYEE", "IGNORE"] as const;
 
 export const schemaAmende = z.object({
   vehiculeId: identifiant("Le véhicule"),
@@ -44,7 +65,7 @@ export const schemaAmende = z.object({
   numeroAvis: texteOptionnel(60),
   dateReception: dateOptionnelle("La date de réception"),
   dateLimite: dateOptionnelle("La date limite"),
-  statut: z.enum(STATUTS_AMENDE),
+  statut: z.enum([...STATUTS_AMENDE_MANUELS, "REFACTUREE"]),
   note: texteOptionnel(1000),
 });
 export type SaisieAmende = z.input<typeof schemaAmende>;

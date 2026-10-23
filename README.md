@@ -6,7 +6,7 @@ Application de gestion pour **VUCA AUTO** : achat-revente de véhicules, locatio
 
 - **Véhicules** : fiche complète, photos, documents, financement par VUCA AUTO et les investisseurs, entretien (CT, assurance, vidange), dommages, historique.
 - **Dépenses et rentabilité** : chaque dépense est payée par un partenaire ; coût de revient, bénéfice, marge, ROI et répartition du bénéfice calculés automatiquement ; simulateur de prix de vente ; vente.
-- **Location** : clients, contrats (prix calculé, options, caution), planning, états des lieux au téléphone (photos, schéma des dommages, signatures au doigt), retour avec frais proposés, échéancier, paiements et reçus, impayés, PV (conducteur retrouvé automatiquement), sinistres, factures et PDF.
+- **Location** : clients, contrats (prix calculé, options, caution), planning, états des lieux au téléphone (photos, schéma des dommages, signatures au doigt), retour avec frais proposés, échéancier, paiements et reçus, impayés, PV (avis scannés lus automatiquement par Claude, conducteur retrouvé d'après la location, délai de 45 jours suivi), sinistres, factures et PDF.
 - **Pilotage** : dashboard (indicateurs, graphiques, alertes), rapports par période (PDF / Excel), versements aux investisseurs, relevés PDF.
 - **Portail investisseur** : chaque investisseur voit ses véhicules et ses chiffres, en lecture seule.
 - **Application installable** sur téléphone, **sauvegarde automatique** chaque nuit.
@@ -288,7 +288,31 @@ Sur `vuca-auto.fr`, aucune page du CRM n'existe (pas d'écran de connexion, rép
 
 Le site est **en maintenance** tant que vous ne l'ouvrez pas (« Notre site arrive bientôt »). La marche à suivre complète — sauvegarde, **retrait de la démonstration** (Réglages → Démonstration), vos informations, publication des voitures, mise en ligne, Google Search Console — est dans le **[guide du site](GUIDE_SITE.md)**. Dans le CRM, **Site web → Général** affiche la liste « Avant la mise en ligne ».
 
-## 8. Pour les développeurs
+## 8. Amendes : import des avis et lecture automatique
+
+Location → **PV** → **Importer** : déposez les scans des avis de contravention (PDF, JPG, PNG ou photo d'iPhone, **20 Mo maximum par fichier**). Un PDF de plusieurs avis est découpé page par page. Chaque page est lue par Claude (API Anthropic) **en tâche de fond** — rien à installer, pas de cron : la lecture tourne dans le serveur du CRM et reprend seule après un redémarrage. L'avis est ensuite rattaché à la location qui avait le véhicule au moment de l'infraction ; vous vérifiez tout dans **PV → À valider** (scan à gauche, champs modifiables, locataire proposé), puis **Valider la sélection** passe les PV « à désigner ».
+
+### Clé de l'API Claude (une fois)
+
+1. Sur [console.anthropic.com](https://console.anthropic.com) : créez un compte (moyen de paiement requis), puis **API keys → Create key**. Copiez la clé (elle commence par `sk-ant-`).
+2. Dans le terminal du serveur (Hostinger → VPS → Terminal), copiez-collez :
+   ```bash
+   bash /opt/vuca-crm/app/scripts/configurer-cle-anthropic.sh
+   ```
+   Collez la clé quand le script la demande (**rien ne s'affiche pendant la saisie, c'est normal**), puis Entrée. Le script vérifie la clé, l'écrit dans `/opt/vuca-crm/.env` (copie de sauvegarde avant) et redémarre le CRM.
+3. Dans le CRM : **Réglages → Amendes** doit afficher « Clé configurée : oui ». Les avis déjà déposés sont lus aussitôt.
+
+La clé reste dans `.env` : elle n'est jamais affichée dans le CRM, envoyée au navigateur ni écrite dans les journaux. Avec Docker, ajoutez `ANTHROPIC_API_KEY=…` dans le fichier `.env` puis `docker compose up -d`.
+
+### Dépendance système
+
+Les miniatures des PDF utilisent `pdftoppm` (paquet `poppler-utils`), installé automatiquement par `installer-hestia.sh` (et présent dans l'image Docker). Sans lui, tout fonctionne mais les PDF s'ouvrent sans miniature. Installation manuelle : `apt-get install -y poppler-utils`.
+
+### Réglages → Amendes
+
+Raison sociale **exactement comme sur les avis** (sinon l'avis est signalé « adressé à un autre titulaire »), adresse du siège, email des confirmations ANTAI, frais de gestion par PV désigné (0 = aucun) et modèle utilisé (par défaut `claude-haiku-5-5`, rapide et économique). Champs vides = informations de Réglages → Société.
+
+## 9. Pour les développeurs
 
 Prérequis : Node.js 22, PostgreSQL 16+.
 
@@ -306,6 +330,7 @@ npm run dev              # http://localhost:3000
 | `npm run typecheck` | vérification TypeScript |
 | `npm run build` | construction de production |
 | `npm run test:e2e:site` | parcours du site public dans un navigateur (site en ligne ; variables dans `e2e/site.e2e.mjs`) |
+| `TEST_DATABASE_URL=… npm test` | ajoute le test d'intégration de l'import des PV (base de TEST remplie avec la démo, API Claude simulée) |
 | `npx prisma migrate dev --name <nom>` | nouvelle migration après modification du schéma |
 
 Structure du code, conventions et règles de calcul : [`CLAUDE.md`](CLAUDE.md).

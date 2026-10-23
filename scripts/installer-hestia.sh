@@ -436,6 +436,11 @@ EOF
 
 if [[ "$MISE_A_JOUR" == true ]]; then
   installer_node
+  # Aperçus des avis de contravention scannés (PDF → image) : pdftoppm (paquet poppler-utils).
+  if ! command -v pdftoppm >/dev/null 2>&1; then
+    echo "→ Installation de poppler-utils (aperçus des PDF)…"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq poppler-utils >>"$JOURNAL" 2>&1 || jaune "poppler-utils non installé : les PDF s'ouvriront sans miniature."
+  fi
   if [[ -z "${VUCA_NOUVEAU_SCRIPT:-}" ]]; then
     echo "→ Téléchargement de la dernière version…"
     git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
@@ -452,7 +457,7 @@ if [[ "$MISE_A_JOUR" == true ]]; then
   systemctl restart "$SERVICE"
 else
   echo "→ Paquets système nécessaires…"
-  PAQUETS=(git curl xz-utils)
+  PAQUETS=(git curl xz-utils poppler-utils)
   [[ "$PG_PRESENT" == false ]] && PAQUETS+=(postgresql)
   apt-get update -qq >>"$JOURNAL" 2>&1 || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${PAQUETS[@]}" >>"$JOURNAL" 2>&1 ||
