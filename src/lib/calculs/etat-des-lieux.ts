@@ -9,7 +9,7 @@ import { joursFactures, kmInclusTotal, type TypeLocation } from "./location";
 import { diviserArrondi } from "./repartition";
 
 export type Proprete = "PROPRE" | "CORRECT" | "SALE";
-export type TypeFrais = "KM_SUPPLEMENTAIRES" | "CARBURANT" | "NETTOYAGE" | "DOMMAGES" | "RETARD" | "LIVRAISON" | "AMENDE_REFACTUREE" | "FRAIS_DOSSIER" | "AUTRE";
+export type TypeFrais = "KM_SUPPLEMENTAIRES" | "CARBURANT" | "NETTOYAGE" | "DOMMAGES" | "RETARD" | "LIVRAISON" | "AMENDE_REFACTUREE" | "FRAIS_GESTION_AMENDE" | "FRAIS_DOSSIER" | "AUTRE";
 
 export type ReleveEdl = {
   kilometrage: number;

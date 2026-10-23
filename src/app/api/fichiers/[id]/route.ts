@@ -48,7 +48,8 @@ export async function GET(requete: Request, { params }: { params: Promise<{ id: 
       headers: {
         "Content-Type": miniature || apercuPage ? "image/jpeg" : fichier.typeMime,
         "Content-Length": String(contenu.length),
-        "Content-Disposition": `inline; filename="${encodeURIComponent(fichier.nomOriginal)}"`,
+        // ?telecharger=1 : enregistrer le fichier d'origine au lieu de l'afficher.
+        "Content-Disposition": `${!miniature && !apercuPage && new URL(requete.url).searchParams.get("telecharger") === "1" ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(fichier.nomOriginal)}`,
         "Cache-Control": "private, max-age=3600",
         "X-Content-Type-Options": "nosniff",
       },

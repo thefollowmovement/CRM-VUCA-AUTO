@@ -20,9 +20,19 @@ Prompt utilisateur du 23/10/2026 + extension Chrome fournie (`vuca-antai-extensi
 
 | Étape | Contenu | Statut |
 |---|---|---|
-| A1 | Données, fiche client ANTAI, Réglages › Amendes, import + découpage, lecture Claude, contrôles, rapprochement, écran « À valider » | 🟡 Livrée le 23/10/2026, en attente de validation |
-| A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | À faire |
+| A1 | Données, fiche client ANTAI, Réglages › Amendes, import + découpage, lecture Claude, contrôles, rapprochement, écran « À valider » | ✅ Validée le 23/10/2026 |
+| A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | 🟡 Livrée le 23/10/2026, en attente de validation |
 | A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | À faire |
+
+### Étape A2 — livré
+
+- **Liste des PV** : filtres par statut, véhicule, client, contrat, période d'infraction et échéance (« moins de 10 jours » en orange, « dépassée » en rouge) ; badges d'échéance sur chaque ligne.
+- **Tableau de bord** : bloc « Amendes » (à valider, à désigner, échéance sous 10 jours, délai dépassé), chaque chiffre ouvre la liste filtrée.
+- **Fiches** : bloc « Amendes » sur la fiche contrat (avec le total « Frais amendes » facturés), la fiche client et un nouvel onglet « Amendes » sur la fiche véhicule.
+- **Fiche d'un PV** : scan, champs lus, échéance ; actions « Marquer comme désigné » (date et heure), changement de statut, note datée et signée, téléchargement du scan, refacturation (plus proposée une fois le conducteur désigné : c'est lui qui paie).
+- **Frais de gestion** (Réglages › Amendes, 0 = aucun) : appliqués une seule fois quand le conducteur est désigné — montant noté sur le PV et ligne « Frais de gestion avis de contravention n° … » ajoutée aux frais du contrat (reste à payer du client).
+- **Export pour désignation (CSV)** : PV « à désigner », triés par date limite, colonnes = champs de l'API de l'extension (conducteur et société compris) ; export tracé dans le journal.
+- Tests : 228 tests unitaires (dont format ANTAI exact et échéances) ; parcours navigateur A2 (≈ 40 vérifications : widget, filtres, export, désignation + frais sans doublon, note, scan, refacturation, fiches, téléphone) ; A1, phases 6, 7, 8 toujours verts.
 
 ### Étape A1 — livré
 

@@ -310,6 +310,8 @@ Les miniatures des PDF utilisent `pdftoppm` (paquet `poppler-utils`), installé 
 
 ### Réglages → Amendes
 
+Suivi : la liste des PV se filtre par échéance (orange = moins de 10 jours, rouge = délai dépassé), le tableau de bord affiche un bloc « Amendes », et **Exporter pour désignation (CSV)** donne les PV « à désigner » avec la fiche du conducteur (secours si l'extension n'est pas disponible). Sur la fiche d'un PV, **Marquer comme désigné** applique les frais de gestion réglés (ligne ajoutée aux frais du contrat).
+
 Raison sociale **exactement comme sur les avis** (sinon l'avis est signalé « adressé à un autre titulaire »), adresse du siège, email des confirmations ANTAI, frais de gestion par PV désigné (0 = aucun) et modèle utilisé (par défaut `claude-haiku-5-5`, rapide et économique). Champs vides = informations de Réglages → Société.
 
 ## 9. Pour les développeurs

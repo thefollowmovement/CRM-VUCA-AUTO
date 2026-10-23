@@ -6,7 +6,7 @@ import { entierOptionnel, identifiant, montant, texte, texteOptionnel } from "./
 export const PROPRETES = ["PROPRE", "CORRECT", "SALE"] as const;
 export const LIBELLES_PROPRETE: Record<(typeof PROPRETES)[number], string> = { PROPRE: "Propre", CORRECT: "Correct", SALE: "Sale" };
 
-export const TYPES_FRAIS = ["KM_SUPPLEMENTAIRES", "CARBURANT", "NETTOYAGE", "DOMMAGES", "RETARD", "LIVRAISON", "AMENDE_REFACTUREE", "FRAIS_DOSSIER", "AUTRE"] as const;
+export const TYPES_FRAIS = ["KM_SUPPLEMENTAIRES", "CARBURANT", "NETTOYAGE", "DOMMAGES", "RETARD", "LIVRAISON", "AMENDE_REFACTUREE", "FRAIS_GESTION_AMENDE", "FRAIS_DOSSIER", "AUTRE"] as const;
 export const LIBELLES_TYPE_FRAIS: Record<(typeof TYPES_FRAIS)[number], string> = {
   KM_SUPPLEMENTAIRES: "Km supplémentaires",
   CARBURANT: "Carburant / recharge",
@@ -15,6 +15,7 @@ export const LIBELLES_TYPE_FRAIS: Record<(typeof TYPES_FRAIS)[number], string> =
   RETARD: "Retard",
   LIVRAISON: "Livraison",
   AMENDE_REFACTUREE: "Amende refacturée",
+  FRAIS_GESTION_AMENDE: "Frais de gestion PV",
   FRAIS_DOSSIER: "Frais de dossier",
   AUTRE: "Autre",
 };

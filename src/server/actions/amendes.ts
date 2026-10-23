@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { saisieParisVersDate } from "@/lib/dates";
-import { formatDateHeure } from "@/lib/format";
+import { formatDateHeure, formatEuros } from "@/lib/format";
 import { journaliser } from "@/lib/journal";
 import { avecDroits, ErreurMetier, ROLES_ADMIN, ROLES_GESTION } from "@/lib/permissions";
 import { enregistrerFichier, supprimerFichierStocke, TYPES_DOCUMENTS } from "@/lib/storage";
 import { erreurValidation } from "@/lib/validations/erreurs";
 import { schemaAmende, STATUTS_AMENDE_MANUELS, type SaisieAmende } from "@/lib/validations/paiement";
+import { designerAmende, ErreurDesignation } from "@/server/amendes/designation";
 import { evaluerAmende } from "@/server/amendes/traitement";
 import { contratAuMoment } from "@/server/requetes/amendes-sinistres";
 
@@ -35,7 +36,7 @@ export async function enregistrerAmende(id: string | null, saisie: SaisieAmende)
     const lecture = schemaAmende.safeParse(saisie);
     if (!lecture.success) return erreurValidation(lecture.error);
     const d = lecture.data;
-    const avant = id ? await db.amende.findUnique({ where: { id }, include: { _count: { select: { frais: true } } } }) : null;
+    const avant = id ? await db.amende.findUnique({ where: { id }, include: { _count: { select: { frais: { where: { type: "AMENDE_REFACTUREE" } } } } } }) : null;
     if (id && !avant) throw new ErreurMetier("PV introuvable.");
     // Identification automatique du contrat et du client
     const c = await contratAuMoment(d.vehiculeId, d.infractionLe);
@@ -48,9 +49,13 @@ export async function enregistrerAmende(id: string | null, saisie: SaisieAmende)
     if (avant && avant._count.frais > 0 && (avant.vehiculeId !== d.vehiculeId || avant.infractionLe?.getTime() !== d.infractionLe.getTime() || avant.montantCentimes !== d.montant)) {
       throw new ErreurMetier("Ce PV a déjà été refacturé : retirez d'abord le frais sur le contrat pour modifier le véhicule, la date ou le montant.");
     }
+    // « Conducteur désigné » choisi dans le formulaire : on passe par la désignation (date, frais de gestion).
+    const designer = d.statut === "CONDUCTEUR_DESIGNE" && avant?.statut !== "CONDUCTEUR_DESIGNE";
+    if (designer) donnees.statut = avant?.statut === "REFACTUREE" || !avant ? "A_DESIGNER" : (avant.statut as typeof donnees.statut);
     const a = id ? await db.amende.update({ where: { id }, data: donnees }) : await db.amende.create({ data: { ...donnees, creeParId: u.id } });
     // Alertes de l'écran « À valider » (plaque, numéro, fiche client…) calculées tout de suite.
     await evaluerAmende(db, a.id);
+    if (designer) await db.$transaction((tx) => designerAmende(tx, { id: a.id, date: new Date(), utilisateurId: u.id, statutsAutorises: [...STATUTS_AMENDE_MANUELS, "RECUE", "A_LIRE"] }));
     await journaliser({ utilisateurId: u.id, action: id ? "MODIFICATION" : "CREATION", entite: "Amende", entiteId: a.id, avant, apres: a });
     rafraichir(a.id, a.contratId, a.clientId);
     return {
@@ -66,19 +71,61 @@ export async function changerStatutAmende(id: string, statut: string) {
     if (!(STATUTS_AMENDE_MANUELS as readonly string[]).includes(statut)) throw new ErreurMetier("Statut invalide.");
     const a = await db.amende.findUnique({ where: { id } });
     if (!a) throw new ErreurMetier("PV introuvable.");
-    await db.amende.update({ where: { id }, data: { statut: statut as (typeof STATUTS_AMENDE_MANUELS)[number], ...(statut === "CONDUCTEUR_DESIGNE" && !a.dateDesignation ? { dateDesignation: new Date() } : {}) } });
+    if (statut === "CONDUCTEUR_DESIGNE") {
+      // Même chemin que « Marquer comme désigné » : date du jour et frais de gestion éventuels.
+      const r = await db.$transaction((tx) => designerAmende(tx, { id, date: new Date(), utilisateurId: u.id, statutsAutorises: [...STATUTS_AMENDE_MANUELS, "RECUE"] }));
+      rafraichir(id, a.contratId, a.clientId);
+      return { ok: true, message: r.fraisCentimes ? `Conducteur désigné : frais de gestion de ${formatEuros(r.fraisCentimes)} ajoutés.` : "Conducteur désigné." };
+    }
+    await db.amende.update({ where: { id }, data: { statut: statut as (typeof STATUTS_AMENDE_MANUELS)[number] } });
     await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Amende", entiteId: id, avant: { statut: a.statut }, apres: { statut } });
     rafraichir(id, a.contratId, a.clientId);
     return { ok: true, message: "Statut mis à jour." };
   });
 }
 
+/** « Marquer comme désigné » : date et heure de la désignation sur le site de l'ANTAI (heure de Paris). */
+export async function marquerAmendeDesignee(id: string, dateSaisie: string) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const date = saisieParisVersDate(dateSaisie);
+    if (!date) throw new ErreurMetier("Date de désignation invalide.");
+    if (date.getTime() > Date.now() + 5 * 60_000) throw new ErreurMetier("La date de désignation est dans le futur.");
+    try {
+      const r = await db.$transaction((tx) => designerAmende(tx, { id, date, utilisateurId: u.id }));
+      rafraichir(id, r.contratId, r.clientId);
+      return { ok: true, message: r.fraisCentimes ? `PV marqué « désigné » : frais de gestion de ${formatEuros(r.fraisCentimes)} ajoutés${r.contratId ? " au contrat" : ""}.` : "PV marqué « désigné »." };
+    } catch (e) {
+      if (e instanceof ErreurDesignation) throw new ErreurMetier(e.message);
+      throw e;
+    }
+  });
+}
+
+/** Ajoute une note datée et signée à la suite des précédentes. */
+export async function ajouterNoteAmende(id: string, texte: string) {
+  return avecDroits(ROLES_GESTION, async (u) => {
+    const propre = String(texte ?? "").trim();
+    if (!propre) throw new ErreurMetier("La note est vide.");
+    if (propre.length > 1000) throw new ErreurMetier("Note trop longue (1000 caractères maximum).");
+    const a = await db.amende.findUnique({ where: { id }, select: { note: true, contratId: true, clientId: true } });
+    if (!a) throw new ErreurMetier("PV introuvable.");
+    const ligne = `${formatDateHeure(new Date())} — ${u.nom} : ${propre}`;
+    const note = (a.note ? `${a.note}\n${ligne}` : ligne).slice(-5000);
+    await db.amende.update({ where: { id }, data: { note } });
+    await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Amende", entiteId: id, apres: { note: ligne } });
+    rafraichir(id, a.contratId, a.clientId);
+    return { ok: true, message: "Note ajoutée." };
+  });
+}
+
 /** Refacture le PV au client : frais « Amende refacturée » ajouté au contrat. */
 export async function refacturerAmende(id: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
-    const a = await db.amende.findUnique({ where: { id }, include: { _count: { select: { frais: true } } } });
+    const a = await db.amende.findUnique({ where: { id }, include: { _count: { select: { frais: { where: { type: "AMENDE_REFACTUREE" } } } } } });
     if (!a) throw new ErreurMetier("PV introuvable.");
     if (!a.contratId) throw new ErreurMetier("Aucune location identifiée à la date du PV : impossible de le refacturer.");
+    if (a.statut === "CONDUCTEUR_DESIGNE") throw new ErreurMetier("Le conducteur a été désigné : c'est lui qui paie l'amende, rien à refacturer.");
+    if (a.statut === "IGNORE") throw new ErreurMetier("Ce PV est ignoré.");
     if (a.montantCentimes == null) throw new ErreurMetier("Montant du PV inconnu : renseignez-le avant de le refacturer.");
     const montant = a.montantCentimes;
     if (a._count.frais > 0) throw new ErreurMetier("Ce PV est déjà refacturé.");
@@ -101,7 +148,7 @@ export async function supprimerAmende(id: string) {
   return avecDroits(ROLES_ADMIN, async (u) => {
     const a = await db.amende.findUnique({ where: { id }, include: { fichiers: true, _count: { select: { frais: true } } } });
     if (!a) throw new ErreurMetier("PV introuvable.");
-    if (a._count.frais > 0) throw new ErreurMetier("Ce PV a été refacturé : retirez d'abord le frais sur le contrat.");
+    if (a._count.frais > 0) throw new ErreurMetier("Des frais sont liés à ce PV (refacturation ou frais de gestion) : retirez-les d'abord des frais du contrat.");
     await db.amende.delete({ where: { id } });
     for (const f of a.fichiers) await supprimerFichierStocke(f.cleStockage);
     await journaliser({ utilisateurId: u.id, action: "SUPPRESSION", entite: "Amende", entiteId: id, avant: a });

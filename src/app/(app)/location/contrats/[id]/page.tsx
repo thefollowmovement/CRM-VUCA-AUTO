@@ -1,3 +1,4 @@
+import { AmendesFiche } from "@/components/amendes/amendes-fiche";
 import { ArrowLeft, HandCoins, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -28,7 +29,7 @@ import { nomVehicule } from "@/lib/vehicule";
 import { LIBELLES_STATUT_CAUTION } from "@/lib/validations/etat-des-lieux";
 import { LIBELLES_MODE_CAUTION, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
 import { imputerPaiements } from "@/lib/calculs/echeancier";
-import { LIBELLES_STATUT_AMENDE, LIBELLES_STATUT_SINISTRE } from "@/lib/validations/paiement";
+import { LIBELLES_STATUT_SINISTRE } from "@/lib/validations/paiement";
 import { totalEncaisse } from "@/server/echeances";
 import { obtenirContrat } from "@/server/requetes/contrats";
 
@@ -274,18 +275,17 @@ export default async function PageContrat({ params, searchParams }: { params: Pr
               </div>
             </CardContent>
           </Card>
-          {(c.amendes.length > 0 || c.sinistres.length > 0) && (
+          <AmendesFiche
+            amendes={c.amendes}
+            lienListe={`/location/amendes?contrat=${c.id}`}
+            fraisCentimes={c.fraisSupplementaires.filter((x) => x.type === "AMENDE_REFACTUREE" || x.type === "FRAIS_GESTION_AMENDE").reduce((s, x) => s + x.montantCentimes, 0)}
+          />
+          {c.sinistres.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>PV et sinistres</CardTitle>
+                <CardTitle>Sinistres</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
-                {c.amendes.map((a) => (
-                  <Link key={a.id} href={`/location/amendes/${a.id}`} className="flex justify-between gap-2 hover:underline">
-                    <span>PV du {formatDateHeure(a.infractionLe)} · {LIBELLES_STATUT_AMENDE[a.statut]}</span>
-                    <span className="tabular-nums">{formatEuros(a.montantCentimes)}</span>
-                  </Link>
-                ))}
                 {c.sinistres.map((x) => (
                   <Link key={x.id} href={`/location/sinistres/${x.id}`} className="hover:underline">
                     Sinistre du {formatDate(x.survenuLe)} · {LIBELLES_STATUT_SINISTRE[x.statut]}

@@ -117,7 +117,7 @@ export async function obtenirContrat(id: string) {
       paiements: { orderBy: [{ date: "asc" }, { creeLe: "asc" }], include: { echeance: { select: { libelle: true } } } },
       echeances: { orderBy: { numero: "asc" } },
       factures: { orderBy: { creeLe: "desc" }, select: { id: true, numero: true, dateEmission: true, totalCentimes: true, annuleeLe: true, motifAnnulation: true } },
-      amendes: { orderBy: { infractionLe: "desc" }, select: { id: true, infractionLe: true, montantCentimes: true, statut: true, lieu: true } },
+      amendes: { orderBy: { creeLe: "desc" }, select: { id: true, numeroAvis: true, infractionLe: true, heureInconnue: true, montantCentimes: true, statut: true, lieu: true, dateLimite: true } },
       sinistres: { orderBy: { survenuLe: "desc" }, select: { id: true, survenuLe: true, description: true, statut: true } },
       fraisSupplementaires: { orderBy: { creeLe: "asc" } },
       etatsDesLieux: {

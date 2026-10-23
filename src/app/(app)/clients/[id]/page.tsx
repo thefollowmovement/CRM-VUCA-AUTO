@@ -1,3 +1,4 @@
+import { AmendesFiche } from "@/components/amendes/amendes-fiche";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -18,7 +19,6 @@ import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 import { lireReglages } from "@/lib/reglages";
 import { nomVehicule } from "@/lib/vehicule";
 import { LIBELLES_CIVILITE, LIBELLES_PIECE, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
-import { LIBELLES_STATUT_AMENDE } from "@/lib/validations/paiement";
 import { totalEncaisse } from "@/server/echeances";
 import { nomClient, obtenirClient } from "@/server/requetes/clients";
 
@@ -159,29 +159,7 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
           </Card>
         </div>
         <div className="flex flex-col gap-4">
-          {c.amendes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>PV ({c.amendes.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="divide-y">
-                  {c.amendes.map((a) => (
-                    <li key={a.id}>
-                      <Link href={`/location/amendes/${a.id}`} className="flex items-center gap-3 py-2 text-sm hover:bg-muted/50">
-                        <span className="min-w-0 flex-1">
-                          {formatDateHeure(a.infractionLe)}
-                          {a.contrat && <span className="text-muted-foreground"> · {a.contrat.numero}</span>}
-                          <span className="block text-xs text-muted-foreground">{LIBELLES_STATUT_AMENDE[a.statut]}</span>
-                        </span>
-                        <span className="font-semibold tabular-nums">{formatEuros(a.montantCentimes)}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+          <AmendesFiche amendes={c.amendes} lienListe={`/location/amendes?client=${c.id}`} />
           {!c.anonymiseLe && <DocumentsClient clientId={c.id} documents={c.fichiers} modifiable={modifiable} />}
         </div>
       </div>

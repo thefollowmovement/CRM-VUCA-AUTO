@@ -14,6 +14,7 @@ export function OngletsVehicule({ id, location }: { id: string; location: boolea
     { href: `${base}/depenses`, libelle: "Dépenses" },
     ...(location ? [{ href: `${base}/location`, libelle: "Location" }] : []),
     { href: `${base}/dommages`, libelle: "Dommages" },
+    { href: `${base}/amendes`, libelle: "Amendes" },
     { href: `${base}/entretien`, libelle: "Entretien" },
     { href: `${base}/documents`, libelle: "Documents" },
     { href: `${base}/historique`, libelle: "Historique" },

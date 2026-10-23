@@ -199,6 +199,7 @@ enum TypeFraisSupplementaire {
   AMENDE_REFACTUREE
   FRAIS_DOSSIER
   AUTRE
+  FRAIS_GESTION_AMENDE // frais de gestion facturés quand le conducteur d'un PV est désigné
 }
 
 // EN_RETARD n'est PAS stocké : calculé (date d'échéance dépassée et non payée).

@@ -66,7 +66,7 @@ export const schemaAmende = z.object({
   dateReception: dateOptionnelle("La date de réception"),
   dateLimite: dateOptionnelle("La date limite"),
   statut: z.enum([...STATUTS_AMENDE_MANUELS, "REFACTUREE"]),
-  note: texteOptionnel(1000),
+  note: texteOptionnel(5000),
 });
 export type SaisieAmende = z.input<typeof schemaAmende>;
 

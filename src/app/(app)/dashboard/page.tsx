@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  BadgeAlert,
   Banknote,
   CalendarClock,
   Car,
@@ -29,6 +30,7 @@ import { lirePeriode } from "@/lib/periode-url";
 import { cn } from "@/lib/utils";
 import { donneesDashboard } from "@/server/requetes/tableau-de-bord";
 import { resumeSite } from "@/server/site/statistiques";
+import { resumeAmendes } from "@/server/requetes/amendes-sinistres";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -53,7 +55,7 @@ function CarteIndicateur({ i }: { i: Indicateur }) {
 export default async function PageDashboard({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const utilisateur = await exigerRolePage(ROLES_GESTION);
   const { periode, du, au, partenaire } = lirePeriode(await searchParams);
-  const [d, site] = await Promise.all([donneesDashboard(du, au, partenaire), resumeSite(7)]);
+  const [d, site, pv] = await Promise.all([donneesDashboard(du, au, partenaire), resumeSite(7), resumeAmendes()]);
   const t = d.totaux;
   const plage = `du=${du}&au=${au}`;
   const qRapport = new URLSearchParams({ periode, ...(periode === "perso" ? { du, au } : {}), ...(d.partenaire ? { partenaire: d.partenaire.id } : {}) }).toString();
@@ -143,6 +145,34 @@ export default async function PageDashboard({ searchParams }: { searchParams: Pr
                       <span className="block truncate text-xs text-muted-foreground">{a.exemples.join(" · ")}</span>
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {pv.aValider + pv.aDesigner + pv.proches + pv.depasses > 0 && (
+        <Card className="mb-4" data-testid="widget-amendes">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BadgeAlert className="size-5 text-primary" aria-hidden /> Amendes
+            </CardTitle>
+            <CardDescription>Conducteur à désigner sous 45 jours après la date de l&apos;avis.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {[
+                { libelle: "À valider", n: pv.aValider, href: "/location/amendes/a-valider", ton: "" },
+                { libelle: "À désigner", n: pv.aDesigner, href: "/location/amendes?statut=A_DESIGNER", ton: "" },
+                { libelle: "Échéance sous 10 jours", n: pv.proches, href: "/location/amendes?echeance=proche", ton: pv.proches ? "text-amber-700 dark:text-warning" : "" },
+                { libelle: "Délai dépassé", n: pv.depasses, href: "/location/amendes?echeance=depassee", ton: pv.depasses ? "text-destructive" : "" },
+              ].map((x) => (
+                <li key={x.libelle}>
+                  <Link href={x.href} className="flex flex-col rounded-lg border p-3 hover:bg-accent">
+                    <span className={cn("text-xl font-bold tabular-nums", x.ton)}>{x.n}</span>
+                    <span className="text-xs text-muted-foreground">{x.libelle}</span>
                   </Link>
                 </li>
               ))}

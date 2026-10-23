@@ -60,8 +60,8 @@ export async function obtenirClient(id: string) {
         },
       },
       amendes: {
-        orderBy: { infractionLe: "desc" },
-        select: { id: true, infractionLe: true, montantCentimes: true, statut: true, contrat: { select: { numero: true } } },
+        orderBy: { creeLe: "desc" },
+        select: { id: true, numeroAvis: true, infractionLe: true, heureInconnue: true, montantCentimes: true, statut: true, dateLimite: true, contrat: { select: { numero: true } } },
       },
       conduitesAdditionnelles: {
         select: { contrat: { select: { id: true, numero: true, statut: true, departPrevuLe: true, retourPrevuLe: true, vehicule: { select: { marque: true, modele: true, immatriculation: true } } } } },

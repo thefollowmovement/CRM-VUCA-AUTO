@@ -292,3 +292,18 @@ export function motifRefusValidation(a: { clientId: string | null; numeroAvis: s
   if (!a.dateAvis) return "date de l'avis manquante";
   return null;
 }
+
+// ---------------------------------------------------------------------
+//  Échéance de désignation (liste, tableau de bord)
+// ---------------------------------------------------------------------
+/** Statuts pour lesquels le conducteur reste à désigner : le délai de 45 jours compte. */
+export const STATUTS_DESIGNATION_EN_ATTENTE = ["A_LIRE", "A_VALIDER", "A_DESIGNER", "RECUE"] as const;
+export const JOURS_ECHEANCE_PROCHE = 10;
+export type EtatEcheance = "depassee" | "proche" | "ok";
+
+/** « depassee » (rouge), « proche » = moins de 10 jours (orange), « ok » ; null = rien à désigner. */
+export function etatEcheance(dateLimite: Date | null, statut: string, aujourdhuiISO: string): EtatEcheance | null {
+  if (!dateLimite || !(STATUTS_DESIGNATION_EN_ATTENTE as readonly string[]).includes(statut)) return null;
+  const j = joursAvantLimite(dateLimite, aujourdhuiISO);
+  return j < 0 ? "depassee" : j < JOURS_ECHEANCE_PROCHE ? "proche" : "ok";
+}
