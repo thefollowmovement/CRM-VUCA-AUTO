@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dateDepuisParis } from "@/lib/dates";
-import { COLONNES_CSV_ANTAI, ligneCsvAntai, societeAntai, versAmendeAntai, type AmendeSource } from "./amendes-antai";
+import { COLONNES_CSV_ANTAI, ligneCsvAntai, lireDateDesignation, societeAntai, versAmendeAntai, type AmendeSource } from "./amendes-antai";
 import { etatEcheance } from "./calculs/amendes";
 
 const jour = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -58,5 +58,27 @@ describe("échéance de désignation", () => {
     expect(etatEcheance(limite, "A_VALIDER", "2026-11-06")).toBe("ok");
     expect(etatEcheance(limite, "CONDUCTEUR_DESIGNE", "2026-12-01")).toBeNull();
     expect(etatEcheance(null, "A_DESIGNER", "2026-12-01")).toBeNull();
+  });
+});
+
+describe("date de désignation reçue de l'extension", () => {
+  const maintenant = new Date("2026-10-24T08:00:00Z");
+  it("absente → maintenant", () => {
+    expect(lireDateDesignation(undefined, maintenant)).toBe(maintenant);
+    expect(lireDateDesignation("", maintenant)).toBe(maintenant);
+  });
+  it("« AAAA-MM-JJTHH:MM » = heure de Paris", () => {
+    expect(lireDateDesignation("2026-10-24T09:30", maintenant)?.toISOString()).toBe("2026-10-24T07:30:00.000Z");
+    expect(lireDateDesignation("2026-01-15T09:30", maintenant)?.toISOString()).toBe("2026-01-15T08:30:00.000Z");
+    expect(lireDateDesignation("2026-10-24T09:30:15", maintenant)?.toISOString()).toBe("2026-10-24T07:30:00.000Z");
+  });
+  it("ISO avec fuseau", () => {
+    expect(lireDateDesignation("2026-10-24T07:30:00Z", maintenant)?.toISOString()).toBe("2026-10-24T07:30:00.000Z");
+    expect(lireDateDesignation("2026-10-24T09:30+02:00", maintenant)?.toISOString()).toBe("2026-10-24T07:30:00.000Z");
+  });
+  it("refuse les valeurs invalides", () => {
+    for (const v of [12, {}, "24/10/2026", "2026-02-31T10:00", "2026-10-24", "2026-10-24T25:00", "2026-10-27T10:00", "1999-12-31T10:00", "demain"]) {
+      expect(lireDateDesignation(v, maintenant)).toBeNull();
+    }
   });
 });

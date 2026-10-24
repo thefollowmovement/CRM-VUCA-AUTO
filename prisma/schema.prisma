@@ -326,6 +326,7 @@ model Utilisateur {
   etatsDesLieux     EtatDesLieux[]
   amendesCreees     Amende[]                   @relation("AmendesCreees")
   lotsAmendes       LotImportAmendes[]
+  jetonsApi         JetonApi[]                 @relation("JetonsApi")
 }
 
 /// Trace chaque création / modification / suppression (montants en priorité).
@@ -981,6 +982,20 @@ model Amende {
   @@index([contratId])
   @@index([numeroAvis])
   @@index([lotImportId])
+}
+
+/// Jeton d'accès de l'extension Chrome « Désignation ANTAI » (Réglages › Extension ANTAI).
+/// Seule l'empreinte SHA-256 est enregistrée : le jeton n'est affiché qu'une fois, à sa création.
+model JetonApi {
+  id             String       @id @default(cuid())
+  nom            String // ex. « Chrome du bureau »
+  empreinte      String       @unique // SHA-256 (hex) du jeton
+  apercu         String // début du jeton (« vuca_ab12… »), pour le reconnaître
+  creeParId      String?
+  creePar        Utilisateur? @relation("JetonsApi", fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe         DateTime     @default(now())
+  dernierUsageLe DateTime?
+  revoqueLe      DateTime?
 }
 
 /// Un dépôt de scans (un ou plusieurs fichiers) dans Amendes › Importer.

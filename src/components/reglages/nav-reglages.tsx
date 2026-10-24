@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeAlert, Bell, Building, FileText, FlaskConical, History, ListChecks, Package, Tags, UserCog } from "lucide-react";
+import { BadgeAlert, Bell, Building, FileText, FlaskConical, History, ListChecks, Package, Puzzle, Tags, UserCog } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const SECTIONS = [
   { href: "/reglages/options", libelle: "Options de location", icone: Package },
   { href: "/reglages/checklist", libelle: "Check-list état des lieux", icone: ListChecks },
   { href: "/reglages/amendes", libelle: "Amendes", icone: BadgeAlert },
+  { href: "/reglages/extension-antai", libelle: "Extension ANTAI", icone: Puzzle },
   { href: "/reglages/utilisateurs", libelle: "Utilisateurs", icone: UserCog },
   { href: "/reglages/journal", libelle: "Journal d'activité", icone: History },
   { href: "/reglages/demonstration", libelle: "Démonstration", icone: FlaskConical },

@@ -30,8 +30,10 @@ export class ErreurDesignation extends Error {
  */
 export async function designerAmende(
   tx: Tx,
-  params: { id: string; date: Date; utilisateurId: string | null; statutsAutorises?: readonly string[] },
+  params: { id: string; date: Date; utilisateurId: string | null; statutsAutorises?: readonly string[]; /** Origine notée au journal (ex. « Extension ANTAI — Chrome du bureau »). */ source?: string },
 ): Promise<{ fraisCentimes: number; contratId: string | null; clientId: string | null }> {
+  // Verrou sur la ligne : deux désignations simultanées (bouton + extension) n'appliquent pas deux fois les frais
+  await tx.$queryRaw`SELECT id FROM "Amende" WHERE id = ${params.id} FOR UPDATE`;
   const a = await tx.amende.findUnique({ where: { id: params.id }, include: { frais: { where: { type: "FRAIS_GESTION_AMENDE" }, select: { id: true } } } });
   if (!a) throw new ErreurDesignation("PV introuvable.", "introuvable");
   const autorises = params.statutsAutorises ?? STATUTS_DESIGNABLES;
@@ -65,7 +67,7 @@ export async function designerAmende(
       entite: "Amende",
       entiteId: a.id,
       avant: { statut: a.statut },
-      apres: { statut: "CONDUCTEUR_DESIGNE", dateDesignation: params.date, ...(appliquerFrais ? { fraisGestion: formatEuros(montant), contratId: a.contratId } : {}) },
+      apres: { statut: "CONDUCTEUR_DESIGNE", dateDesignation: params.date, ...(params.source ? { source: params.source } : {}), ...(appliquerFrais ? { fraisGestion: formatEuros(montant), contratId: a.contratId } : {}) },
     },
     tx,
   );

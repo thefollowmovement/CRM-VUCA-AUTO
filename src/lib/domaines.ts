@@ -32,8 +32,11 @@ export const INTROUVABLE_SITE = "/site-introuvable";
 const PREFIXES_SITE = ["/voitures", "/a-propos", "/contact", "/mentions-legales", "/confidentialite", "/photos", "/partage", "/api/site", "/sitemap.xml"];
 /** Fichiers servis sur les deux domaines, sans connexion (leur contenu peut dépendre du domaine). */
 const FICHIERS_COMMUNS = ["/favicon.ico", "/icon.svg", "/icones/", "/manifest.webmanifest", "/robots.txt", "/_next/"];
-/** Propres au CRM, sans contrôle du middleware : application installable et routes de connexion d'Auth.js. */
-const FICHIERS_CRM = ["/sw.js", "/hors-ligne.html", "/api/auth"];
+/**
+ * Propres au CRM, sans contrôle du middleware : application installable, routes de connexion d'Auth.js
+ * et API de l'extension ANTAI (protégée par son propre jeton « Bearer », jamais par le cookie de session).
+ */
+const FICHIERS_CRM = ["/sw.js", "/hors-ligne.html", "/api/auth", "/api/antai"];
 /** Pages du CRM qui montrent le site (aperçu), protégées par la connexion. */
 const APERCU_CRM = ["/site-preview"];
 /** Préfixe de l'aperçu du vrai site sur le domaine du CRM (même si le site est en maintenance). */

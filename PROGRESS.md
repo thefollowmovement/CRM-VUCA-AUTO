@@ -21,8 +21,15 @@ Prompt utilisateur du 23/10/2026 + extension Chrome fournie (`vuca-antai-extensi
 | Étape | Contenu | Statut |
 |---|---|---|
 | A1 | Données, fiche client ANTAI, Réglages › Amendes, import + découpage, lecture Claude, contrôles, rapprochement, écran « À valider » | ✅ Validée le 23/10/2026 |
-| A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | 🟡 Livrée le 23/10/2026, en attente de validation |
-| A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | À faire |
+| A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | ✅ Validée le 24/10/2026 |
+| A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | 🟡 Livrée le 24/10/2026, en attente de validation |
+
+### Étape A3 — livré
+
+- **Réglages › Extension ANTAI** (admin) : « Nouveau jeton » (un par ordinateur, nommé), jeton `vuca_…` affiché **une seule fois** avec bouton Copier ; le CRM ne garde que son empreinte SHA-256 et un aperçu (`vuca_Ab12Cd…`) ; liste avec créateur, date de création et de dernière utilisation ; **Révoquer** coupe l'accès aussitôt. Création / révocation journalisées (jamais le jeton).
+- **API** (contrat JSON du prompt du 23/10, à l'identique) : `GET /api/antai/ping` → `{ok:true, societe}` ; `GET /api/antai/amendes?statut=a_designer` → société + PV à désigner triés par date limite puis client, champs inconnus = `""` ; `POST /api/antai/amendes/{id}/designee` (`date_designation` facultative, heure de Paris) → « conducteur désigné » + frais de gestion (une seule fois, même en cas de double envoi simultané) → `{ok:true, id, statut:"designe"}`. Erreurs : 401 `{"error":"unauthorized"}`, 404, 409 si le PV n'est pas « à désigner », 400 (date ou corps invalide), 429 au-delà de 120 requêtes/minute par jeton.
+- Sécurité : jeton `Bearer` obligatoire (la session du CRM ne suffit pas), aucun en-tête CORS, `Cache-Control: no-store`, API introuvable sur le domaine du site (vuca-auto.fr) ; lecture de la liste et désignations tracées dans le journal (« Extension ANTAI — nom du jeton », au nom du créateur du jeton).
+- Tests : 237 tests unitaires (jetons, date de désignation, routage) ; parcours A3 (≈ 60 vérifications) avec la **vraie extension** chargée dans Chromium, branchée sur `https://crm.vuca-auto.fr` (relais HTTPS local) : « Tester la connexion » → « Connecté (VUCA AUTO) », liste groupée par locataire avec pastilles J-x, désignation (`markDone`) → PV désigné + 15 € de frais sur le contrat, 2e envoi → 409, révocation → « Jeton refusé (401) » ; A1 et A2 toujours verts.
 
 ### Étape A2 — livré
 

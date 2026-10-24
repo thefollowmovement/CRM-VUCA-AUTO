@@ -314,6 +314,14 @@ Suivi : la liste des PV se filtre par échéance (orange = moins de 10 jours, ro
 
 Raison sociale **exactement comme sur les avis** (sinon l'avis est signalé « adressé à un autre titulaire »), adresse du siège, email des confirmations ANTAI, frais de gestion par PV désigné (0 = aucun) et modèle utilisé (par défaut `claude-haiku-5-5`, rapide et économique). Champs vides = informations de Réglages → Société.
 
+### Extension Chrome « Désignation ANTAI »
+
+1. Dans le CRM : **Réglages → Extension ANTAI → Nouveau jeton**, donnez-lui le nom de l'ordinateur (ex. « Chrome du bureau »), puis **Copier**. Le jeton n'est affiché qu'une fois.
+2. Dans Chrome : icône de l'extension → onglet **Réglages** → adresse du CRM `https://crm.vuca-auto.fr`, collez le jeton → **Enregistrer** → **Tester la connexion** (« Connecté (VUCA AUTO) » doit s'afficher).
+3. Onglet **Depuis le CRM** : les PV « à désigner » apparaissent, groupés par locataire. Après chaque désignation validée sur le site de l'ANTAI, l'extension marque le PV « conducteur désigné » dans le CRM (frais de gestion compris).
+
+Ordinateur perdu ou jeton divulgué : **Révoquer** dans la même page, l'extension est coupée aussitôt. Détails techniques : `GET /api/antai/ping`, `GET /api/antai/amendes?statut=a_designer`, `POST /api/antai/amendes/{id}/designee`, en-tête `Authorization: Bearer <jeton>`, 120 requêtes par minute et par jeton.
+
 ## 9. Pour les développeurs
 
 Prérequis : Node.js 22, PostgreSQL 16+.

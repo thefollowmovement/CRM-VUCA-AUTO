@@ -5,7 +5,7 @@
 //  Règle : un champ inconnu vaut "" (jamais absent), dates ISO.
 // =====================================================================
 import { dateDelivranceEffective } from "@/lib/calculs/amendes";
-import { dateVersSaisieParis } from "@/lib/dates";
+import { dateVersSaisieParis, saisieParisVersDate } from "@/lib/dates";
 
 export type ConducteurAntai = {
   civilite: "M" | "MME" | "";
@@ -162,4 +162,21 @@ export function ligneCsvAntai(a: AmendeAntai, s: SocieteAntai): string[] {
     c.numero_permis, c.date_delivrance_permis, c.pays_delivrance_permis, c.email,
     s.raison_sociale, s.adresse_ligne1, s.adresse_ligne2, s.code_postal, s.ville, s.email,
   ];
+}
+
+/**
+ * `date_designation` du POST …/designee : « AAAA-MM-JJTHH:MM » (heure de Paris, celle de l'ordinateur
+ * de l'extension) ou date ISO avec fuseau (Z, +02:00). Absente → maintenant.
+ * Refuse une date de plus d'un jour dans le futur (horloge déréglée) ou avant 2000.
+ */
+export function lireDateDesignation(valeur: unknown, maintenant = new Date()): Date | null {
+  if (valeur === undefined || valeur === null || valeur === "") return maintenant;
+  if (typeof valeur !== "string") return null;
+  const v = valeur.trim();
+  let d: Date | null = null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(v)) d = saisieParisVersDate(v);
+  else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(v)) d = new Date(v);
+  if (!d || Number.isNaN(d.getTime())) return null;
+  if (d.getTime() > maintenant.getTime() + 24 * 3600_000 || d.getUTCFullYear() < 2000) return null;
+  return d;
 }

@@ -31,7 +31,7 @@ describe("domaine public vuca-auto.fr", () => {
     }
   });
   it("API du CRM (dont l'authentification) : 404 en JSON, sauf /api/site", () => {
-    for (const p of ["/api/auth/session", "/api/auth/csrf", "/api/fichiers/abc", "/api/pdf/facture/abc", "/api/export/paiements", "/api/rapports/excel", "/api/portail/releve"]) {
+    for (const p of ["/api/auth/session", "/api/auth/csrf", "/api/fichiers/abc", "/api/pdf/facture/abc", "/api/export/paiements", "/api/rapports/excel", "/api/portail/releve", "/api/antai/ping", "/api/antai/amendes"]) {
       expect(site(p)).toEqual({ type: "introuvable", api: true });
     }
     expect(site("/api/site/vue")).toEqual({ type: "site", chemin: "/api/site/vue" });
@@ -90,12 +90,15 @@ describe("domaine du CRM crm.vuca-auto.fr (et son alias sslip.io)", () => {
     expect(alias("/a-propos")).toEqual({ type: "redirection", url: "https://vuca-auto.fr/a-propos", statut: 307 });
     expect(crm(ACCUEIL_SITE)).toEqual({ type: "redirection", url: "https://vuca-auto.fr/", statut: 307 });
   });
+  it("l'API ANTAI ne déborde pas sur d'autres adresses", () => {
+    expect(crm("/api/antaix")).toEqual({ type: "crm" });
+  });
   it("API et 404 internes du site : 404 sur le CRM", () => {
     expect(crm("/api/site/clic")).toEqual({ type: "introuvable", api: true });
     expect(crm("/site-introuvable")).toEqual({ type: "introuvable", api: false });
   });
   it("fichiers techniques sans connexion", () => {
-    for (const p of ["/sw.js", "/hors-ligne.html", "/manifest.webmanifest", "/favicon.ico", "/icones/icone-512.png", "/robots.txt", "/api/auth/session", "/api/auth/csrf"]) {
+    for (const p of ["/sw.js", "/hors-ligne.html", "/manifest.webmanifest", "/favicon.ico", "/icones/icone-512.png", "/robots.txt", "/api/auth/session", "/api/auth/csrf", "/api/antai/ping", "/api/antai/amendes", "/api/antai/amendes/abc/designee"]) {
       expect(crm(p)).toEqual({ type: "libre" });
     }
   });
