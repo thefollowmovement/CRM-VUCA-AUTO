@@ -22,7 +22,7 @@ Prompt utilisateur du 23/10/2026 + extension Chrome fournie (`vuca-antai-extensi
 |---|---|---|
 | A1 | Données, fiche client ANTAI, Réglages › Amendes, import + découpage, lecture Claude, contrôles, rapprochement, écran « À valider » | ✅ Validée le 23/10/2026 |
 | A2 | Suivi : liste filtrée + échéances, widget dashboard, onglets fiches, actions, frais de gestion, export CSV | ✅ Validée le 24/10/2026 |
-| A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | 🟡 Livrée le 24/10/2026, en attente de validation |
+| A3 | API de l'extension Chrome (jeton haché, 3 routes, limite 120/min), test avec l'extension | ✅ Validée le 26/10/2026 |
 
 ### Étape A3 — livré
 
