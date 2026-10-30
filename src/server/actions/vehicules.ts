@@ -1,5 +1,6 @@
 "use server";
 
+import { depublierSiNecessaire, revaliderAnnonceDuVehicule } from "@/server/site/annonces";
 import { revalidatePath } from "next/cache";
 import type { CategorieFichier, StatutVehicule } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
@@ -88,6 +89,15 @@ async function verifierFinanceurs(ids: string[]) {
   if (ids.length === 0) return;
   const trouves = await db.partenaire.count({ where: { id: { in: ids } } });
   if (trouves !== new Set(ids).size) throw new ErreurMetier("Un des financeurs choisis n'existe plus.");
+}
+
+/** Refuse l'action si le véhicule a une location réservée ou en cours. */
+async function sansLocationActive(vehiculeId: string, action: string) {
+  const c = await db.contratLocation.findFirst({
+    where: { vehiculeId, archiveLe: null, statut: { in: ["RESERVATION", "CONFIRMEE", "EN_COURS"] } },
+    select: { numero: true },
+  });
+  if (c) throw new ErreurMetier(`Ce véhicule a une location réservée ou en cours (${c.numero}) : terminez-la ou annulez-la avant de ${action}.`);
 }
 
 /** Message clair pour les doublons d'immatriculation / VIN. */
@@ -183,6 +193,7 @@ export async function modifierVehicule(id: string, saisie: SaisieVehicule) {
         await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vehicule", entiteId: id, avant, apres: { ...apres, financement: d.financement } }, tx);
       });
       rafraichir(id);
+      await revaliderAnnonceDuVehicule(id);
       return { ok: true, message: "Modifications enregistrées." };
     } catch (erreur) {
       const message = messageDoublon(erreur);
@@ -229,7 +240,10 @@ export async function changerStatutVehicule(id: string, saisie: SaisieChangement
       await tx.historiqueStatutVehicule.create({
         data: { vehiculeId: id, ancienStatut: v.statut, nouveauStatut: lecture.data.statut, motif: lecture.data.motif, utilisateurId: u.id },
       });
+      // Site public : retirée si le véhicule n'est plus à vendre (sinon badge « Réservé » à jour)
+      await depublierSiNecessaire(tx, id, lecture.data.statut);
     });
+    await revaliderAnnonceDuVehicule(id);
     rafraichir(id);
     return { ok: true, message: "Statut mis à jour." };
   });
@@ -239,12 +253,14 @@ export async function archiverVehicule(id: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
     const v = await vehiculeExistant(id);
     if (v.statut === "ARCHIVE") return { ok: true, message: "Déjà archivé." };
+    await sansLocationActive(id, "l'archiver");
     await db.$transaction(async (tx) => {
       await tx.vehicule.update({ where: { id }, data: { statut: "ARCHIVE", archiveLe: new Date() } });
       await tx.historiqueStatutVehicule.create({
         data: { vehiculeId: id, ancienStatut: v.statut, nouveauStatut: "ARCHIVE", motif: "Archivage", utilisateurId: u.id },
       });
       await journaliser({ utilisateurId: u.id, action: "ARCHIVAGE", entite: "Vehicule", entiteId: id }, tx);
+      await depublierSiNecessaire(tx, id, "ARCHIVE");
     });
     rafraichir(id);
     return { ok: true, message: "Véhicule archivé." };
@@ -384,6 +400,7 @@ export async function supprimerFichierVehicule(fichierId: string) {
       await journaliser({ utilisateurId: u.id, action: "SUPPRESSION", entite: "FichierVehicule", entiteId: vehiculeId, avant: fichier }, tx);
     });
     await supprimerFichierStocke(fichier.cleStockage);
+    if (fichier.publique) await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: fichier.categorie === "PHOTO_VEHICULE" ? "Photo supprimée." : "Document supprimé." };
   });
@@ -454,6 +471,7 @@ export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
     const v = await vehiculeExistant(vehiculeId);
     if (v.statut === "VENDU") throw new ErreurMetier("Ce véhicule est déjà vendu.");
     if (v.statut === "ARCHIVE") throw new ErreurMetier("Restaurez d'abord ce véhicule archivé.");
+    await sansLocationActive(vehiculeId, "le vendre");
     if (d.dateVente < v.dateAchat) {
       return { ok: false, message: "La date de vente est antérieure à la date d'achat.", erreursChamps: { dateVente: ["Antérieure à la date d'achat."] } };
     }
@@ -482,7 +500,10 @@ export async function marquerVendu(vehiculeId: string, saisie: SaisieVente) {
         data: { vehiculeId, ancienStatut: v.statut, nouveauStatut: "VENDU", motif: `Vendu ${formatEuros(d.prixVente)}`, utilisateurId: u.id },
       });
       await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "Vente", entiteId: vehiculeId, avant: v, apres: d }, tx);
+      // Annonce retirée du site (sa page reste visible avec le bandeau « vendu »)
+      await depublierSiNecessaire(tx, vehiculeId, "VENDU");
     });
+    await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: "Véhicule marqué comme vendu." };
   });
@@ -493,6 +514,9 @@ export async function annulerVente(vehiculeId: string) {
   return avecDroits(ROLES_GESTION, async (u) => {
     const v = await vehiculeExistant(vehiculeId);
     if (v.statut !== "VENDU") throw new ErreurMetier("Ce véhicule n'est pas vendu.");
+    if (await db.facture.findFirst({ where: { vehiculeId, type: "VENTE_VEHICULE", annuleeLe: null }, select: { id: true } })) {
+      throw new ErreurMetier("Une facture de vente a été émise : annulez-la d'abord (fiche du véhicule, carte Vente).");
+    }
     const vente = await db.historiqueStatutVehicule.findFirst({ where: { vehiculeId, nouveauStatut: "VENDU" }, orderBy: { changeLe: "desc" } });
     const statut = vente?.ancienStatut && !["VENDU", "ARCHIVE"].includes(vente.ancienStatut) ? vente.ancienStatut : "EN_VENTE";
     await db.$transaction(async (tx) => {
@@ -506,6 +530,7 @@ export async function annulerVente(vehiculeId: string) {
       await tx.historiqueStatutVehicule.create({ data: { vehiculeId, ancienStatut: "VENDU", nouveauStatut: statut, motif: "Vente annulée", utilisateurId: u.id } });
       await journaliser({ utilisateurId: u.id, action: "MODIFICATION", entite: "AnnulationVente", entiteId: vehiculeId, avant: v }, tx);
     });
+    await revaliderAnnonceDuVehicule(vehiculeId);
     rafraichir(vehiculeId);
     return { ok: true, message: "Vente annulée." };
   });

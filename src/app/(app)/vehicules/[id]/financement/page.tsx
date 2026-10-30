@@ -151,7 +151,7 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
               <p className="text-xs text-muted-foreground">
                 Investi = participation à l&apos;achat + dépenses payées de sa poche (hors dépenses payées avec les recettes du véhicule).
                 À reverser = investi + part du bénéfice. Les arrondis au centime vont à VUCA AUTO.
-                {(bilan.vendu || versements) && " Déjà versé = capital remboursé + bénéfice versé (saisie des versements en Phase 7)."}
+                {(bilan.vendu || versements) && " Déjà versé = capital remboursé + bénéfice versé (versements saisis sur la fiche de chaque investisseur)."}
               </p>
             </>
           ) : (

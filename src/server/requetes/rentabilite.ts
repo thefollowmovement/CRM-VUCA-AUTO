@@ -153,6 +153,8 @@ export type ResumePartenaire = {
   vehiculesEnCours: number;
   beneficesRealisesCentimes: number;
   beneficesPrevisionnelsCentimes: number;
+  /** Total déjà versé (capital remboursé + bénéfices versés, avec ou sans véhicule). */
+  verseCentimes: number;
   resteDuCentimes: number;
 };
 
@@ -163,7 +165,7 @@ export async function resumesPartenaires(): Promise<Map<string, ResumePartenaire
   const resume = (id: string) => {
     let r = resumes.get(id);
     if (!r) {
-      r = { capitalEngageCentimes: 0, vehiculesEnCours: 0, beneficesRealisesCentimes: 0, beneficesPrevisionnelsCentimes: 0, resteDuCentimes: 0 };
+      r = { capitalEngageCentimes: 0, vehiculesEnCours: 0, beneficesRealisesCentimes: 0, beneficesPrevisionnelsCentimes: 0, verseCentimes: 0, resteDuCentimes: 0 };
       resumes.set(id, r);
     }
     return r;
@@ -177,6 +179,7 @@ export async function resumesPartenaires(): Promise<Map<string, ResumePartenaire
     for (const id of ids) {
       const s = situationPartenaire(bilan, id);
       const r = resume(id);
+      r.verseCentimes += s.verseCentimes;
       if (bilan.vendu) {
         r.beneficesRealisesCentimes += s.beneficeCentimes ?? 0;
         r.resteDuCentimes += s.resteDuCentimes ?? 0;
@@ -189,5 +192,21 @@ export async function resumesPartenaires(): Promise<Map<string, ResumePartenaire
       }
     }
   }
+  // Versements sans véhicule (ex. résultat de location versé globalement) : réduisent le reste dû
+  for (const [id, montant] of await versementsSansVehicule()) {
+    const r = resume(id);
+    r.verseCentimes += montant;
+    r.resteDuCentimes -= montant;
+  }
   return resumes;
+}
+
+/** Versements (hors apports) qui ne sont rattachés à aucun véhicule, par partenaire. */
+export async function versementsSansVehicule(partenaireId?: string): Promise<Map<string, number>> {
+  const lignes = await db.versement.groupBy({
+    by: ["partenaireId"],
+    where: { vehiculeId: null, type: { not: "APPORT_SUPPLEMENTAIRE" }, partenaireId },
+    _sum: { montantCentimes: true },
+  });
+  return new Map(lignes.map((l) => [l.partenaireId, l._sum.montantCentimes ?? 0]));
 }

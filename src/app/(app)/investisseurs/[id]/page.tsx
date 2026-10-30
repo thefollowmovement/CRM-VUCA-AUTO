@@ -1,19 +1,19 @@
-import { ArrowLeft, Car, HandCoins, Pencil } from "lucide-react";
+import { ArrowLeft, Car, Eye, FileText, HandCoins, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionsPartenaire } from "@/components/partenaires/actions-partenaire";
 import { DialoguePartenaire } from "@/components/partenaires/dialogue-partenaire";
+import { ReleveInvestisseur, Versements } from "@/components/partenaires/versements";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EtatVide } from "@/components/ui/etat-vide";
 import { db } from "@/lib/db";
 import { BadgeStatut } from "@/components/vehicules/badge-statut";
 import { formatDate, formatEuros, masquerIban } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { nomVehicule } from "@/lib/vehicule";
-import { bilansVehicules, situationPartenaire } from "@/server/requetes/rentabilite";
+import { bilansVehicules, situationPartenaire, versementsSansVehicule } from "@/server/requetes/rentabilite";
 import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Fiche partenaire" };
@@ -42,6 +42,17 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
   const enCours = actifs.filter((l) => !l.bilan.vendu);
   const vendus = actifs.filter((l) => l.bilan.vendu);
   const somme = (ls: typeof lignes, f: (l: (typeof lignes)[number]) => number) => ls.reduce((a, l) => a + f(l), 0);
+  const [versements, sansVehicule] = await Promise.all([
+    db.versement.findMany({
+      where: { partenaireId: id },
+      orderBy: [{ date: "desc" }, { creeLe: "desc" }],
+      include: { vehicule: { select: { marque: true, modele: true, version: true, immatriculation: true } } },
+    }),
+    versementsSansVehicule(id),
+  ]);
+  const verseGlobal = sansVehicule.get(id) ?? 0;
+  const totalVerse = somme(lignes, (l) => l.s.verseCentimes) + verseGlobal;
+  const resteDu = somme(vendus, (l) => l.s.resteDuCentimes ?? 0) - verseGlobal;
   const indicateurs = [
     {
       libelle: "Capital engagé",
@@ -60,14 +71,21 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
     },
     partenaire.type === "SOCIETE"
       ? { libelle: "Part de VUCA AUTO", valeur: formatEuros(somme(vendus, (l) => l.s.aReverserCentimes)), detail: "capital + bénéfice des véhicules vendus" }
-      : { libelle: "Reste dû", valeur: formatEuros(somme(vendus, (l) => l.s.resteDuCentimes ?? 0)), detail: "à reverser − déjà versé" },
+      : { libelle: "Reste dû", valeur: formatEuros(resteDu), detail: `déjà versé : ${formatEuros(totalVerse)}` },
   ];
 
   const infos = [
     { libelle: "Téléphone", valeur: partenaire.telephone },
     { libelle: "Email", valeur: partenaire.email },
     { libelle: "IBAN", valeur: partenaire.iban ? masquerIban(partenaire.iban) : null },
-    { libelle: "Accès au portail", valeur: partenaire.utilisateur ? partenaire.utilisateur.email : "Aucun compte" },
+    {
+      libelle: "Accès au portail",
+      valeur: partenaire.utilisateur
+        ? `${partenaire.utilisateur.email}${partenaire.utilisateur.actif ? "" : " (désactivé)"}`
+        : partenaire.type === "INVESTISSEUR"
+          ? "Aucun compte — à créer dans Réglages → Utilisateurs (rôle Investisseur)"
+          : null,
+    },
     { libelle: "Ajouté le", valeur: formatDate(partenaire.creeLe) },
   ];
 
@@ -89,6 +107,13 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
           {partenaire.estSysteme && <p className="mt-1 text-sm text-muted-foreground">Partenaire principal, non supprimable.</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          {utilisateur.role === "ADMIN" && partenaire.type === "INVESTISSEUR" && (
+            <Button variant="outline" asChild>
+              <Link href={`/portail?partenaire=${partenaire.id}`}>
+                <Eye /> Voir son espace
+              </Link>
+            </Button>
+          )}
           <DialoguePartenaire
             partenaire={partenaire}
             declencheur={
@@ -107,7 +132,7 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Coordonnées</CardTitle>
@@ -186,11 +211,42 @@ export default async function PagePartenaire({ params }: { params: Promise<{ id:
               )}
             </CardContent>
           </Card>
-          <EtatVide
-            icone={HandCoins}
-            titre="Versements et relevés"
-            description="La saisie des versements (capital remboursé, bénéfice versé) et le relevé PDF arrivent en Phase 7."
-          />
+          {partenaire.type !== "SOCIETE" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HandCoins className="size-5 text-primary" /> Versements
+                </CardTitle>
+                <CardDescription>Capital remboursé et bénéfices versés : ils réduisent le reste dû. Les apports supplémentaires sont notés pour mémoire.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Versements
+                  partenaireId={partenaire.id}
+                  estAdmin={utilisateur.role === "ADMIN"}
+                  vehicules={lignes.map(({ vehicule, s: sit }) => ({
+                    id: vehicule.id,
+                    libelle: `${nomVehicule(vehicule)}${vehicule.immatriculation ? ` · ${vehicule.immatriculation}` : ""}`,
+                    resteDuCentimes: sit.resteDuCentimes,
+                  }))}
+                  versements={versements.map((v) => ({
+                    id: v.id, date: v.date, type: v.type, montantCentimes: v.montantCentimes, mode: v.mode, reference: v.reference, note: v.note,
+                    vehiculeId: v.vehiculeId, vehicule: v.vehicule ? `${nomVehicule(v.vehicule)}${v.vehicule.immatriculation ? ` · ${v.vehicule.immatriculation}` : ""}` : null,
+                  }))}
+                />
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="size-5 text-primary" /> Relevé
+              </CardTitle>
+              <CardDescription>Véhicules, résultats de la période (ventes et location) avec sa part, versements et reste dû.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReleveInvestisseur partenaireId={partenaire.id} nom={partenaire.nom} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

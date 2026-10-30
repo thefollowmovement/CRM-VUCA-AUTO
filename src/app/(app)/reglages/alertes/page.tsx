@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FormulaireAlertes } from "@/components/reglages/formulaire-alertes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { centimesVersSaisie } from "@/lib/format";
 import { lireReglages } from "@/lib/reglages";
 
 export const metadata: Metadata = { title: "Réglages — Numérotation et alertes" };
@@ -10,7 +11,7 @@ export default async function PageReglagesAlertes() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Numérotation et alertes</CardTitle>
+        <CardTitle>Numérotation, alertes et location</CardTitle>
       </CardHeader>
       <CardContent>
         <FormulaireAlertes
@@ -24,6 +25,9 @@ export default async function PageReglagesAlertes() {
             anciennetePermisMinAnnees: r.anciennetePermisMinAnnees,
             toleranceRetardMinutes: r.toleranceRetardMinutes,
             jourEcheanceMensuelleDefaut: r.jourEcheanceMensuelleDefaut,
+            fraisNettoyageCentimes: centimesVersSaisie(r.fraisNettoyageCentimes),
+            prixHuitiemeCarburantCentimes: centimesVersSaisie(r.prixHuitiemeCarburantCentimes),
+            prixPourcentBatterieCentimes: centimesVersSaisie(r.prixPourcentBatterieCentimes),
           }}
         />
       </CardContent>

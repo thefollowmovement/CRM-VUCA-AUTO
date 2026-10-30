@@ -1,7 +1,7 @@
 // Sert un fichier UNIQUEMENT à un utilisateur connecté et autorisé.
 import { db } from "@/lib/db";
 import { utilisateurCourant } from "@/lib/permissions";
-import { lireMiniature, stockage } from "@/lib/storage";
+import { lireApercuPdf, lireMiniature, stockage } from "@/lib/storage";
 
 export async function GET(requete: Request, { params }: { params: Promise<{ id: string }> }) {
   const utilisateur = await utilisateurCourant();
@@ -11,30 +11,45 @@ export async function GET(requete: Request, { params }: { params: Promise<{ id: 
   const fichier = await db.fichier.findUnique({ where: { id } });
   if (!fichier) return new Response("Introuvable", { status: 404 });
 
-  // Investisseur : uniquement le logo et les photos des véhicules qu'il finance.
+  // Investisseur : uniquement le logo et les photos des véhicules auxquels il participe
+  // (participation à l'achat, dépense payée, part fixe ou versement reçu).
   if (utilisateur.role === "INVESTISSEUR_LECTURE") {
     const estLogo = fichier.categorie === "LOGO";
     let estSonVehicule = false;
-    if (fichier.categorie === "PHOTO_VEHICULE" && fichier.vehiculeId && utilisateur.partenaireId) {
-      const participation = await db.participation.findFirst({
-        where: { vehiculeId: fichier.vehiculeId, partenaireId: utilisateur.partenaireId },
+    const partenaireId = utilisateur.partenaireId;
+    if (fichier.categorie === "PHOTO_VEHICULE" && fichier.vehiculeId && partenaireId) {
+      const vehicule = await db.vehicule.findFirst({
+        where: {
+          id: fichier.vehiculeId,
+          OR: [
+            { participations: { some: { partenaireId } } },
+            { depenses: { some: { payeParId: partenaireId, payeSurRecettes: false } } },
+            { partsFixes: { some: { partenaireId } } },
+            { versements: { some: { partenaireId } } },
+          ],
+        },
         select: { id: true },
       });
-      estSonVehicule = !!participation;
+      estSonVehicule = !!vehicule;
     }
     if (!estLogo && !estSonVehicule) return new Response("Accès refusé", { status: 403 });
   }
 
-  // ?taille=mini : miniature JPEG (listes, galeries) — uniquement pour les images.
-  const miniature = new URL(requete.url).searchParams.get("taille") === "mini" && fichier.typeMime.startsWith("image/");
+  // ?taille=mini : miniature JPEG (listes, galeries) — images et PDF (1re page).
+  // ?taille=page : grand aperçu JPEG d'un PDF (plein écran des avis scannés).
+  const taille = new URL(requete.url).searchParams.get("taille");
+  const estPdf = fichier.typeMime === "application/pdf";
+  const miniature = taille === "mini" && (fichier.typeMime.startsWith("image/") || estPdf);
+  const apercuPage = taille === "page" && estPdf;
 
   try {
-    const contenu = miniature ? await lireMiniature(fichier.cleStockage) : await stockage.lire(fichier.cleStockage);
+    const contenu = miniature ? await lireMiniature(fichier.cleStockage) : apercuPage ? await lireApercuPdf(fichier.cleStockage) : await stockage.lire(fichier.cleStockage);
     return new Response(new Uint8Array(contenu), {
       headers: {
-        "Content-Type": miniature ? "image/jpeg" : fichier.typeMime,
+        "Content-Type": miniature || apercuPage ? "image/jpeg" : fichier.typeMime,
         "Content-Length": String(contenu.length),
-        "Content-Disposition": `inline; filename="${encodeURIComponent(fichier.nomOriginal)}"`,
+        // ?telecharger=1 : enregistrer le fichier d'origine au lieu de l'afficher.
+        "Content-Disposition": `${!miniature && !apercuPage && new URL(requete.url).searchParams.get("telecharger") === "1" ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(fichier.nomOriginal)}`,
         "Cache-Control": "private, max-age=3600",
         "X-Content-Type-Options": "nosniff",
       },

@@ -5,6 +5,7 @@ import { coutDeRevient, joursEnStock, margePrevisionnelle } from "@/lib/calculs/
 import { db } from "@/lib/db";
 import { dateCalendaireDepuisISO } from "@/lib/format";
 import { nomVehicule } from "@/lib/vehicule";
+import { vehiculesEnAlerte } from "@/server/requetes/alertes";
 
 export type EtatListe = "stock" | "vendus" | "archives" | "tous";
 
@@ -17,6 +18,11 @@ export type FiltresVehicules = {
   marque?: string;
   du?: string;
   au?: string;
+  /** Vendus entre ces dates (liens du dashboard). */
+  venteDu?: string;
+  venteAu?: string;
+  /** Véhicules signalés par une alerte du dashboard. */
+  alerte?: "stock" | "ct" | "entretien" | "financement";
   tri?: string;
   ordre?: "asc" | "desc";
 };
@@ -55,6 +61,9 @@ export function lireFiltres(params: Record<string, string | string[] | undefined
     marque: un("marque"),
     du: un("du"),
     au: un("au"),
+    venteDu: un("venteDu"),
+    venteAu: un("venteAu"),
+    alerte: ["stock", "ct", "entretien", "financement"].includes(un("alerte") ?? "") ? (un("alerte") as FiltresVehicules["alerte"]) : undefined,
     tri: tri && (COLONNES_TRI as readonly string[]).includes(tri) ? tri : "dateAchat",
     ordre: un("ordre") === "asc" ? "asc" : "desc",
   };
@@ -73,6 +82,10 @@ function construireWhere(f: FiltresVehicules): Prisma.VehiculeWhereInput {
   const au = f.au ? dateCalendaireDepuisISO(f.au) : null;
   if (du) et.push({ dateAchat: { gte: du } });
   if (au) et.push({ dateAchat: { lte: au } });
+  const venteDu = f.venteDu ? dateCalendaireDepuisISO(f.venteDu) : null;
+  const venteAu = f.venteAu ? dateCalendaireDepuisISO(f.venteAu) : null;
+  if (venteDu) et.push({ dateVente: { gte: venteDu } });
+  if (venteAu) et.push({ dateVente: { lte: venteAu } });
   if (f.q) {
     const q = f.q;
     const compact = q.replace(/[\s-]/g, "");
@@ -93,8 +106,14 @@ function construireWhere(f: FiltresVehicules): Prisma.VehiculeWhereInput {
 export type LigneVehicule = Awaited<ReturnType<typeof listerVehicules>>[number];
 
 export async function listerVehicules(f: FiltresVehicules) {
+  let where = construireWhere(f);
+  if (f.alerte) {
+    const a = await vehiculesEnAlerte();
+    const liste = { stock: a.stockAncien, ct: a.ctAssurance, entretien: a.entretien, financement: a.financement }[f.alerte];
+    where = { AND: [where, { id: { in: liste.map((v) => v.id) } }] };
+  }
   const vehicules = await db.vehicule.findMany({
-    where: construireWhere(f),
+    where,
     select: {
       id: true,
       marque: true,

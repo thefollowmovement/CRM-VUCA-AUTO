@@ -1,0 +1,17 @@
+{
+  "id": "msg_fixture_verso",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_2",
+      "name": "enregistrer_avis",
+      "input": { "est_un_avis": false, "confiance": {}, "remarques": "Verso : formulaire de requête en exonération" }
+    }
+  ],
+  "usage": { "input_tokens": 1500, "output_tokens": 40 }
+}

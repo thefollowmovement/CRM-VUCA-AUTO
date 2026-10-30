@@ -5,7 +5,12 @@
 
 export const FUSEAU = "Europe/Paris";
 
+// « always » : certains navigateurs n'affichent pas l'espace des milliers à 4 chiffres
+// (« 1000,00 € ») ; on force « 1 000,00 € » partout, comme côté serveur.
+const GROUPEMENT = { useGrouping: "always" } as unknown as Intl.NumberFormatOptions;
+
 const formateurEuros = new Intl.NumberFormat("fr-FR", {
+  ...GROUPEMENT,
   style: "currency",
   currency: "EUR",
   minimumFractionDigits: 2,
@@ -118,7 +123,7 @@ export function masquerIban(iban: string | null | undefined): string {
 /** Nombre entier avec séparateur de milliers : 125000 → « 125 000 » */
 export function formatNombre(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
-  return new Intl.NumberFormat("fr-FR").format(n);
+  return new Intl.NumberFormat("fr-FR", GROUPEMENT).format(n);
 }
 
 /** Date du jour à Paris au format « AAAA-MM-JJ » (valeur par défaut des champs date). */

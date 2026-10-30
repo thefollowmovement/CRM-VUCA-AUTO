@@ -1,0 +1,301 @@
+import { AmendesFiche } from "@/components/amendes/amendes-fiche";
+import { ArrowLeft, HandCoins, Phone } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { EncadreAlertes } from "@/components/clients/alertes-client";
+import { BoutonPdf } from "@/components/documents/bouton-pdf";
+import { Factures } from "@/components/documents/factures";
+import { ActionsContrat } from "@/components/location/actions-contrat";
+import { Echeancier } from "@/components/paiements/echeancier";
+import { PaiementsContrat } from "@/components/paiements/paiements-contrat";
+import { FraisContrat } from "@/components/location/frais-contrat";
+import { SectionEtatsDesLieux } from "@/components/location/section-etats-des-lieux";
+import { BadgeContrat } from "@/components/location/badge-contrat";
+import { RecapPrix } from "@/components/location/recap-prix";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListeInfos } from "@/components/ui/liste-infos";
+import { VignetteVehicule } from "@/components/vehicules/vignette-vehicule";
+import { alertesClient } from "@/lib/calculs/clients";
+import { joursFactures, kmInclusTotal } from "@/lib/calculs/location";
+import { statutAffiche } from "@/lib/contrat";
+import { dateVersSaisieParis } from "@/lib/dates";
+import { db } from "@/lib/db";
+import { aujourdhuiISO, formatDate, formatDateHeure, formatEuros, formatNombre } from "@/lib/format";
+import { exigerRolePage, ROLES_GESTION } from "@/lib/permissions";
+import { lireReglages } from "@/lib/reglages";
+import { nomVehicule } from "@/lib/vehicule";
+import { LIBELLES_STATUT_CAUTION } from "@/lib/validations/etat-des-lieux";
+import { LIBELLES_MODE_CAUTION, LIBELLES_TYPE_LOCATION } from "@/lib/validations/location";
+import { imputerPaiements } from "@/lib/calculs/echeancier";
+import { LIBELLES_STATUT_SINISTRE } from "@/lib/validations/paiement";
+import { totalEncaisse } from "@/server/echeances";
+import { obtenirContrat } from "@/server/requetes/contrats";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const c = await db.contratLocation.findUnique({ where: { id: (await params).id }, select: { numero: true } });
+  return { title: c?.numero ?? "Contrat" };
+}
+
+
+export default async function PageContrat({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ encaisser?: string }> }) {
+  const u = await exigerRolePage(ROLES_GESTION);
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const [c, reglages] = await Promise.all([obtenirContrat(id), lireReglages()]);
+  if (!c) notFound();
+  const statut = statutAffiche(c.statut, c.retourPrevuLe);
+  const nomCli = [c.client.prenom, c.client.nom].filter(Boolean).join(" ");
+  const alertes = c.statut === "RESERVATION" || c.statut === "CONFIRMEE" ? alertesClient(c.client, new Date(), reglages.anciennetePermisMinAnnees) : [];
+  const joursTotal = joursFactures(c.departPrevuLe, c.retourPrevuLe, reglages.toleranceRetardMinutes);
+  const kmTotal = c.kilometrageIllimite ? null : kmInclusTotal(c.type, c.kmInclusParUnite, { unites: c.dureeFacturee, joursSupplementaires: c.joursSupplementaires, joursTotal });
+  const totalOptions = c.options.reduce((a, o) => a + o.totalCentimes, 0);
+  const base = c.prixTotalCentimes + c.remiseCentimes - totalOptions - c.fraisLivraisonCentimes;
+  const totalFrais = c.fraisSupplementaires.reduce((a, f) => a + f.montantCentimes, 0);
+  const encaisse = totalEncaisse(c.paiements);
+  // Montant proposé à l'encaissement : prochaine échéance non soldée, sinon le reste (frais) ou un remboursement
+  const paiementsLoyer = c.paiements.filter((p) => p.nature === "LOCATION");
+  const imputation = imputerPaiements(c.echeances.filter((e) => e.statut !== "ANNULEE"), paiementsLoyer);
+  const prochaine = c.echeances.find((e) => imputation.echeances.find((x) => x.id === e.id && x.statut !== "PAYEE"));
+  const reste = c.prixTotalCentimes + totalFrais - encaisse;
+  const proposition: { montantCentimes: number; nature: "LOCATION" | "FRAIS" | "REMBOURSEMENT" } = prochaine
+    ? { montantCentimes: prochaine.montantCentimes - (imputation.echeances.find((x) => x.id === prochaine.id)?.payeCentimes ?? 0), nature: "LOCATION" }
+    : reste < 0
+      ? { montantCentimes: -reste, nature: "REMBOURSEMENT" }
+      : { montantCentimes: reste, nature: "FRAIS" };
+
+  return (
+    <>
+      <Link href="/location/contrats" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Contrats
+      </Link>
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold">
+            {c.numero} <BadgeContrat statut={statut} />
+            {c.archiveLe && <Badge variant="warning">Archivé</Badge>}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Location {LIBELLES_TYPE_LOCATION[c.type].toLowerCase()} · créée le {formatDate(c.creeLe)}
+          </p>
+        </div>
+        <ActionsContrat id={c.id} numero={c.numero} statut={c.statut} archive={!!c.archiveLe} estAdmin={u.role === "ADMIN"} retourPrevu={dateVersSaisieParis(c.retourPrevuLe)} />
+      </div>
+      {c.statut === "ANNULEE" && (
+        <p className="mb-4 rounded-lg border bg-muted p-3 text-sm">
+          Annulée le {formatDateHeure(c.annuleLe)}
+          {c.motifAnnulation && ` : ${c.motifAnnulation}`}
+        </p>
+      )}
+      <EncadreAlertes alertes={alertes} className="mb-4" />
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Client</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1 text-sm">
+                <Link href={`/clients/${c.client.id}`} className="font-semibold hover:underline">
+                  {nomCli}
+                </Link>
+                {c.client.telephone && (
+                  <a href={`tel:${c.client.telephone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1 text-primary">
+                    <Phone className="size-3.5" /> {c.client.telephone}
+                  </a>
+                )}
+                {c.client.numeroPermis && <span className="text-muted-foreground">Permis n° {c.client.numeroPermis}</span>}
+                {c.conducteursAdditionnels.length > 0 && (
+                  <div className="mt-2 border-t pt-2">
+                    <p className="text-xs text-muted-foreground">Conducteurs additionnels</p>
+                    {c.conducteursAdditionnels.map(({ client: x }) => (
+                      <Link key={x.id} href={`/clients/${x.id}`} className="block hover:underline">
+                        {[x.prenom, x.nom].filter(Boolean).join(" ")}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Véhicule</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Link href={`/vehicules/${c.vehicule.id}/location`} className="flex items-center gap-3 hover:underline">
+                  <VignetteVehicule photoId={c.vehicule.fichiers[0]?.id ?? null} alt={nomVehicule(c.vehicule)} className="size-14 shrink-0 rounded-md" />
+                  <span className="min-w-0 text-sm">
+                    <span className="block font-semibold">{nomVehicule(c.vehicule)}</span>
+                    <span className="block text-muted-foreground">{c.vehicule.immatriculation ?? "Sans immatriculation"}</span>
+                    {c.vehicule.kilometrageActuel !== null && <span className="block text-muted-foreground">{formatNombre(c.vehicule.kilometrageActuel)} km</span>}
+                  </span>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Dates et conditions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ListeInfos
+                elements={[
+                  { libelle: "Départ prévu", valeur: formatDateHeure(c.departPrevuLe) },
+                  { libelle: "Retour prévu", valeur: formatDateHeure(c.retourPrevuLe) },
+                  { libelle: "Départ réel", valeur: c.departReelLe && formatDateHeure(c.departReelLe) },
+                  { libelle: "Retour réel", valeur: c.retourReelLe && formatDateHeure(c.retourReelLe) },
+                  { libelle: "Lieu de départ", valeur: c.lieuDepart },
+                  { libelle: "Lieu de retour", valeur: c.lieuRetour },
+                  { libelle: "Livraison", valeur: c.livraison ? `Oui (${formatEuros(c.fraisLivraisonCentimes)})` : null },
+                  {
+                    libelle: "Kilométrage",
+                    valeur: c.kilometrageIllimite
+                      ? "Illimité"
+                      : kmTotal !== null
+                        ? `${formatNombre(kmTotal)} km inclus (${formatNombre(c.kmInclusParUnite)} / ${c.type === "MENSUELLE" ? "mois" : "jour"})`
+                        : null,
+                  },
+                  { libelle: "Km supplémentaire", valeur: c.prixKmSupCentimes !== null ? formatEuros(c.prixKmSupCentimes) : null },
+                  { libelle: "Caution", valeur: `${formatEuros(c.cautionCentimes)}${c.modeCaution ? ` · ${LIBELLES_MODE_CAUTION[c.modeCaution]}` : ""}` },
+                  {
+                    libelle: "État de la caution",
+                    valeur:
+                      c.cautionCentimes > 0
+                        ? `${LIBELLES_STATUT_CAUTION[c.statutCaution]}${c.cautionRetenueCentimes > 0 ? ` (${formatEuros(c.cautionRetenueCentimes)}${c.motifRetenueCaution ? ` : ${c.motifRetenueCaution}` : ""})` : ""}`
+                        : null,
+                  },
+                  { libelle: "Franchise", valeur: c.franchiseCentimes !== null ? formatEuros(c.franchiseCentimes) : null },
+                  { libelle: "Acompte demandé", valeur: c.acompteCentimes ? formatEuros(c.acompteCentimes) : null },
+                  { libelle: "Échéance mensuelle", valeur: c.jourEcheanceMensuelle ? `le ${c.jourEcheanceMensuelle} du mois` : null },
+                ]}
+              />
+              {c.notes && <p className="mt-4 whitespace-pre-line rounded-md bg-muted p-3 text-sm">{c.notes}</p>}
+            </CardContent>
+          </Card>
+
+          <SectionEtatsDesLieux contrat={c} />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Prix</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RecapPrix
+                r={{
+                  type: c.type,
+                  tarifCentimes: c.tarifCentimes,
+                  tarifJournalierCentimes: c.tarifJournalierCentimes,
+                  unites: c.dureeFacturee,
+                  joursSupplementaires: c.joursSupplementaires,
+                  montantBaseCentimes: base,
+                  options: c.options,
+                  remiseCentimes: c.remiseCentimes,
+                  fraisLivraisonCentimes: c.fraisLivraisonCentimes,
+                  prixTotalCentimes: c.prixTotalCentimes,
+                }}
+              />
+            </CardContent>
+          </Card>
+          {(c.fraisSupplementaires.length > 0 || c.statut === "TERMINEE" || c.statut === "EN_COURS") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Frais supplémentaires</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FraisContrat contratId={c.id} frais={c.fraisSupplementaires} modifiable={c.statut !== "ANNULEE"} />
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HandCoins className="size-5 text-primary" /> Paiements
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 text-sm">
+              <dl className="flex flex-col gap-1">
+                <div className="flex justify-between">
+                  <dt>Location</dt>
+                  <dd className="tabular-nums">{formatEuros(c.prixTotalCentimes)}</dd>
+                </div>
+                {totalFrais > 0 && (
+                  <div className="flex justify-between">
+                    <dt>Frais supplémentaires</dt>
+                    <dd className="tabular-nums">{formatEuros(totalFrais)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground">
+                  <dt>Encaissé{c.cautionRetenueCentimes > 0 ? " (dont caution retenue)" : ""}</dt>
+                  <dd className="tabular-nums">− {formatEuros(encaisse)}</dd>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <dt>Reste à payer</dt>
+                  <dd className="tabular-nums">{formatEuros(c.prixTotalCentimes + totalFrais - encaisse)}</dd>
+                </div>
+              </dl>
+              <div className="mt-2 border-t pt-3">
+                <PaiementsContrat
+                  contratId={c.id}
+                  paiements={c.paiements.map((p) => ({ id: p.id, date: p.date, nature: p.nature, mode: p.mode, montantCentimes: p.montantCentimes, numeroRecu: p.numeroRecu, reference: p.reference, echeance: p.echeance?.libelle ?? null }))}
+                  proposition={proposition}
+                  modifiable={!c.archiveLe}
+                  estAdmin={u.role === "ADMIN"}
+                  ouvrir={sp.encaisser === "1"}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Échéancier</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Echeancier echeances={c.echeances} paiementsLoyer={paiementsLoyer} aujourdhui={aujourdhuiISO()} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <BoutonPdf url={`/api/pdf/contrat/${c.id}`} libelle="Contrat de location" nomFichier={`contrat-${c.numero}.pdf`} />
+              {c.etatsDesLieux.some((e) => e.type === "DEPART" && e.verrouille) && (
+                <BoutonPdf url={`/api/pdf/edl-depart/${c.id}`} libelle="État des lieux de départ" nomFichier={`etat-des-lieux-depart-${c.numero}.pdf`} />
+              )}
+              {c.etatsDesLieux.some((e) => e.type === "RETOUR" && e.verrouille) && (
+                <BoutonPdf url={`/api/pdf/edl-retour/${c.id}`} libelle="État des lieux de retour" nomFichier={`etat-des-lieux-retour-${c.numero}.pdf`} />
+              )}
+              {c.statut === "TERMINEE" && <BoutonPdf url={`/api/pdf/cloture/${c.id}`} libelle="Relevé de clôture" nomFichier={`releve-cloture-${c.numero}.pdf`} />}
+              <div className="mt-2 border-t pt-3">
+                <Factures cible={{ type: "contrat", id: c.id }} factures={c.factures} peutEmettre={c.statut !== "ANNULEE"} />
+              </div>
+            </CardContent>
+          </Card>
+          <AmendesFiche
+            amendes={c.amendes}
+            lienListe={`/location/amendes?contrat=${c.id}`}
+            fraisCentimes={c.fraisSupplementaires.filter((x) => x.type === "AMENDE_REFACTUREE" || x.type === "FRAIS_GESTION_AMENDE").reduce((s, x) => s + x.montantCentimes, 0)}
+          />
+          {c.sinistres.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sinistres</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                {c.sinistres.map((x) => (
+                  <Link key={x.id} href={`/location/sinistres/${x.id}`} className="hover:underline">
+                    Sinistre du {formatDate(x.survenuLe)} · {LIBELLES_STATUT_SINISTRE[x.statut]}
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

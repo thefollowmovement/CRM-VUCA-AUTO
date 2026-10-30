@@ -9,10 +9,12 @@ export function OngletsVehicule({ id, location }: { id: string; location: boolea
   const base = `/vehicules/${id}`;
   const onglets = [
     { href: base, libelle: "Résumé" },
+    { href: `${base}/annonce`, libelle: "Annonce" },
     { href: `${base}/financement`, libelle: "Financement" },
     { href: `${base}/depenses`, libelle: "Dépenses" },
     ...(location ? [{ href: `${base}/location`, libelle: "Location" }] : []),
     { href: `${base}/dommages`, libelle: "Dommages" },
+    { href: `${base}/amendes`, libelle: "Amendes" },
     { href: `${base}/entretien`, libelle: "Entretien" },
     { href: `${base}/documents`, libelle: "Documents" },
     { href: `${base}/historique`, libelle: "Historique" },

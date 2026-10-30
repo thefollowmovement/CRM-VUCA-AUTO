@@ -6,7 +6,7 @@ import type { Role } from "@/generated/prisma/enums";
 /** Pages accessibles sans être connecté. */
 const PAGES_PUBLIQUES = ["/connexion"];
 /** Pages accessibles à un investisseur (lecture seule). */
-const PAGES_INVESTISSEUR = ["/portail", "/compte", "/api/fichiers"];
+const PAGES_INVESTISSEUR = ["/portail", "/compte", "/api/fichiers", "/api/portail"];
 
 export const authConfig = {
   pages: { signIn: "/connexion" },

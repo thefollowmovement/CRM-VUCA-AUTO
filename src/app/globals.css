@@ -25,6 +25,14 @@
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.6 0.15 150);
   --warning: oklch(0.75 0.15 75);
+  /* Graphiques : palette catégorielle validée (ordre fixe, jamais recyclé) */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-autre: #a3a3a3;
   --border: oklch(0.91 0.008 255);
   --input: oklch(0.88 0.01 255);
   --ring: oklch(0.47 0.17 262);
@@ -53,6 +61,13 @@
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.7 0.15 150);
   --warning: oklch(0.8 0.14 80);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-autre: #6b6b6b;
   --border: oklch(0.3 0.025 265);
   --input: oklch(0.34 0.025 265);
   --ring: oklch(0.65 0.16 258);
@@ -92,6 +107,34 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Jetons du SITE PUBLIC (valeurs définies dans app/(site)/site.css, uniquement sous .site) :
+   bg-site-fond, text-site-2, rounded-carte, shadow-site… */
+@theme inline {
+  --color-site-fond: var(--site-fond);
+  --color-site-fond-alt: var(--site-fond-alt);
+  --color-site-carte: var(--site-carte);
+  --color-site-texte: var(--site-texte);
+  --color-site-2: var(--site-texte-2);
+  --color-site-sep: var(--site-separateur);
+  --color-site-accent: var(--site-accent-texte); /* texte, icônes, contours */
+  --color-site-accent-fond: var(--site-accent); /* fond des boutons */
+  --color-site-sur-accent: var(--site-sur-accent);
+  --color-whatsapp: var(--site-whatsapp);
+  --color-sur-whatsapp: var(--site-sur-whatsapp);
+  --color-site-reserve: var(--site-reserve);
+  --color-site-reserve-fond: var(--site-reserve-fond);
+  --color-site-vendu: var(--site-vendu);
+  --color-site-vendu-fond: var(--site-vendu-fond);
+  --radius-carte: 24px;
+  --radius-tuile: 16px;
+  --shadow-site: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --shadow-site-fort: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  --color-site-carte-2: var(--site-carte-2);
+  --ease-site: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --font-site: var(--police-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-titres: var(--police-titres), "Archivo", var(--police-inter), sans-serif;
 }
 
 @layer base {

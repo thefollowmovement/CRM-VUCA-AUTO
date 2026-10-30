@@ -199,6 +199,7 @@ enum TypeFraisSupplementaire {
   AMENDE_REFACTUREE
   FRAIS_DOSSIER
   AUTRE
+  FRAIS_GESTION_AMENDE // frais de gestion facturés quand le conducteur d'un PV est désigné
 }
 
 // EN_RETARD n'est PAS stocké : calculé (date d'échéance dépassée et non payée).
@@ -218,11 +219,26 @@ enum NaturePaiement {
   REMBOURSEMENT // argent rendu au client (montant positif, soustrait des revenus)
 }
 
+// Circuit des PV : A_LIRE (scan déposé) → A_VALIDER (lu par Claude, rapproché) → A_DESIGNER
+// (validé) → CONDUCTEUR_DESIGNE (désigné à l'ANTAI). PAYEE = payé par la société.
+// RECUE = ancien statut (avant le module d'import), plus proposé.
 enum StatutAmende {
   RECUE
   CONDUCTEUR_DESIGNE
   PAYEE
   REFACTUREE
+  A_LIRE
+  A_VALIDER
+  A_DESIGNER
+  CONTESTE
+  IGNORE
+}
+
+enum TypeAvis {
+  CONTRAVENTION
+  AMENDE_FORFAITAIRE_DELICTUELLE
+  AMENDE_MAJOREE
+  AUTRE
 }
 
 enum StatutSinistre {
@@ -280,6 +296,7 @@ enum CategorieFichier {
   // Divers
   PDF_ARCHIVE // copie figée d'un PDF signé (contrat, EDL)
   LOGO
+  IMAGE_SITE // logos, favicon, photos « À propos » / vendeur, image de partage du site public
 }
 
 // =====================================================================
@@ -307,6 +324,9 @@ model Utilisateur {
   historiquesStatut HistoriqueStatutVehicule[]
   fichiersEnvoyes   Fichier[]
   etatsDesLieux     EtatDesLieux[]
+  amendesCreees     Amende[]                   @relation("AmendesCreees")
+  lotsAmendes       LotImportAmendes[]
+  jetonsApi         JetonApi[]                 @relation("JetonsApi")
 }
 
 /// Trace chaque création / modification / suppression (montants en priorité).
@@ -445,6 +465,7 @@ model Vehicule {
   sinistres         Sinistre[]
   versements        Versement[]
   factures          Facture[]
+  annonce           Annonce?
 
   @@index([statut])
   @@index([typeExploitation])
@@ -567,23 +588,27 @@ model Depense {
 // =====================================================================
 
 model Client {
-  id            String    @id @default(cuid())
-  civilite      Civilite?
-  nom           String
-  prenom        String?
-  dateNaissance DateTime? @db.Date
-  lieuNaissance String?
-  adresse       String?
-  codePostal    String?
-  ville         String?
-  pays          String?   @default("France")
-  telephone     String?
-  email         String?
+  id                String    @id @default(cuid())
+  civilite          Civilite?
+  nom               String
+  prenom            String?
+  dateNaissance     DateTime? @db.Date
+  lieuNaissance     String?
+  paysNaissance     String? // désignation ANTAI
+  adresse           String?
+  adresseComplement String? // bâtiment, étage… (désignation ANTAI)
+  codePostal        String?
+  ville             String?
+  pays              String?   @default("France")
+  telephone         String?
+  email             String?
 
-  numeroPermis        String?
-  dateObtentionPermis DateTime? @db.Date
-  categoriePermis     String?   @default("B")
-  dateValiditePermis  DateTime? @db.Date
+  numeroPermis         String?
+  dateObtentionPermis  DateTime? @db.Date
+  dateDelivrancePermis DateTime? @db.Date // date de délivrance du titre (case 4a) — demandée par l'ANTAI
+  paysDelivrancePermis String?   @default("France")
+  categoriePermis      String?   @default("B")
+  dateValiditePermis   DateTime? @db.Date
 
   typePieceIdentite         TypePieceIdentite?
   numeroPieceIdentite       String?
@@ -637,13 +662,17 @@ model ContratLocation {
 
   // --- Tarification (copie figée au moment du contrat) ---
   // tarifCentimes = prix par unité du type : jour, semaine ou mois.
-  tarifCentimes          Int
-  dureeFacturee          Int // nombre d'unités (jours / semaines / mois)
-  remiseCentimes         Int  @default(0)
-  fraisLivraisonCentimes Int  @default(0)
-  prixTotalCentimes      Int // tarif × durée − remise + options + livraison
-  acompteCentimes        Int? // location courte : acompte demandé
-  jourEcheanceMensuelle  Int? // location mensuelle : jour du mois (1–28)
+  tarifCentimes           Int
+  dureeFacturee           Int // nombre d'unités (jours / semaines / mois)
+  // Jours facturés en plus des unités : reste d'une location hebdomadaire
+  // (au tarif journalier) ou dernier mois entamé (mensuel ÷ 30 × jours).
+  joursSupplementaires    Int  @default(0)
+  tarifJournalierCentimes Int? // tarif journalier figé (hebdomadaire : jours restants)
+  remiseCentimes          Int  @default(0)
+  fraisLivraisonCentimes  Int  @default(0)
+  prixTotalCentimes       Int // tarif × durée − remise + options + livraison
+  acompteCentimes         Int? // location courte : acompte demandé
+  jourEcheanceMensuelle   Int? // location mensuelle : jour du mois (1–28)
 
   // --- Kilométrage ---
   kilometrageIllimite Boolean @default(false)
@@ -894,29 +923,91 @@ model Paiement {
 /// date/heure de l'infraction (modifiable).
 model Amende {
   id                 String           @id @default(cuid())
-  vehiculeId         String
-  vehicule           Vehicule         @relation(fields: [vehiculeId], references: [id])
-  infractionLe       DateTime
+  // Véhicule, date et montant restent vides tant que l'avis importé n'est pas lu.
+  vehiculeId         String?
+  vehicule           Vehicule?        @relation(fields: [vehiculeId], references: [id], onDelete: Restrict)
+  infractionLe       DateTime?
+  heureInconnue      Boolean          @default(false) // avis sans heure : infractionLe = midi (Paris) ce jour-là
   lieu               String?
-  montantCentimes    Int
-  numeroAvis         String?
+  nature             String? // ex. « Excès de vitesse < 20 km/h »
+  montantCentimes    Int?
+  numeroAvis         String? // 10 chiffres (avis), 12 ou 18 (amende majorée)
+  typeAvis           TypeAvis?
+  dateAvis           DateTime?        @db.Date // imprimée sur l'avis : départ des 45 jours
   dateReception      DateTime?        @db.Date
-  dateLimite         DateTime?        @db.Date
-  statut             StatutAmende     @default(RECUE)
+  dateLimite         DateTime?        @db.Date // date limite de désignation = date de l'avis + 45 jours
+  immatriculationLue String? // telle que lue sur l'avis, normalisée AA-123-AA
+  statut             StatutAmende     @default(A_VALIDER)
   contratId          String?
   contrat            ContratLocation? @relation(fields: [contratId], references: [id], onDelete: SetNull)
   clientId           String?
   client             Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   identificationAuto Boolean          @default(true)
   note               String?
-  creeLe             DateTime         @default(now())
-  modifieLe          DateTime         @updatedAt
+
+  // --- Import et lecture automatique (Claude) ---
+  lotImportId         String?
+  lotImport           LotImportAmendes? @relation(fields: [lotImportId], references: [id], onDelete: SetNull)
+  fichierPage         Int? // page dans le fichier déposé
+  raisonsVerification Json? // [{ code, texte, niveau: "attention" | "blocage" }]
+  champsVerifies      String[]          @default([]) // champs corrigés / confirmés à la main
+  ocrBrut             Json? // réponse complète de l'extraction (dépannage)
+  ocrConfiance        Json? // { numero_avis: "haute" | "moyenne" | "basse", … }
+  ocrModele           String?
+  ocrTokensEntree     Int?
+  ocrTokensSortie     Int?
+  ocrTentatives       Int               @default(0)
+  ocrEnCoursLe        DateTime? // lecture en cours (file d'attente)
+  luLe                DateTime?
+  doublonDeId         String?
+  doublonDe           Amende?           @relation("DoublonAmende", fields: [doublonDeId], references: [id], onDelete: SetNull)
+  doublons            Amende[]          @relation("DoublonAmende")
+
+  // --- Désignation ---
+  dateDesignation      DateTime?
+  fraisGestionCentimes Int?
+
+  creeParId String?
+  creePar   Utilisateur? @relation("AmendesCreees", fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe    DateTime     @default(now())
+  modifieLe DateTime     @updatedAt
 
   fichiers Fichier[]
   frais    FraisSupplementaire[]
 
   @@index([vehiculeId, infractionLe])
   @@index([statut])
+  @@index([dateLimite])
+  @@index([clientId])
+  @@index([contratId])
+  @@index([numeroAvis])
+  @@index([lotImportId])
+}
+
+/// Jeton d'accès de l'extension Chrome « Désignation ANTAI » (Réglages › Extension ANTAI).
+/// Seule l'empreinte SHA-256 est enregistrée : le jeton n'est affiché qu'une fois, à sa création.
+model JetonApi {
+  id             String       @id @default(cuid())
+  nom            String // ex. « Chrome du bureau »
+  empreinte      String       @unique // SHA-256 (hex) du jeton
+  apercu         String // début du jeton (« vuca_ab12… »), pour le reconnaître
+  creeParId      String?
+  creePar        Utilisateur? @relation("JetonsApi", fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe         DateTime     @default(now())
+  dernierUsageLe DateTime?
+  revoqueLe      DateTime?
+}
+
+/// Un dépôt de scans (un ou plusieurs fichiers) dans Amendes › Importer.
+model LotImportAmendes {
+  id         String       @id @default(cuid())
+  nbFichiers Int          @default(0)
+  nbPages    Int          @default(0)
+  creeParId  String?
+  creePar    Utilisateur? @relation(fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe     DateTime     @default(now())
+
+  amendes Amende[]
 }
 
 model Sinistre {
@@ -1028,6 +1119,10 @@ model Fichier {
   libelle       String?
   ordre         Int              @default(0)
   estPrincipale Boolean          @default(false) // photo principale du véhicule
+  // --- Site public (photos de véhicule uniquement) ---
+  publique      Boolean          @default(false) // servie par la route publique si l'annonce est en ligne
+  ordrePublic   Int              @default(0) // ordre dans l'annonce (glisser-déposer)
+  recadrage     Json? // zone 4:3 choisie, en % de l'image : { x, y, l } (h déduit de l'image)
   envoyeParId   String?
   envoyePar     Utilisateur?     @relation(fields: [envoyeParId], references: [id], onDelete: SetNull)
   creeLe        DateTime         @default(now())
@@ -1097,6 +1192,21 @@ model Reglages {
   toleranceRetardMinutes      Int @default(60) // journée entamée due au-delà
   jourEcheanceMensuelleDefaut Int @default(1)
 
+  // --- Frais proposés au retour d'une location ---
+  fraisNettoyageCentimes        Int @default(5000) // véhicule rendu sale
+  prixHuitiemeCarburantCentimes Int @default(1500) // par 1/8 de réservoir manquant
+  prixPourcentBatterieCentimes  Int @default(50) // par % de batterie manquant
+
+  // --- Amendes (désignation ANTAI) : vide = reprend les champs « Société » ---
+  amendesRaisonSociale        String? // exactement comme sur les avis
+  amendesAdresse              String?
+  amendesAdresseComplement    String?
+  amendesCodePostal           String?
+  amendesVille                String?
+  amendesEmail                String? // reçoit les confirmations de l'ANTAI
+  amendesFraisGestionCentimes Int     @default(0) // par PV désigné, 0 = désactivé
+  amendesModele               String  @default("claude-haiku-5-5")
+
   modifieLe DateTime @updatedAt
 }
 
@@ -1105,4 +1215,162 @@ model Reglages {
 model Compteur {
   cle    String @id
   valeur Int    @default(0)
+}
+
+// =====================================================================
+//  SITE WEB PUBLIC (vuca-auto.fr) — piloté depuis le CRM
+//  Les pages publiques ne lisent ces données qu'à travers toPublicVehicle()
+//  et les lectures de src/server/site (listes blanches).
+// =====================================================================
+
+enum SourceAvis {
+  GOOGLE
+  LEBONCOIN
+  DIRECT
+}
+
+enum TypeStatSite {
+  VUE_SITE
+  VUE_ANNONCE
+  CLIC_WHATSAPP
+  CLIC_APPEL
+}
+
+/// Annonce publique d'un véhicule (une par véhicule).
+model Annonce {
+  id         String   @id @default(cuid())
+  vehiculeId String   @unique
+  vehicule   Vehicule @relation(fields: [vehiculeId], references: [id], onDelete: Cascade)
+  reference  String   @unique // VA-0042
+  slug       String   @unique // figé à la 1re publication
+
+  publiee     Boolean   @default(false)
+  publieeLe   DateTime? // 1re mise en ligne
+  depublieeLe DateTime?
+
+  titre               String
+  prixAfficheCentimes Int?
+  prixNegociable      Boolean @default(false)
+  puissanceCh         Int?
+  description         String? // texte simple : **gras** et listes « - »
+  equipements         Json    @default("{}") // { confort: [], securite: [], multimedia: [], exterieur: [], autres: [] }
+
+  // Points de confiance (affichés seulement si cochés)
+  ctAJour             Boolean   @default(false)
+  ctDate              DateTime? @db.Date
+  carnetEntretien     Boolean   @default(false)
+  rapportHistovec     Boolean   @default(false)
+  nombreProprietaires Int?
+  premiereMain        Boolean   @default(false)
+  garantieMois        Int?
+  garantieTexte       String?
+  nonFumeur           Boolean   @default(false)
+  reviseAvantVente    Boolean   @default(false)
+  travauxRealises     String?
+  kilometrageVerifie  Boolean   @default(false)
+  sourceKilometrage   String?
+
+  couvertureId String? // photo de couverture (Fichier publique du véhicule)
+  misAJourLe   DateTime @default(now()) // « Annonce mise à jour le … »
+  creeLe       DateTime @default(now())
+  modifieLe    DateTime @updatedAt
+
+  statistiques StatistiqueSite[]
+
+  @@index([publiee])
+}
+
+/// Réglages du site public (ligne unique, id = 1).
+model ReglagesSite {
+  id Int @id @default(1)
+
+  // --- Général ---
+  enLigne       Boolean @default(false) // false = page « Bientôt de retour »
+  nomAffiche    String  @default("VUCA AUTO")
+  slogan        String?
+  couleurAccent String  @default("#FFD60A")
+  logoClairId   String? // IMAGE_SITE
+  logoFonceId   String?
+  faviconId     String?
+
+  // --- Contact & WhatsApp ---
+  whatsapp                String? // +33612345678
+  messageWhatsappVehicule String  @default("Bonjour, je suis intéressé par la {marque} {modele} {annee} à {prix} ({lien}). Est-elle toujours disponible ?")
+  messageWhatsappGeneral  String  @default("Bonjour, je souhaiterais avoir des informations sur vos véhicules.")
+  telephone               String?
+  email                   String?
+  adresse                 String?
+  lienGoogleMaps          String?
+  horaires                Json    @default("[]") // 7 jours : { jour, ouvert, plages }
+  delaiReponse            String?
+  vendeurNom              String?
+  vendeurPhotoId          String?
+
+  // --- Confiance ---
+  siret                  String?
+  formeJuridique         String?
+  adresseSiege           String?
+  engagements            Json    @default("[]") // { icone, titre, phrase, actif }
+  moyensPaiement         Json    @default("[]") // libellés
+  livraison              Boolean @default(false)
+  zoneLivraison          String?
+  reprise                Boolean @default(false)
+  lienAvisGoogle         String?
+  afficherVendus         Boolean @default(false)
+  joursVendus            Int     @default(60)
+  afficherNombreVendus   Boolean @default(false)
+  seuilNombreVendus      Int     @default(20)
+  anneeCreation          Int?
+  immatriculationVisible Boolean @default(false)
+
+  // --- Contenu ---
+  accueilTitre     String?
+  accueilSousTitre String?
+  aProposTexte     String?
+  aProposPhotoId   String?
+  faq              Json    @default("[]") // { question, reponse }
+  bandeau          String?
+  reseaux          Json    @default("{}") // { instagram, tiktok, facebook, leboncoin, lacentrale }
+
+  // --- Référencement ---
+  seoTitre          String?
+  seoDescription    String?
+  imagePartageId    String?
+  plausibleDomaine  String?
+  googleAnalyticsId String?
+
+  // --- Légal (vide = texte généré automatiquement) ---
+  mentionsLegales String?
+  confidentialite String?
+
+  modifieLe DateTime @updatedAt
+}
+
+/// Avis client réel (saisi à la main, authenticité certifiée).
+model AvisClient {
+  id                  String     @id @default(cuid())
+  auteur              String // prénom + initiale
+  note                Int // 1 à 5
+  texte               String
+  date                DateTime   @db.Date
+  vehiculeAchete      String?
+  source              SourceAvis @default(DIRECT)
+  certifieAuthentique Boolean
+  actif               Boolean    @default(true)
+  ordre               Int        @default(0)
+  creeLe              DateTime   @default(now())
+}
+
+/// Compteurs agrégés par jour (aucune donnée personnelle, aucune adresse IP).
+model StatistiqueSite {
+  id        String       @id @default(cuid())
+  jour      DateTime     @db.Date
+  type      TypeStatSite
+  cle       String // id de l'annonce, ou « site »
+  annonceId String?
+  annonce   Annonce?     @relation(fields: [annonceId], references: [id], onDelete: Cascade)
+  compte    Int          @default(0)
+
+  @@unique([jour, type, cle])
+  @@index([annonceId, jour])
 }

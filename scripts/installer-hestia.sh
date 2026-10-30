@@ -263,7 +263,11 @@ if [[ "$SIMULATION" == true ]]; then
   exit 0
 fi
 echo
-read -r -p "Continuer ? Tapez « oui » puis Entrée : " REPONSE || REPONSE=""
+if [[ -n "${VUCA_NOUVEAU_SCRIPT:-}" ]]; then
+  REPONSE="oui" # déjà confirmé avant le téléchargement de la nouvelle version
+else
+  read -r -p "Continuer ? Tapez « oui » puis Entrée : " REPONSE || REPONSE=""
+fi
 [[ "$REPONSE" == "oui" ]] || { jaune "Annulé, rien n'a été modifié."; exit 0; }
 touch "$JOURNAL" && chmod 600 "$JOURNAL"
 echo "=== $(date '+%d/%m/%Y %H:%M') ===" >>"$JOURNAL"
@@ -359,23 +363,101 @@ etape() {
   fi
 }
 
+# Sauvegarde automatique chaque nuit (fichiers propres au CRM uniquement : deux unités systemd « vuca-crm-sauvegarde »)
+installer_sauvegardes() {
+  echo "→ Sauvegarde automatique quotidienne…"
+  cat >"/etc/systemd/system/$SERVICE-sauvegarde.service" <<FIN_UNITE
+# VUCA AUTO CRM — sauvegarde (créé par installer-hestia.sh)
+[Unit]
+Description=Sauvegarde de VUCA AUTO CRM (base + fichiers)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $APP/scripts/sauvegarde-serveur.sh
+Nice=10
+IOSchedulingClass=idle
+FIN_UNITE
+  cat >"/etc/systemd/system/$SERVICE-sauvegarde.timer" <<FIN_UNITE
+# VUCA AUTO CRM — chaque nuit à 3 h 30 (rattrapée au démarrage si le serveur était éteint)
+[Unit]
+Description=Sauvegarde quotidienne de VUCA AUTO CRM
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
+FIN_UNITE
+  systemctl daemon-reload
+  systemctl enable --now "$SERVICE-sauvegarde.timer" >/dev/null 2>&1 || jaune "Le minuteur de sauvegarde n'a pas pu être activé."
+}
+
 construire() {
   etape "Installation des dépendances (quelques minutes)" "npm ci --no-audit --no-fund --loglevel=error"
   etape "Construction de l'application" "npm run build"
   etape "Mise à jour de la base de données" "npx prisma migrate deploy"
 }
 
+# Service systemd du CRM (fichier propre au CRM, réécrit à chaque installation / mise à jour).
+ecrire_service() {
+  echo "→ Service systemd…"
+  cat >"/etc/systemd/system/$SERVICE.service" <<EOF
+# VUCA AUTO CRM — créé par installer-hestia.sh
+[Unit]
+Description=VUCA AUTO CRM
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=$UTILISATEUR_SYS
+WorkingDirectory=$APP
+EnvironmentFile=$ENV_FICHIER
+Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PATH=$NODE_DIR/bin:/usr/bin:/bin
+# Nom « localhost » (et non 127.0.0.1) : Next.js compare ce nom à « localhost » pour ses réécritures internes
+# (sinon il les traite comme des adresses externes → erreur 500). ipv4first : « localhost » = 127.0.0.1,
+# l'application reste joignable uniquement depuis le serveur.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+ExecStart=$NODE_DIR/bin/node node_modules/next/dist/bin/next start -H localhost -p \${APP_PORT}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+}
+
 if [[ "$MISE_A_JOUR" == true ]]; then
   installer_node
-  echo "→ Téléchargement de la dernière version…"
-  git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
-  git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
+  # Aperçus des avis de contravention scannés (PDF → image) : pdftoppm (paquet poppler-utils).
+  if ! command -v pdftoppm >/dev/null 2>&1; then
+    echo "→ Installation de poppler-utils (aperçus des PDF)…"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq poppler-utils >>"$JOURNAL" 2>&1 || jaune "poppler-utils non installé : les PDF s'ouvriront sans miniature."
+  fi
+  if [[ -z "${VUCA_NOUVEAU_SCRIPT:-}" ]]; then
+    echo "→ Téléchargement de la dernière version…"
+    git_appli -C "$APP" fetch --depth 1 origin "$BRANCHE"
+    git_appli -C "$APP" checkout -q -B "$BRANCHE" FETCH_HEAD
+    # Ce script a pu changer avec la nouvelle version : la suite est faite par la version
+    # TÉLÉCHARGÉE (sinon ses nouveautés ne s'appliqueraient qu'à la mise à jour suivante).
+    echo "→ Suite de la mise à jour avec la nouvelle version du script…"
+    VUCA_COPIE="" VUCA_NOUVEAU_SCRIPT=1 exec bash "$APP/scripts/installer-hestia.sh" "$@"
+  fi
   construire
   etape "Données de base" "npx tsx prisma/seed/index.ts"
+  installer_sauvegardes
+  ecrire_service
   systemctl restart "$SERVICE"
 else
   echo "→ Paquets système nécessaires…"
-  PAQUETS=(git curl xz-utils)
+  PAQUETS=(git curl xz-utils poppler-utils)
   [[ "$PG_PRESENT" == false ]] && PAQUETS+=(postgresql)
   apt-get update -qq >>"$JOURNAL" 2>&1 || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${PAQUETS[@]}" >>"$JOURNAL" 2>&1 ||
@@ -427,32 +509,9 @@ EOF
     arret "échec de l'initialisation des données (journal : $JOURNAL)."
   MDP_ADMIN=$(grep "Mot de passe :" <<<"$SORTIE_SEED" | head -1 | awk -F': ' '{print $2}' | tr -d ' \r' || true)
 
-  echo "→ Service systemd…"
-  cat >"/etc/systemd/system/$SERVICE.service" <<EOF
-# VUCA AUTO CRM — créé par installer-hestia.sh
-[Unit]
-Description=VUCA AUTO CRM
-After=network.target postgresql.service
-Wants=postgresql.service
-
-[Service]
-Type=simple
-User=$UTILISATEUR_SYS
-WorkingDirectory=$APP
-EnvironmentFile=$ENV_FICHIER
-Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PATH=$NODE_DIR/bin:/usr/bin:/bin
-ExecStart=$NODE_DIR/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p \${APP_PORT}
-Restart=on-failure
-RestartSec=5
-NoNewPrivileges=true
-ProtectSystem=full
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  systemctl daemon-reload
+  ecrire_service
   systemctl enable --now "$SERVICE" >/dev/null 2>&1
+  installer_sauvegardes
 
 fi
 
@@ -581,4 +640,5 @@ else
 fi
 echo
 echo "Mettre à jour plus tard : bash $APP/scripts/installer-hestia.sh"
+echo "Sauvegardes (chaque nuit, 30 jours) : /var/backups/vuca-crm — restaurer : bash $APP/scripts/restaurer-serveur.sh"
 echo "Journal de l'application : journalctl -u $SERVICE -n 100"

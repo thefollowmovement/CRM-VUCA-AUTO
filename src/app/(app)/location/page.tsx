@@ -1,16 +1,181 @@
-import { KeyRound } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, HandCoins, Phone, Plus, Siren, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
-import { Bientot } from "@/components/layout/bientot";
+import Link from "next/link";
+import { EnTetePage } from "@/components/layout/en-tete-page";
+import { BadgeContrat } from "@/components/location/badge-contrat";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { statutAffiche } from "@/lib/contrat";
+import { jourParisISO } from "@/lib/dates";
+import { formatDateHeure, formatEuros } from "@/lib/format";
+import { nomVehicule } from "@/lib/vehicule";
+import { vueAujourdhui } from "@/server/requetes/contrats";
+import { impayes } from "@/server/requetes/paiements";
 
-export const metadata: Metadata = { title: "Location" };
+export const metadata: Metadata = { title: "Location — aujourd'hui" };
 
-export default function PageLocation() {
+type Ligne = Awaited<ReturnType<typeof vueAujourdhui>>["departs"][number];
+
+const heureParis = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+
+function Quand({ date, aujourdhui, demain }: { date: Date; aujourdhui: string; demain: string }) {
+  const jour = jourParisISO(date);
+  const libelle = jour === aujourdhui ? "Aujourd'hui" : jour === demain ? "Demain" : formatDateHeure(date).slice(0, 10);
   return (
-    <Bientot
-      titre="Location"
-      icone={KeyRound}
-      phase={4}
-      description="Vue « Aujourd'hui », planning, contrats, assistants de départ et de retour."
-    />
+    <span className="flex w-20 shrink-0 flex-col text-sm">
+      <span className="text-lg font-semibold tabular-nums">{heureParis.format(date)}</span>
+      <span className="text-xs text-muted-foreground">{libelle}</span>
+    </span>
+  );
+}
+
+function Section({
+  titre,
+  icone: Icone,
+  classe,
+  lignes,
+  date,
+  vide,
+  aujourdhui,
+  demain,
+  action,
+}: {
+  action?: { libelle: string; chemin: "depart" | "retour" };
+  titre: string;
+  icone: LucideIcon;
+  classe: string;
+  lignes: Ligne[];
+  date: (l: Ligne) => Date;
+  vide: string;
+  aujourdhui: string;
+  demain: string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Icone className={`size-5 ${classe}`} /> {titre}
+          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{lignes.length}</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {lignes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{vide}</p>
+        ) : (
+          <ul className="flex flex-col divide-y">
+            {lignes.map((l) => (
+              <li key={l.id} className="flex items-center gap-3 py-3">
+                <Quand date={date(l)} aujourdhui={aujourdhui} demain={demain} />
+                <Link href={`/location/contrats/${l.id}`} className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{[l.client.prenom, l.client.nom].filter(Boolean).join(" ")}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {nomVehicule(l.vehicule)}
+                    {l.vehicule.immatriculation && ` · ${l.vehicule.immatriculation}`} · {l.numero}
+                    {l.livraison && " · livraison"}
+                  </span>
+                  <span className="mt-1 block">
+                    <BadgeContrat statut={statutAffiche(l.statut, l.retourPrevuLe)} />
+                  </span>
+                </Link>
+                {action && (
+                  <Button size="sm" asChild>
+                    <Link href={`/location/contrats/${l.id}/${action.chemin}`}>{action.libelle}</Link>
+                  </Button>
+                )}
+                {l.client.telephone && (
+                  <Button variant="outline" size="icon" asChild aria-label={`Appeler ${l.client.nom}`}>
+                    <a href={`tel:${l.client.telephone.replace(/\s/g, "")}`}>
+                      <Phone />
+                    </a>
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export default async function PageAujourdhui() {
+  const [v, retards] = await Promise.all([vueAujourdhui(), impayes()]);
+  const aujourdhui = jourParisISO(new Date());
+  const demain = jourParisISO(v.demain);
+  const commun = { aujourdhui, demain };
+  return (
+    <>
+      <EnTetePage
+        titre="Aujourd'hui"
+        description="Départs et retours d'aujourd'hui et de demain, locations en retard, impayés."
+        actions={
+          <Button asChild>
+            <Link href="/location/contrats/nouveau">
+              <Plus /> Nouvelle location
+            </Link>
+          </Button>
+        }
+      />
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+        {v.retards.length > 0 && (
+          <div className="lg:col-span-2">
+            <Section titre="En retard" icone={Siren} classe="text-destructive" lignes={v.retards} date={(l) => l.retourPrevuLe} vide="" action={{ libelle: "Retour", chemin: "retour" }} {...commun} />
+          </div>
+        )}
+        <Section titre="Départs" icone={ArrowUpFromLine} classe="text-blue-600" lignes={v.departs} date={(l) => l.departPrevuLe} vide="Aucun départ prévu aujourd'hui ni demain." action={{ libelle: "Départ", chemin: "depart" }} {...commun} />
+        <Section titre="Retours" icone={ArrowDownToLine} classe="text-emerald-600" lignes={v.retours} date={(l) => l.retourPrevuLe} vide="Aucun retour prévu aujourd'hui ni demain." action={{ libelle: "Retour", chemin: "retour" }} {...commun} />
+        {retards.echeancesEnRetard.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <HandCoins className="size-5 text-destructive" /> Échéances impayées
+                <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">{formatEuros(retards.totalEnRetard)}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col divide-y">
+                {retards.echeancesEnRetard.slice(0, 5).map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 py-3">
+                    <Link href={`/location/contrats/${e.contratId}?encaisser=1`} className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{e.client}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {e.libelle} · {e.numero} · {e.vehicule}
+                      </span>
+                    </Link>
+                    <span className="flex flex-col items-end text-sm">
+                      <span className="font-semibold tabular-nums">{formatEuros(e.reste)}</span>
+                      <span className="text-xs text-destructive">{e.jours} j de retard</span>
+                    </span>
+                    {e.telephone && (
+                      <Button variant="outline" size="icon" asChild aria-label={`Appeler ${e.client}`}>
+                        <a href={`tel:${e.telephone.replace(/\s/g, "")}`}>
+                          <Phone />
+                        </a>
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {retards.echeancesEnRetard.length > 5 && (
+                <Link href="/location/impayes" className="mt-2 inline-block text-sm text-primary hover:underline">
+                  Voir les {retards.echeancesEnRetard.length} impayés
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        <div className="lg:col-span-2">
+          <Section
+            titre="Réservations à confirmer (7 jours)"
+            icone={CalendarClock}
+            classe="text-amber-600"
+            lignes={v.aConfirmer}
+            date={(l) => l.departPrevuLe}
+            vide="Aucune réservation en attente de confirmation."
+            {...commun}
+          />
+        </div>
+      </div>
+    </>
   );
 }

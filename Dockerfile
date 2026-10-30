@@ -21,6 +21,9 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     STORAGE_DIR=/app/storage
 
+# pdftoppm : aperçus des avis de contravention scannés (PDF → image)
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
+
 COPY --from=construction --chown=node:node /app ./
 RUN mkdir -p /app/storage && chown node:node /app/storage && chmod +x scripts/*.sh
 

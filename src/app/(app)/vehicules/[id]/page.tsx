@@ -1,6 +1,7 @@
 import { BadgeEuro, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Factures } from "@/components/documents/factures";
 import { CarteRentabilite } from "@/components/finance/carte-rentabilite";
 import { CarteEstimations } from "@/components/vehicules/carte-estimations";
 import { GaleriePhotos } from "@/components/vehicules/galerie-photos";
@@ -30,7 +31,10 @@ export default async function PageResumeVehicule({ params }: { params: Promise<{
   const { id } = await params;
   const v = await obtenirVehicule(id);
   if (!v) notFound();
-  const bilan = await bilanVehicule(id);
+  const [bilan, factures] = await Promise.all([
+    bilanVehicule(id),
+    db.facture.findMany({ where: { vehiculeId: id, type: "VENTE_VEHICULE" }, orderBy: { creeLe: "asc" }, select: { id: true, numero: true, dateEmission: true, totalCentimes: true, annuleeLe: true, motifAnnulation: true } }),
+  ]);
   if (!bilan) notFound();
 
   const photos = v.fichiers.filter((f) => f.categorie === "PHOTO_VEHICULE");
@@ -165,6 +169,9 @@ export default async function PageResumeVehicule({ params }: { params: Promise<{
                 ]}
               />
               {v.notesVente && <p className="whitespace-pre-line rounded-md bg-muted p-3 text-sm">{v.notesVente}</p>}
+              <div className="border-t pt-3">
+                <Factures cible={{ type: "vente", id: v.id }} factures={factures} peutEmettre={v.statut === "VENDU"} />
+              </div>
             </CardContent>
           </Card>
         )}

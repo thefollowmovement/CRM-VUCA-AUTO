@@ -9,6 +9,12 @@ import path from "node:path";
 import sharp from "sharp";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import type { Prisma } from "../../src/generated/prisma/client";
+import { lignesPrixContrat } from "../../src/lib/calculs/lignes-contrat";
+import { calculerPrixLocation } from "../../src/lib/calculs/location";
+import { dateDepuisParis, partiesParis } from "../../src/lib/dates";
+import { prochainNumeroAnnuel, recalculerImputation, synchroniserEcheances } from "../../src/server/echeances";
+import { REPERE_DEMO_RETIREE } from "../../src/lib/demo";
+import { chargerSiteDemo } from "./demo-site";
 
 export const INVESTISSEURS_DEMO = [
   { nom: "Karim Benali", telephone: "06 12 34 56 78", email: "karim.benali@exemple.fr", iban: "FR7630006000011234567890189", notes: "Investisseur historique, préfère les citadines." },
@@ -25,6 +31,8 @@ async function uneFois(db: PrismaClient, cle: string, bloc: () => Promise<void>)
 }
 
 export async function chargerDemo(db: PrismaClient) {
+  // Démo retirée depuis le CRM (Réglages → Démonstration) : plus jamais rechargée
+  if (await db.compteur.findUnique({ where: { cle: REPERE_DEMO_RETIREE } })) return;
   await uneFois(db, "demo:investisseurs", async () => {
     for (const inv of INVESTISSEURS_DEMO) {
       const existe = await db.partenaire.findFirst({ where: { nom: inv.nom } });
@@ -33,6 +41,11 @@ export async function chargerDemo(db: PrismaClient) {
   });
   await uneFois(db, "demo:vehicules", () => chargerVehiculesDemo(db));
   await uneFois(db, "demo:depenses", () => chargerDepensesDemo(db));
+  await uneFois(db, "demo:location", () => chargerLocationDemo(db));
+  await uneFois(db, "demo:etats-des-lieux", () => chargerEtatsDesLieuxDemo(db));
+  await uneFois(db, "demo:paiements", () => chargerPaiementsDemo(db));
+  await uneFois(db, "demo:versements", () => chargerVersementsDemo(db));
+  await uneFois(db, "demo:site", () => chargerSiteDemo(db));
 }
 
 // ---------------------------------------------------------------------
@@ -41,13 +54,13 @@ export async function chargerDemo(db: PrismaClient) {
 
 const JOUR = 24 * 60 * 60 * 1000;
 /** Date calendaire à J+n (n négatif = dans le passé). */
-function j(n: number): Date {
+export function j(n: number): Date {
   const d = new Date(Date.now() + n * JOUR);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
-const eur = (euros: number) => Math.round(euros * 100);
+export const eur = (euros: number) => Math.round(euros * 100);
 
-type Demo = {
+export type Demo = {
   donnees: Omit<Prisma.VehiculeUncheckedCreateInput, "id">;
   financement: [string, number][]; // [nom du partenaire, euros]
   couleurIllustration: string;
@@ -55,7 +68,7 @@ type Demo = {
   estimation?: number;
 };
 
-const VEHICULES: Demo[] = [
+export const VEHICULES: Demo[] = [
   {
     // Exemple de référence du cahier des charges (dépenses et vente : Phase 3)
     donnees: {
@@ -232,11 +245,11 @@ async function illustration(couleur: string): Promise<Buffer> {
   return sharp(Buffer.from(svg)).jpeg({ quality: 80 }).toBuffer();
 }
 
-async function chargerVehiculesDemo(db: PrismaClient) {
+export async function chargerVehiculesDemo(db: PrismaClient, liste: Demo[] = VEHICULES) {
   const partenaires = new Map((await db.partenaire.findMany()).map((p) => [p.nom, p.id]));
   const racine = path.resolve(process.env.STORAGE_DIR ?? "./storage");
 
-  for (const demo of VEHICULES) {
+  for (const demo of liste) {
     // Ne pas dupliquer si l'immatriculation existe déjà
     if (demo.donnees.immatriculation && (await db.vehicule.findUnique({ where: { immatriculation: demo.donnees.immatriculation } }))) continue;
 
@@ -356,6 +369,366 @@ async function chargerDepensesDemo(db: PrismaClient) {
   if (p3008 && karim) {
     await db.versement.create({
       data: { partenaireId: karim, vehiculeId: p3008.id, date: j(-30), montantCentimes: eur(10000), type: "REMBOURSEMENT_CAPITAL", mode: "VIREMENT" },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Clients et contrats de location (Phase 4)
+// ---------------------------------------------------------------------
+
+const an = (annees: number) => j(-Math.round(annees * 365.25));
+
+export const CLIENTS_DEMO: Omit<Prisma.ClientUncheckedCreateInput, "id">[] = [
+  {
+    civilite: "M", nom: "Moreau", prenom: "Lucas", dateNaissance: an(38), lieuNaissance: "Lyon", adresse: "12 rue Victor Hugo", codePostal: "69002", ville: "Lyon",
+    telephone: "06 11 22 33 44", email: "lucas.moreau@exemple.fr", numeroPermis: "120569300123", dateObtentionPermis: an(19), categoriePermis: "B", dateValiditePermis: j(3000),
+    typePieceIdentite: "CARTE_IDENTITE", numeroPieceIdentite: "X4RTBPFW4", dateValiditePieceIdentite: j(2500), notes: "Client fidèle, loue souvent en mensuel.",
+  },
+  {
+    civilite: "MME", nom: "Haddad", prenom: "Inès", dateNaissance: an(29), adresse: "5 avenue Jean Jaurès", codePostal: "69007", ville: "Lyon",
+    telephone: "07 55 66 77 88", email: "ines.haddad@exemple.fr", numeroPermis: "180769300456", dateObtentionPermis: an(8), categoriePermis: "B", dateValiditePermis: j(4000),
+    typePieceIdentite: "PASSEPORT", numeroPieceIdentite: "22AB12345", dateValiditePieceIdentite: j(1800),
+  },
+  {
+    civilite: "M", nom: "Amrani", prenom: "Mehdi", dateNaissance: an(21), adresse: "48 cours Gambetta", codePostal: "69003", ville: "Lyon",
+    telephone: "06 98 12 34 56", email: "mehdi.amrani@exemple.fr", numeroPermis: "250369300789", dateObtentionPermis: j(-200), categoriePermis: "B",
+    dateValiditePermis: j(5000), notes: "Jeune permis : caution doublée.",
+  },
+  {
+    civilite: "MME", nom: "Robert", prenom: "Julie", dateNaissance: an(44), adresse: "3 place Bellecour", codePostal: "69002", ville: "Lyon",
+    telephone: "06 44 33 22 11", email: "julie.robert@exemple.fr", numeroPermis: "010269300321", dateObtentionPermis: an(25), categoriePermis: "B", dateValiditePermis: j(2000),
+    typePieceIdentite: "CARTE_IDENTITE", numeroPieceIdentite: "Y7QPLM2K9", dateValiditePieceIdentite: j(-30),
+  },
+  {
+    civilite: "M", nom: "Garnier", prenom: "Thomas", dateNaissance: an(51), adresse: "ZA des Platières", codePostal: "69160", ville: "Tassin-la-Demi-Lune",
+    telephone: "04 78 00 11 22", email: "contact@garnier-btp.fr", numeroPermis: "950169300654", dateObtentionPermis: an(31), categoriePermis: "B", dateValiditePermis: j(1500),
+    entreprise: "Garnier BTP", siretEntreprise: "81234567800019",
+  },
+  {
+    civilite: "M", nom: "Petit", prenom: "Kevin", dateNaissance: an(33), telephone: "06 00 00 00 01", numeroPermis: "100869300999", dateObtentionPermis: an(15),
+    dateValiditePermis: j(1000), listeNoire: true, motifListeNoire: "Loyers impayés (450 €) et véhicule rendu très sale en 2025.",
+  },
+];
+
+// [immat, client, type, statut, départ (jours, heure), retour (jours, heure), options, notes]
+type ContratDemo = {
+  immat: string;
+  client: string;
+  type: "JOURNALIERE" | "HEBDOMADAIRE" | "MENSUELLE";
+  statut: "RESERVATION" | "CONFIRMEE" | "EN_COURS" | "TERMINEE" | "ANNULEE";
+  depart: [number, number];
+  retour: [number, number] | { mois: number };
+  options?: string[];
+  livraison?: number;
+  motifAnnulation?: string;
+  notes?: string;
+};
+
+const CONTRATS_DEMO: ContratDemo[] = [
+  { immat: "GK-582-TY", client: "Moreau", type: "MENSUELLE", statut: "TERMINEE", depart: [-125, 10], retour: { mois: 3 } },
+  { immat: "GK-582-TY", client: "Haddad", type: "MENSUELLE", statut: "EN_COURS", depart: [-20, 10], retour: { mois: 3 }, notes: "Échéance le 5 de chaque mois." },
+  { immat: "GL-145-CP", client: "Robert", type: "JOURNALIERE", statut: "TERMINEE", depart: [-30, 9], retour: [-25, 18], options: ["GPS"] },
+  { immat: "GL-145-CP", client: "Amrani", type: "JOURNALIERE", statut: "EN_COURS", depart: [-5, 9], retour: [-1, 18], notes: "Ne répond plus au téléphone depuis hier." },
+  { immat: "GL-145-CP", client: "Robert", type: "JOURNALIERE", statut: "CONFIRMEE", depart: [6, 9], retour: [9, 18], options: ["Siège bébé / rehausseur"] },
+  { immat: "GB-303-TS", client: "Garnier", type: "JOURNALIERE", statut: "TERMINEE", depart: [-60, 8], retour: [-57, 19], options: ["Conducteur additionnel"], livraison: 40 },
+  { immat: "GB-303-TS", client: "Robert", type: "HEBDOMADAIRE", statut: "TERMINEE", depart: [-21, 9], retour: [-11, 9] },
+  { immat: "GB-303-TS", client: "Garnier", type: "JOURNALIERE", statut: "CONFIRMEE", depart: [1, 9], retour: [4, 18], options: ["Frais de dossier"] },
+  { immat: "GE-204-KN", client: "Moreau", type: "MENSUELLE", statut: "RESERVATION", depart: [3, 10], retour: { mois: 1 } },
+  { immat: "GE-204-KN", client: "Amrani", type: "MENSUELLE", statut: "ANNULEE", depart: [1, 10], retour: { mois: 1 }, motifAnnulation: "Le client a trouvé un véhicule ailleurs." },
+];
+
+/** Jour J+n à une heure donnée (heure de Paris). */
+function jh(n: number, heure: number): Date {
+  const p = partiesParis(new Date(Date.now() + n * JOUR));
+  return dateDepuisParis(p.annee, p.mois, p.jour, heure, 0);
+}
+
+async function chargerLocationDemo(db: PrismaClient) {
+  const clients = new Map<string, string>();
+  for (const c of CLIENTS_DEMO) {
+    const existe = await db.client.findFirst({ where: { nom: c.nom, prenom: c.prenom } });
+    clients.set(c.nom, existe?.id ?? (await db.client.create({ data: c })).id);
+  }
+  const options = await db.optionLocation.findMany();
+  const reglages = await db.reglages.findUnique({ where: { id: 1 } });
+  const annee = partiesParis(new Date()).annee;
+
+  for (const d of CONTRATS_DEMO) {
+    const v = await db.vehicule.findUnique({ where: { immatriculation: d.immat } });
+    const clientId = clients.get(d.client);
+    if (!v || !clientId || v.statut === "VENDU" || v.statut === "ARCHIVE") continue;
+    const depart = jh(d.depart[0], d.depart[1]);
+    let retour: Date;
+    if (Array.isArray(d.retour)) retour = jh(d.retour[0], d.retour[1]);
+    else {
+      const p = partiesParis(depart);
+      const total = p.annee * 12 + p.mois - 1 + d.retour.mois;
+      retour = dateDepuisParis(Math.floor(total / 12), (total % 12) + 1, p.jour, p.heure, 0);
+    }
+    const tarif = d.type === "JOURNALIERE" ? v.tarifJournalierCentimes : d.type === "HEBDOMADAIRE" ? v.tarifHebdoCentimes : v.tarifMensuelCentimes;
+    if (!tarif) continue;
+    const opts = (d.options ?? []).map((l) => options.find((o) => o.libelle === l)).filter((o) => o !== undefined);
+    const prix = calculerPrixLocation({
+      type: d.type, depart, retour, toleranceMinutes: reglages?.toleranceRetardMinutes ?? 60, tarifCentimes: tarif,
+      tarifJournalierCentimes: d.type === "HEBDOMADAIRE" ? v.tarifJournalierCentimes : null,
+      fraisLivraisonCentimes: d.livraison ? eur(d.livraison) : 0,
+      options: opts.map((o) => ({ modeTarif: o.modeTarif, prixCentimes: o.prixCentimes, plafondCentimes: o.plafondCentimes, quantite: 1 })),
+    });
+    // Conflit avec un contrat déjà saisi (démo rechargée) : on passe
+    const conflit = await db.contratLocation.findFirst({
+      where: { vehiculeId: v.id, archiveLe: null, statut: { in: ["RESERVATION", "CONFIRMEE", "EN_COURS"] }, departPrevuLe: { lt: retour }, retourPrevuLe: { gt: depart } },
+    });
+    if (conflit && ["RESERVATION", "CONFIRMEE", "EN_COURS"].includes(d.statut)) continue;
+
+    const compteur = await db.compteur.upsert({ where: { cle: `contrat:${annee}` }, create: { cle: `contrat:${annee}`, valeur: 1 }, update: { valeur: { increment: 1 } } });
+    const termine = d.statut === "TERMINEE";
+    const enCours = d.statut === "EN_COURS";
+    await db.contratLocation.create({
+      data: {
+        numero: `${reglages?.prefixeContrat ?? "LOC"}-${annee}-${String(compteur.valeur).padStart(4, "0")}`,
+        vehiculeId: v.id, clientId, type: d.type, statut: d.statut, departPrevuLe: depart, retourPrevuLe: retour,
+        departReelLe: termine || enCours ? depart : null, retourReelLe: termine ? retour : null,
+        lieuDepart: "Agence VUCA AUTO", lieuRetour: "Agence VUCA AUTO", livraison: !!d.livraison,
+        tarifCentimes: tarif, tarifJournalierCentimes: d.type === "HEBDOMADAIRE" ? v.tarifJournalierCentimes : null,
+        dureeFacturee: prix.unites, joursSupplementaires: prix.joursSupplementaires, fraisLivraisonCentimes: prix.fraisLivraisonCentimes,
+        prixTotalCentimes: prix.prixTotalCentimes, jourEcheanceMensuelle: d.type === "MENSUELLE" ? 5 : null,
+        kmInclusParUnite: d.type === "MENSUELLE" ? v.kmInclusParMois : v.kmInclusParJour, prixKmSupCentimes: v.prixKmSupCentimes,
+        cautionCentimes: v.cautionDefautCentimes ?? 0, modeCaution: "EMPREINTE_CB", franchiseCentimes: v.franchiseDefautCentimes,
+        statutCaution: termine ? "RESTITUEE" : enCours ? "ENCAISSEE" : "A_ENCAISSER",
+        conditionsGenerales: reglages?.conditionsGenerales ?? null, notes: d.notes ?? null,
+        annuleLe: d.statut === "ANNULEE" ? j(-2) : null, motifAnnulation: d.motifAnnulation ?? null,
+        options: { create: opts.map((o, i) => ({ optionId: o.id, libelle: o.libelle, modeTarif: o.modeTarif, prixCentimes: o.prixCentimes, quantite: 1, totalCentimes: prix.totalOptions[i] ?? 0 })) },
+      },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  États des lieux, dommages, frais (Phase 5)
+// ---------------------------------------------------------------------
+
+/** Écrit une image de démo dans le stockage et crée la ligne Fichier. */
+async function fichierDemo(db: PrismaClient, contenu: Buffer, data: Omit<Prisma.FichierUncheckedCreateInput, "cleStockage" | "nomOriginal" | "typeMime" | "tailleOctets">, png = false) {
+  const racine = path.resolve(process.env.STORAGE_DIR ?? "./storage");
+  const cle = `demo/${randomUUID()}.${png ? "png" : "jpg"}`;
+  await mkdir(path.join(racine, "demo"), { recursive: true });
+  await writeFile(path.join(racine, cle), contenu);
+  return db.fichier.create({ data: { ...data, cleStockage: cle, nomOriginal: png ? "signature.png" : "photo.jpg", typeMime: png ? "image/png" : "image/jpeg", tailleOctets: contenu.length } });
+}
+
+/** Photo de démo : fond coloré + libellé (compteur, vues du véhicule…). */
+async function photoDemo(libelle: string, couleur: string): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720"><rect width="960" height="720" fill="${couleur}"/>
+  <text x="480" y="380" font-family="sans-serif" font-size="64" font-weight="bold" fill="#1f2937" text-anchor="middle">${libelle}</text></svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 70 }).toBuffer();
+}
+
+async function signatureDemo(): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200"><path d="M40 140 C 90 40, 130 40, 150 120 S 220 170, 260 90 S 330 30, 360 120 S 450 160, 560 70" fill="none" stroke="#111827" stroke-width="5" stroke-linecap="round"/></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+const PHOTOS_EDL_DEMO: [string, string][] = [
+  ["EDL_COMPTEUR", "Compteur"], ["EDL_AVANT", "Avant"], ["EDL_ARRIERE", "Arrière"], ["EDL_COTE_GAUCHE", "Côté gauche"],
+  ["EDL_COTE_DROIT", "Côté droit"], ["EDL_INTERIEUR_AVANT", "Intérieur avant"], ["EDL_INTERIEUR_ARRIERE", "Intérieur arrière"],
+];
+
+async function edlDemo(
+  db: PrismaClient,
+  contrat: { id: string; departReelLe: Date | null; retourReelLe: Date | null; client: { nom: string; prenom: string | null } },
+  type: "DEPART" | "RETOUR",
+  releve: { km: number; carburant: number | null; batterie: number | null; proprete: "PROPRE" | "CORRECT" | "SALE"; manquant?: string },
+) {
+  const elements = await db.elementChecklist.findMany({ where: { actif: true }, orderBy: { ordre: "asc" } });
+  const date = (type === "DEPART" ? contrat.departReelLe : contrat.retourReelLe) ?? new Date();
+  const edl = await db.etatDesLieux.create({
+    data: {
+      contratId: contrat.id, type, realiseLe: date, kilometrage: releve.km, niveauCarburantHuitiemes: releve.carburant, niveauBatteriePct: releve.batterie,
+      propreteInterieure: releve.proprete, propreteExterieure: "CORRECT", nomSignataireClient: [contrat.client.prenom, contrat.client.nom].filter(Boolean).join(" "),
+      signeLe: date, verrouille: true,
+      checklist: {
+        create: elements
+          .filter((e) => !e.electriqueUniquement || releve.batterie !== null)
+          .map((e) => ({ elementId: e.id, libelle: e.libelle, present: e.libelle !== releve.manquant, quantite: e.avecQuantite ? 2 : null })),
+      },
+    },
+  });
+  for (const [categorie, libelle] of PHOTOS_EDL_DEMO) {
+    await fichierDemo(db, await photoDemo(libelle, type === "DEPART" ? "#dbeafe" : "#dcfce7"), { categorie: categorie as never, etatDesLieuxId: edl.id, creeLe: date });
+  }
+  const sig = await signatureDemo();
+  const sc = await fichierDemo(db, sig, { categorie: "SIGNATURE", etatDesLieuxId: edl.id, libelle: "Client" }, true);
+  const sl = await fichierDemo(db, sig, { categorie: "SIGNATURE", etatDesLieuxId: edl.id, libelle: "Loueur" }, true);
+  await db.etatDesLieux.update({ where: { id: edl.id }, data: { signatureClientId: sc.id, signatureLoueurId: sl.id } });
+  return edl;
+}
+
+async function chargerEtatsDesLieuxDemo(db: PrismaClient) {
+  const contrat = (immat: string, statut: "EN_COURS" | "TERMINEE", nomClient: string) =>
+    db.contratLocation.findFirst({ where: { vehicule: { immatriculation: immat }, statut, client: { nom: nomClient } }, include: { client: true, vehicule: true } });
+
+  // Dommage connu depuis l'achat sur le Captur (reporté sur chaque état des lieux)
+  const captur = await db.vehicule.findUnique({ where: { immatriculation: "GL-145-CP" } });
+  if (captur) {
+    await db.dommage.create({ data: { vehiculeId: captur.id, vue: "ARRIERE", zone: "pare_choc_ar", positionX: 0.3, positionY: 0.82, type: "RAYURE", gravite: "LEGER", description: "Rayure de 5 cm, présente à l'achat.", constateLe: j(-148) } });
+  }
+
+  // Départs des locations en cours
+  const yaris = await contrat("GK-582-TY", "EN_COURS", "Haddad");
+  if (yaris) await edlDemo(db, yaris, "DEPART", { km: 38200, carburant: 8, batterie: null, proprete: "PROPRE" });
+  const capturEnCours = await contrat("GL-145-CP", "EN_COURS", "Amrani");
+  if (capturEnCours) await edlDemo(db, capturEnCours, "DEPART", { km: 40100, carburant: 7, batterie: null, proprete: "PROPRE" });
+
+  // Tesla rendue avec un nouveau dommage, un retard et des km en plus → frais + caution retenue en partie
+  const tesla = await contrat("GB-303-TS", "TERMINEE", "Garnier");
+  if (tesla) {
+    await edlDemo(db, tesla, "DEPART", { km: 70120, carburant: null, batterie: 95, proprete: "PROPRE" });
+    const retour = await edlDemo(db, tesla, "RETOUR", { km: 71200, carburant: null, batterie: 30, proprete: "SALE", manquant: "Gilet jaune" });
+    const dommage = await db.dommage.create({
+      data: {
+        vehiculeId: tesla.vehiculeId, vue: "COTE_DROIT", zone: "porte_av_d", positionX: 0.6, positionY: 0.55, type: "RAYURE", gravite: "MOYEN",
+        description: "Rayure profonde sur 20 cm.", constateLe: tesla.retourReelLe ?? new Date(), etatDesLieuxConstatationId: retour.id,
+      },
+    });
+    const frais: [string, string, number, number, string | null][] = [
+      ["KM_SUPPLEMENTAIRES", "Kilomètres supplémentaires (80 km)", 80, 30, null],
+      ["CARBURANT", "Recharge de la batterie (65 %)", 65, 50, null],
+      ["NETTOYAGE", "Nettoyage", 1, 5000, null],
+      ["DOMMAGES", "Dommage : rayure — porte avant droite", 1, 35000, dommage.id],
+    ];
+    for (const [type, libelle, quantite, prix, dommageId] of frais) {
+      await db.fraisSupplementaire.create({ data: { contratId: tesla.id, type: type as never, libelle, quantite, prixUnitaireCentimes: prix, montantCentimes: quantite * prix, proposeAutomatiquement: true, dommageId } });
+    }
+    const retenue = 80 * 30 + 65 * 50 + 5000 + 35000;
+    await db.contratLocation.update({ where: { id: tesla.id }, data: { statutCaution: "RETENUE_PARTIELLE", cautionRetenueCentimes: retenue, motifRetenueCaution: "Rayure porte avant droite, nettoyage, recharge et km supplémentaires", cautionRestitueeLe: tesla.retourReelLe } });
+    await db.paiement.create({
+      data: { contratId: tesla.id, nature: "CAUTION_RETENUE", date: tesla.retourReelLe ?? new Date(), montantCentimes: retenue, mode: "CARTE_BANCAIRE", note: "Caution retenue (démo)" },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Paiements, échéancier, PV, sinistre, facture (Phase 6)
+// ---------------------------------------------------------------------
+
+async function chargerPaiementsDemo(db: PrismaClient) {
+  const reglages = await db.reglages.findUnique({ where: { id: 1 } });
+  const prefixeRecu = reglages?.prefixeRecu ?? "REC";
+  const contrats = await db.contratLocation.findMany({ include: { client: true, vehicule: true, options: true, fraisSupplementaires: true } });
+
+  // Échéancier de toutes les locations de démo (annulées : échéances annulées)
+  for (const c of contrats) {
+    await db.$transaction(async (tx) => {
+      await synchroniserEcheances(tx, c.id);
+      if (c.statut === "ANNULEE") await tx.echeance.updateMany({ where: { contratId: c.id }, data: { statut: "ANNULEE" } });
+    });
+  }
+
+  /** Paie les échéances du contrat (toutes, ou les n premières), chacune à sa date. */
+  const payer = async (c: (typeof contrats)[number], mode: "VIREMENT" | "CARTE_BANCAIRE" | "ESPECES", combien?: number) => {
+    const echeances = await db.echeance.findMany({ where: { contratId: c.id, statut: { not: "ANNULEE" } }, orderBy: { numero: "asc" } });
+    for (const e of echeances.slice(0, combien ?? echeances.length)) {
+      await db.$transaction(async (tx) => {
+        const numeroRecu = await prochainNumeroAnnuel(tx, "recu", prefixeRecu);
+        await tx.paiement.create({ data: { contratId: c.id, nature: "LOCATION", date: e.dateEcheance, montantCentimes: e.montantCentimes, mode, numeroRecu, note: e.libelle } });
+      });
+    }
+    await db.$transaction((tx) => recalculerImputation(tx, c.id));
+  };
+  const trouver = (immat: string, nom: string, statut: string, type?: string) =>
+    contrats.find((c) => c.vehicule.immatriculation === immat && c.client.nom === nom && c.statut === statut && (!type || c.type === type));
+
+  const moreau = trouver("GK-582-TY", "Moreau", "TERMINEE");
+  if (moreau) await payer(moreau, "VIREMENT");
+  const haddad = trouver("GK-582-TY", "Haddad", "EN_COURS");
+  if (haddad) await payer(haddad, "VIREMENT", 1); // les mois suivants restent à encaisser
+  const robertCaptur = trouver("GL-145-CP", "Robert", "TERMINEE");
+  if (robertCaptur) await payer(robertCaptur, "CARTE_BANCAIRE");
+  const amrani = trouver("GL-145-CP", "Amrani", "EN_COURS");
+  if (amrani) {
+    // Seulement 100 € versés au départ : le reste apparaît dans les impayés
+    await db.$transaction(async (tx) => {
+      const numeroRecu = await prochainNumeroAnnuel(tx, "recu", prefixeRecu);
+      await tx.paiement.create({ data: { contratId: amrani.id, nature: "LOCATION", date: j(-5), montantCentimes: eur(100), mode: "ESPECES", numeroRecu, note: "Versement partiel au départ" } });
+      await recalculerImputation(tx, amrani.id);
+    });
+  }
+  const garnierTesla = trouver("GB-303-TS", "Garnier", "TERMINEE");
+  if (garnierTesla) await payer(garnierTesla, "VIREMENT");
+  const robertTesla = trouver("GB-303-TS", "Robert", "TERMINEE", "HEBDOMADAIRE");
+  if (robertTesla) await payer(robertTesla, "CARTE_BANCAIRE");
+  const garnierAVenir = trouver("GB-303-TS", "Garnier", "CONFIRMEE");
+  if (garnierAVenir) await payer(garnierAVenir, "VIREMENT", 1);
+
+  // PV n° 1 : pendant la location d'Amrani → identifié et refacturé
+  if (amrani) {
+    const a = await db.amende.create({
+      data: {
+        vehiculeId: amrani.vehiculeId, infractionLe: jh(-3, 14), lieu: "Lyon 3e, cours Gambetta", montantCentimes: eur(135), numeroAvis: "1234567890",
+        dateReception: j(-1), dateLimite: j(44), statut: "REFACTUREE", contratId: amrani.id, clientId: amrani.clientId, note: "Excès de vitesse (démo)",
+      },
+    });
+    await db.fraisSupplementaire.create({
+      data: { contratId: amrani.id, type: "AMENDE_REFACTUREE", libelle: "PV du " + jh(-3, 14).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }), quantite: 1, prixUnitaireCentimes: eur(135), montantCentimes: eur(135), amendeId: a.id },
+    });
+  }
+  // PV n° 2 : reçu, conducteur à désigner (location de Moreau, terminée)
+  if (moreau) {
+    await db.amende.create({
+      data: {
+        vehiculeId: moreau.vehiculeId, infractionLe: jh(-60, 9), lieu: "Villeurbanne, avenue Henri Barbusse", montantCentimes: eur(35), numeroAvis: "9876543210",
+        dateReception: j(-4), dateLimite: j(41), statut: "A_DESIGNER", contratId: moreau.id, clientId: moreau.clientId, note: "Stationnement gênant (démo)",
+      },
+    });
+  }
+
+  // Sinistre : accrochage pendant la location hebdomadaire de Robert (Tesla), franchise refacturée non payée
+  if (robertTesla) {
+    const s = await db.sinistre.create({
+      data: {
+        vehiculeId: robertTesla.vehiculeId, contratId: robertTesla.id, survenuLe: jh(-15, 17), lieu: "Parking Part-Dieu",
+        description: "Accrochage en marche arrière : pare-chocs arrière enfoncé.", coutEstimeCentimes: eur(1200), franchiseRefactureeCentimes: eur(800),
+        declareAssurance: true, numeroDossierAssurance: "SIN-2026-44871", indemniteAssuranceCentimes: eur(400), statut: "EN_REPARATION",
+      },
+    });
+    await db.fraisSupplementaire.create({
+      data: {
+        contratId: robertTesla.id, type: "DOMMAGES", libelle: "Franchise sinistre (accrochage)", quantite: 1,
+        prixUnitaireCentimes: eur(800), montantCentimes: eur(800), note: `sinistre:${s.id}`,
+      },
+    });
+  }
+
+  // Facture de la location mensuelle terminée de Moreau
+  if (moreau) {
+    const lignes = lignesPrixContrat(moreau).map((l, i) => ({ ordre: i, libelle: l.libelle, quantite: 1, prixUnitaireCentimes: l.montant, totalCentimes: l.montant }));
+    await db.$transaction(async (tx) => {
+      const numero = await prochainNumeroAnnuel(tx, "facture", reglages?.prefixeFacture ?? "FAC");
+      await tx.facture.create({
+        data: {
+          numero, type: "LOCATION", dateEmission: j(-30), contratId: moreau.id, clientId: moreau.clientId,
+          destinataireNom: [moreau.client.prenom, moreau.client.nom].filter(Boolean).join(" "),
+          destinataireAdresse: [moreau.client.adresse, [moreau.client.codePostal, moreau.client.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null,
+          totalCentimes: lignes.reduce((a, l) => a + l.totalCentimes, 0), mention: reglages?.mentionFacture ?? null, lignes: { create: lignes },
+        },
+      });
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Versements aux investisseurs (Phase 7)
+// ---------------------------------------------------------------------
+
+async function chargerVersementsDemo(db: PrismaClient) {
+  // (Les versements des véhicules vendus existent depuis la démo de la Phase 3.)
+  // Thomas Lefèvre : part du résultat de location de la Yaris, versée au mois
+  const thomas = await db.partenaire.findFirst({ where: { nom: "Thomas Lefèvre" } });
+  const yaris = await db.vehicule.findUnique({ where: { immatriculation: "GK-582-TY" } });
+  if (thomas && yaris) {
+    await db.versement.create({
+      data: { partenaireId: thomas.id, vehiculeId: yaris.id, date: j(-15), montantCentimes: eur(250), type: "VERSEMENT_BENEFICE", mode: "VIREMENT", note: "Part du résultat de location de septembre" },
     });
   }
 }

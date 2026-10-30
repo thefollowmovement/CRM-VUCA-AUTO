@@ -82,3 +82,24 @@ export const schemaParametresRepartition = z
     });
   });
 export type SaisieParametresRepartition = z.input<typeof schemaParametresRepartition>;
+
+// ---------------------------------------------------------------------
+//  Versement à un partenaire (capital remboursé, bénéfice versé, apport)
+// ---------------------------------------------------------------------
+export const TYPES_VERSEMENT = ["REMBOURSEMENT_CAPITAL", "VERSEMENT_BENEFICE", "APPORT_SUPPLEMENTAIRE"] as const;
+export const LIBELLES_TYPE_VERSEMENT: Record<(typeof TYPES_VERSEMENT)[number], string> = {
+  REMBOURSEMENT_CAPITAL: "Remboursement de capital",
+  VERSEMENT_BENEFICE: "Versement de bénéfice",
+  APPORT_SUPPLEMENTAIRE: "Apport supplémentaire",
+};
+
+export const schemaVersement = z.object({
+  vehiculeId: z.string().transform((v) => v.trim() || null), // facultatif
+  date: dateCalendaire("La date"),
+  montant: montant("Le montant").refine((m) => m > 0, "Le montant doit être supérieur à 0."),
+  type: z.enum(TYPES_VERSEMENT),
+  mode: choixOptionnel(MODES_PAIEMENT),
+  reference: texteOptionnel(80),
+  note: texteOptionnel(500),
+});
+export type SaisieVersement = z.input<typeof schemaVersement>;
